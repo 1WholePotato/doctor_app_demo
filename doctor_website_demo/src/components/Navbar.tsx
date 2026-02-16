@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom"
+
 function Navbar() {
 
     return (
@@ -10,6 +12,7 @@ function Navbar() {
                     <a href="#aboutwebsite" className="hover:text-blue-600">About</a>
                     <a href="#aboutdoctor" className="hover:text-blue-600">Doctor</a>
                     <button className="bg-blue-600 text-white px-4 py-2 rounded">Book Now</button>
+                    <Link to="/login" className="bg-blue-600 text-white px-4 py-2 rounded">Login</Link>
                 </div>
             </div>
         </nav>
