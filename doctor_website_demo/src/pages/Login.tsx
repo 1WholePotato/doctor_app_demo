@@ -1,17 +1,43 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom"
+import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 
 function Login(){
+    const navigate = useNavigate();
     const [email,setEmail] = useState("");
     const [password, setPassword] = useState("")
 
+    const testUsers = [{
+        email: "admin123@gmail.com",
+        password : "1234",
+        role: "admin",
+    },
+    {
+        email: "student123@gmail.com",
+        password : "1234",
+        role : "student",
+    },];
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
-        console.log("Email: " , email)
-        console.log("Password: ", password)
-        alert("Login Submitted")
+        const user = testUsers.find(
+    (u) => u.email === email && u.password === password
+  );
+
+  if (!user) {
+    alert("Invalid credentials");
+    return;
+  }
+
+  if (user.role === "admin") {
+    navigate("/dashboard");
+  } else if (user.role === "student") {
+    alert("Student logged in (no page yet)");
+  }
     }
+
+
 
     return(
         <div className="min-h-screen flex items-center justify-center bg-grey-100 px-4">

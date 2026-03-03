@@ -98,4 +98,4 @@ function AdminLanding() {
   );
 }
 
-export default AdminLanding();
+export default AdminLanding;
