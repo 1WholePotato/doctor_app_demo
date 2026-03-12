@@ -7,7 +7,7 @@ interface ClassSession {
   capacity: number;
 }
 
-export default function CourseDetails() {
+export default function AdminCourseDetails() {
   const { id } = useParams();
 
   const [sessions, setSessions] = useState<ClassSession[]>([]);
