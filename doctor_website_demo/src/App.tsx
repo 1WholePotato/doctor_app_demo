@@ -5,6 +5,8 @@ import Home from "./pages/Home"
 import Login from "./pages/Login"
 import Register from './pages/Register'
 import AdminLanding from './pages/AdminLanding'
+import AdminCourse from './pages/AdminCourse'
+import AdminCourseDetails from './pages/AdminCourseDetails'
 import './index.css'
 import Navbar from "./components/Navbar"
 import { Routes, Route } from "react-router-dom"
@@ -18,6 +20,8 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/dashboard" element={<AdminLanding/>}/>
+      <Route path="/admincourses" element={<AdminCourse/>}/>
+      <Route path="/admincourses/:id" element={<AdminCourseDetails/>}/>
     </Routes>
   </>
   

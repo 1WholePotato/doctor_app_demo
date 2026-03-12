@@ -33,10 +33,10 @@ function AdminLanding() {
 
         <div className="flex gap-4 flex-wrap">
           <Link
-            to="/appointments"
+            to="/admincourses"
             className="bg-blue-600 text-white px-6 py-3 rounded-xl shadow hover:bg-blue-700 transition"
           >
-            View Appointments
+            View Courses
           </Link>
 
           <Link
