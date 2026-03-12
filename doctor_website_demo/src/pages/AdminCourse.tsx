@@ -66,7 +66,7 @@ export default function AdminCourse() {
         {courses.map((course) => (
           <div
             key={course.id}
-            onClick={() => navigate(`/courses/${course.id}`)}
+            onClick={() => navigate(`/admincourses/${course.id}`)}
             className="bg-white p-6 rounded-2xl shadow cursor-pointer hover:shadow-lg transition"
           >
             <h3 className="text-xl font-bold">{course.title}</h3>
