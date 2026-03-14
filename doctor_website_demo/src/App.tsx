@@ -7,6 +7,7 @@ import Register from './pages/Register'
 import AdminLanding from './pages/AdminLanding'
 import AdminCourse from './pages/AdminCourse'
 import AdminCourseDetails from './pages/AdminCourseDetails'
+import StudentLanding from './pages/StudentLanding'
 import './index.css'
 import Navbar from "./components/Navbar"
 import { Routes, Route } from "react-router-dom"
@@ -22,6 +23,7 @@ function App() {
       <Route path="/dashboard" element={<AdminLanding/>}/>
       <Route path="/admincourses" element={<AdminCourse/>}/>
       <Route path="/admincourses/:id" element={<AdminCourseDetails/>}/>
+      <Route path ="/studentlanding" element={<StudentLanding/>}/>
     </Routes>
   </>
   
