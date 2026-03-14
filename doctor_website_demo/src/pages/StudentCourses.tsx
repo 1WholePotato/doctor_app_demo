@@ -62,7 +62,7 @@ function StudentCourses() {
             </div>
 
             <button
-              onClick={() => navigate(`/studentcourses/${course.id}`)}
+              onClick={() => navigate(`/courses/${course.id}`)}
               className="mt-5 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
             >
               View Course
