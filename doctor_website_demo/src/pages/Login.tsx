@@ -33,7 +33,7 @@ function Login(){
   if (user.role === "admin") {
     navigate("/dashboard");
   } else if (user.role === "student") {
-    alert("Student logged in (no page yet)");
+    navigate("/studentlanding");
   }
     }
 
