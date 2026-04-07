@@ -3,7 +3,7 @@ import {supabase} from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
 
 function Register(){
-    const navigate = useNavigate;
+    const navigate = useNavigate();
     const [firstname, setFirstname] = useState("");
     const [lastname , setLastname] = useState("");
     const[email, setEmail] = useState("");
@@ -13,6 +13,7 @@ function Register(){
     const[passportNum, setpassportNum] = useState("");
     const[cell_num, setCellNum] = useState("");
     const[sanc_num, setSancNum] = useState("");
+    const[isCiti, setIsCiti] = useState(true);
 
 
     const handleSubmit = async (e: React.FormEvent) =>{
@@ -65,9 +66,11 @@ function Register(){
 
   // 3. Success
   alert("Account created successfully!");
-  navigate();
+  navigate("/login");
         
     }
+
+
 
     return(
         <div className="min-h-screen flex items-center justify-center bg-grey-100 px-4">
@@ -84,7 +87,7 @@ function Register(){
                     </div>
                     <div>
                         <label className="block mb-2 text-sm font-md">
-                            Password
+                            Last Name
                         </label>
                         <input type="text" value={lastname} onChange={(e) => setLastname(e.target.value)}
                         className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
@@ -104,6 +107,26 @@ function Register(){
                         </label>
                         <input
                         type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
+                    </div>
+                    <div>
+                        <label className="block mb-2 text-sm font-md">
+                            Birth Date
+                        </label>
+                        <input
+                        type="date"
+                        value={birth_date}
+                        onChange={(e) => setBirthdate(e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
+                    </div>
+                    <div>
+                        <label className="block mb-2 text-sm font-md">
+                            Are you a South African Citisen?
+                        </label>
+                        <input
+                        type="check"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
