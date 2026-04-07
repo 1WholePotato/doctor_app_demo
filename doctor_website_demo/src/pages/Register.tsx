@@ -1,13 +1,71 @@
 import React, { useState } from "react";
+import {supabase} from "../supabaseClient";
+import { useNavigate } from "react-router-dom";
 
 function Register(){
+    const navigate = useNavigate;
     const [firstname, setFirstname] = useState("");
     const [lastname , setLastname] = useState("");
     const[email, setEmail] = useState("");
     const[password, setPassword] = useState("");
+    const[birth_date, setBirthdate] = useState("");
+    const[idNum, setIdnum] = useState("");
+    const[passportNum, setpassportNum] = useState("");
+    const[cell_num, setCellNum] = useState("");
+    const[sanc_num, setSancNum] = useState("");
 
-    const handleSubmit = (e: React.FormEvent) =>{
-        e.preventDefault()
+
+    const handleSubmit = async (e: React.FormEvent) =>{
+        e.preventDefault();
+
+        // 1. Create user in Supabase Auth
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password
+  });
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  const user = data.user;
+
+  if (!user) {
+    alert("User not created");
+    return;
+  }
+
+  // 2. Insert into your Users table
+  const { error: insertError } = await supabase.from("Users").insert([
+    {
+      id: user.id, //  MUST match auth.users.id
+
+      role_id: "PUT_STUDENT_ROLE_ID_HERE",
+
+      firstname,
+      lastname,
+      birth_date,
+
+      id_num: idNum || null,
+      passport_num: passportNum || null,
+
+      cell_num,
+      email,
+
+      sanc_num,
+      active: true
+    }
+  ]);
+
+  if (insertError) {
+    alert(insertError.message);
+    return;
+  }
+
+  // 3. Success
+  alert("Account created successfully!");
+  navigate();
         
     }
 
