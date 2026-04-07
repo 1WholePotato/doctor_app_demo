@@ -37,6 +37,16 @@ function Register(){
     return;
   }
 
+  // ✅ Validate ID / Passport
+if (isCiti && !idNum) {
+  alert("Please enter your ID number");
+  return;
+}
+
+if (!isCiti && !passportNum) {
+  alert("Please enter your passport number");
+  return;
+}
   // 2. Insert into your Users table
   const { error: insertError } = await supabase.from("Users").insert([
     {
@@ -131,7 +141,53 @@ function Register(){
                         onChange={(e) => setPassword(e.target.value)}
                         className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
                     </div>
-                   
+                   {isCiti ? (
+                                <div>
+                                    <label className="block mb-2 text-sm font-md">
+                                    ID Number
+                                    </label>
+                                    <input
+                                    type="text"
+                                    value={idNum}
+                                    onChange={(e) => setIdnum(e.target.value)}
+                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                    />
+                                </div>
+                                ) : (
+                                <div>
+                                    <label className="block mb-2 text-sm font-md">
+                                    Passport Number
+                                    </label>
+                                    <input
+                                    type="text"
+                                    value={passportNum}
+                                    onChange={(e) => setpassportNum(e.target.value)}
+                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                    />
+                                </div>
+                                )}
+
+                    <div>
+                        <label className="block mb-2 text-sm font-md">
+                            Cellphone Number
+                        </label>
+                        <input
+                        type="text"
+                        value={cell_num}
+                        onChange={(e) => setCellNum(e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
+                    </div>
+
+                    <div>
+                        <label className="block mb-2 text-sm font-md">
+                            Saanc Number
+                        </label>
+                        <input
+                        type="check"
+                        value={sanc_num}
+                        onChange={(e) => setSancNum(e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
+                    </div>
 
                     <button
                     type="submit"
