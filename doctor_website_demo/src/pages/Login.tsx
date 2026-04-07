@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
-import {supabase} from "../supabaseClient";
+import {supabase} from "../supabaseClient"
 
 
 function Login(){
@@ -20,20 +20,36 @@ function Login(){
         role : "student",
     },];
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        const user = testUsers.find(
-    (u) => u.email === email && u.password === password
-  );
+        const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
 
-  if (!user) {
-    alert("Invalid credentials");
+  if (error) {
+    alert(error.message);
     return;
   }
 
-  if (user.role === "admin") {
+  const user = data.user;
+
+  // 🔗 Get user role from your Users table
+  const { data: profile, error: profileError } = await supabase
+    .from("Users")
+    .select("role_id")
+    .eq("id", user.id)
+    .single();
+
+  if (profileError) {
+    alert("Could not fetch user profile");
+    return;
+  }
+
+  // 🔁 Redirect based on role
+  if (profile.role_id === "PUT_ADMIN_ROLE_ID_HERE") {
     navigate("/dashboard");
-  } else if (user.role === "student") {
+  } else {
     navigate("/studentlanding");
   }
     }
