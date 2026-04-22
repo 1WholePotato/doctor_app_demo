@@ -136,10 +136,10 @@ if (!isCiti && !passportNum) {
                             Are you a South African Citisen?
                         </label>
                         <input
-                        type="check"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
+                        type="checkbox"
+                        checked={isCiti}
+                        onChange={(e) => setIsCiti(e.target.checked)}
+                        />
                     </div>
                    {isCiti ? (
                                 <div>
@@ -183,7 +183,7 @@ if (!isCiti && !passportNum) {
                             Saanc Number
                         </label>
                         <input
-                        type="check"
+                        type="text"
                         value={sanc_num}
                         onChange={(e) => setSancNum(e.target.value)}
                         className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
