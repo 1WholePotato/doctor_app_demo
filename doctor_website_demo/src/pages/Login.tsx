@@ -22,36 +22,36 @@ function Login(){
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
+        //const { data, error } = await supabase.auth.signInWithPassword({
+    //email,
+    //password
+  //});
 
-  if (error) {
-    alert(error.message);
-    return;
-  }
+  //if (error) {
+    //alert(error.message);
+    //return;
+  //}
 
-  const user = data.user;
+  //const user = data.user;
 
-  // 🔗 Get user role from your Users table
-  const { data: profile, error: profileError } = await supabase
-    .from("Users")
-    .select("role_id")
-    .eq("id", user.id)
-    .single();
+  //Get user role from your Users table
+  //const { data: profile, error: profileError } = await supabase
+    //.from("Users")
+    //.select("role_id")
+    //.eq("id", user.id)
+    //.single();
 
-  if (profileError) {
-    alert("Could not fetch user profile");
-    return;
-  }
+  //if (profileError) {
+    //alert("Could not fetch user profile");
+    //return;
+  //}
 
-  // 🔁 Redirect based on role
-  if (profile.role_id === "PUT_ADMIN_ROLE_ID_HERE") {
+  // Redirect based on role
+  //if (profile.role_id === "PUT_ADMIN_ROLE_ID_HERE") {
     navigate("/dashboard");
-  } else {
-    navigate("/studentlanding");
-  }
+  //} else {
+    //navigate("/studentlanding");
+  //}
     }
 
 

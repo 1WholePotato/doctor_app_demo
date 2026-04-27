@@ -24,7 +24,7 @@ function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/dashboard" element={<AdminLanding/>}/>
       <Route path="/admincourses" element={<AdminCourse/>}/>
-      <Route path="/admincourses/:id" element={<AdminCourseDetails/>}/>
+      <Route path="/admincourses" element={<AdminCourseDetails/>}/>
       <Route path ="/studentlanding" element={<StudentLanding/>}/>
       <Route path="/courses" element={<StudentCourses/>}/>
       <Route path="/courses/:id" element={<StudentCourseDetails/>}/>

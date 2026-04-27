@@ -4,13 +4,13 @@ import { useNavigate } from "react-router-dom";
 
 function Register(){
     const navigate = useNavigate();
-    const [firstname, setFirstname] = useState("");
-    const [lastname , setLastname] = useState("");
+    const [first_name, setFirstname] = useState("");
+    const [last_name , setLastname] = useState("");
     const[email, setEmail] = useState("");
     const[password, setPassword] = useState("");
     const[birth_date, setBirthdate] = useState("");
-    const[idNum, setIdnum] = useState("");
-    const[passportNum, setpassportNum] = useState("");
+    const[id_num, setIdnum] = useState("");
+    const[passport_num, setpassportNum] = useState("");
     const[cell_num, setCellNum] = useState("");
     const[sanc_num, setSancNum] = useState("");
     const[isCiti, setIsCiti] = useState(true);
@@ -37,34 +37,34 @@ function Register(){
     return;
   }
 
-  // ✅ Validate ID / Passport
-if (isCiti && !idNum) {
+  
+if (isCiti && !id_num) {
   alert("Please enter your ID number");
   return;
 }
 
-if (!isCiti && !passportNum) {
+if (!isCiti && !passport_num) {
   alert("Please enter your passport number");
   return;
 }
   // 2. Insert into your Users table
-  const { error: insertError } = await supabase.from("Users").insert([
+  const { error: insertError } = await supabase.from("users").insert([
     {
       id: user.id, //  MUST match auth.users.id
 
       role_id: "PUT_STUDENT_ROLE_ID_HERE",
 
-      firstname,
-      lastname,
-      birth_date,
+      first_name: first_name,
+      last_name : last_name,
+      birth_date : birth_date,
 
-      id_num: idNum || null,
-      passport_num: passportNum || null,
+      id_num: id_num || null,
+      passport_num: passport_num || null,
 
-      cell_num,
-      email,
+      cell_num : cell_num,
+      email : email,
 
-      sanc_num,
+      sanc_num: sanc_num,
       active: true
     }
   ]);
@@ -91,7 +91,7 @@ if (!isCiti && !passportNum) {
                         <label className="block mb-2 text-sm font-md">
                             First Name
                         </label>
-                        <input type="text" value={firstname} onChange={(e) => setFirstname(e.target.value)}
+                        <input type="text" value={first_name} onChange={(e) => setFirstname(e.target.value)}
                         className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
                         
                     </div>
@@ -99,7 +99,7 @@ if (!isCiti && !passportNum) {
                         <label className="block mb-2 text-sm font-md">
                             Last Name
                         </label>
-                        <input type="text" value={lastname} onChange={(e) => setLastname(e.target.value)}
+                        <input type="text" value={last_name} onChange={(e) => setLastname(e.target.value)}
                         className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
                         
                     </div>
@@ -148,7 +148,7 @@ if (!isCiti && !passportNum) {
                                     </label>
                                     <input
                                     type="text"
-                                    value={idNum}
+                                    value={id_num}
                                     onChange={(e) => setIdnum(e.target.value)}
                                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
                                     />
@@ -160,7 +160,7 @@ if (!isCiti && !passportNum) {
                                     </label>
                                     <input
                                     type="text"
-                                    value={passportNum}
+                                    value={passport_num}
                                     onChange={(e) => setpassportNum(e.target.value)}
                                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
                                     />
