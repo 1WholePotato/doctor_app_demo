@@ -48,9 +48,9 @@ function Login(){
 
   // Redirect based on role
   //if (profile.role_id === "PUT_ADMIN_ROLE_ID_HERE") {
-    //navigate("/dashboard");
+    navigate("/dashboard");
   //} else {
-    navigate("/studentlanding");
+    //navigate("/studentlanding");
   //}
     }
 
