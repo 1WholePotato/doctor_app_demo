@@ -128,6 +128,12 @@ const globalStyles = `
   @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 `;
 
+const Instructors = [
+  "Pietie",
+  "Sielie",
+  "Mielie",
+];
+
 interface ClassSession {
   id: number;
   date: string;
@@ -140,6 +146,7 @@ export default function AdminCourseDetails() {
   const [sessions, setSessions] = useState<ClassSession[]>([]);
   const [date, setDate] = useState("");
   const [capacity, setCapacity] = useState(0);
+  const [instructor, setInstructor] = useState("Pietie");
 
   const handleAddSession = () => {
     if (!date) return;
@@ -180,6 +187,17 @@ export default function AdminCourseDetails() {
             onChange={(e) => setCapacity(Number(e.target.value))}
             className="w-full border p-2 rounded-lg"
           />
+
+          <div className="field">
+            <label htmlFor="course-cat">Category</label>
+            <select
+              id="course-cat"
+              value={instructor}
+              onChange={(e) => setInstructor(e.target.value)}
+            >
+              {Instructors.map((c) => <option key={c}>{c}</option>)}
+            </select>
+          </div>
 
           <button
             onClick={handleAddSession}
