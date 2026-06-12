@@ -361,7 +361,7 @@ export default function AdminCourses() {
                 <div
                   key={course.id}
                   className="course-card"
-                  onClick={() => navigate(`/admincourses/${course.id}`)}
+                  onClick={() => navigate(`/admincourses/${course.id}`, { state: { course } })}
                 >
                   <div className="card-top">
                     <h3 className="card-title">{course.title}</h3>
