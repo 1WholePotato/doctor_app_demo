@@ -11,13 +11,13 @@ import StudentLanding from './pages/StudentLanding'
 import StudentCourses from './pages/StudentCourses'
 import StudentCourseDetails from './pages/StudentCourseDetails'
 import './index.css'
-import Navbar from "./components/Navbar"
+
 import { Routes, Route } from "react-router-dom"
 
 function App() {
  return(
   <>
-    <Navbar />
+    
    <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
