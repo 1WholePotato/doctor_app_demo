@@ -10,6 +10,8 @@ import {
   X,
   AlertCircle,
 } from "lucide-react";
+import {supabase} from "../supabaseClient";
+import { useEffect } from "react";
 
 // ─── Global styles (same token system as AdminLanding) ────────────────────────
 
@@ -301,12 +303,88 @@ function AddCourseModal({
 export default function AdminCourses() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const [courses, setCourses] = useState<Course[]>(DUMMY_COURSES);
+  //const [courses, setCourses] = useState<Course[]>(DUMMY_COURSES);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [showModal, setShowModal] = useState(false);
 
-  const handleAdd = (data: Omit<Course, "id">) => {
-    setCourses((prev) => [{ id: Date.now(), ...data }, ...prev]);
-  };
+  //const [showModal, setShowModal] = useState(false);
+
+ //This is too load info from table 
+useEffect(() => {
+    loadCourses();
+}, []);
+
+const loadCourses = async () => {
+    const { data, error } = await supabase
+        .from("courses")
+        .select("*")
+        .order("course_title");
+
+    if (error) {
+        console.error(error);
+        return;
+    }
+
+    const formattedCourses: Course[] = data.map((course) => ({
+        id: course.id,
+        title: course.course_title,
+        description: course.course_description,
+        category: course.category,
+        price: course.course_price,
+    }));
+
+    setCourses(formattedCourses);
+};
+
+  //const handleAdd = (data: Omit<Course, "id">) => {
+    //setCourses((prev) => [{ id: Date.now(), ...data }, ...prev]);
+  //};
+  
+  //This is too insert courses
+  const handleAdd = async (course: Omit<Course, "id">) => {
+
+    const { error } = await supabase
+        .from("courses")
+        .insert([
+            {
+                course_title: course.title,
+                course_description: course.description,
+                category: course.category,
+                course_price: course.price,
+                active: true
+            }
+        ]);
+
+    if (error) {
+        alert(error.message);
+        return;
+    }
+
+    await loadCourses();
+};
+
+//This is to update a course
+const handleUpdate = async (course: Course) => {
+
+    const { error } = await supabase
+        .from("courses")
+        .update({
+            course_title: course.title,
+            course_description: course.description,
+            category: course.category,
+            course_price: course.price
+        })
+        .eq("id", course.id);
+
+    if (error) {
+        alert(error.message);
+        return;
+    }
+
+    await loadCourses();
+
+    alert("Course updated successfully.");
+};
 
   return (
     <>
