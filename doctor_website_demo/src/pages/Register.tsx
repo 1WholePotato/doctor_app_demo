@@ -192,14 +192,14 @@ export default function Register() {
     const { error: insertError } = await supabase.from("users").insert([{
       id:           user.id,
       role_id:      "PUT_STUDENT_ROLE_ID_HERE",
-      first_name,
-      last_name,
-      birth_date,
+      first_name: first_name,
+      last_name : last_name,
+      birth_date: birth_date,
       id_num:       id_num || null,
       passport_num: passport_num || null,
-      cell_num,
-      email,
-      sanc_num,
+      cell_num: cell_num,
+      email: email,
+      sanc_num: sanc_num,
       active:       true,
     }]);
 
@@ -366,7 +366,7 @@ export default function Register() {
                     {errors.cell_num && <span className="rf-error">⚠ {errors.cell_num}</span>}
                   </div>
                   <div className="rf-field">
-                    <label>SANC number <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(optional)</span></label>
+                    <label>HPCSA/SANC Number <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(optional)</span></label>
                     <input type="text" value={sanc_num} placeholder="e.g. 12345678"
                       onChange={(e) => setSancNum(e.target.value)} />
                   </div>
