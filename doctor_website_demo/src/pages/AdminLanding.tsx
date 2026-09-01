@@ -332,7 +332,7 @@ function AdminLanding() {
 
           {/* Recent Enrollments Table */}
           <div className="section-header">
-            <p className="section-title">Recent Enrolments</p>
+            <p className="section-title">Classes Happening Soon</p>
             <Link to="/admincourses" style={{ fontSize: 13, color: "var(--gold)", display: "flex", alignItems: "center", gap: 3, textDecoration: "none" }}>
               View all <ChevronRight size={14} />
             </Link>
@@ -342,19 +342,21 @@ function AdminLanding() {
             <table className="table-inner">
               <thead>
                 <tr>
-                  <th>Student</th>
+                  
                   <th>Course</th>
                   <th>Date</th>
-                  <th>Status</th>
+                  <th>Classlist</th>
                 </tr>
               </thead>
               <tbody>
                 {courses.map((row, i) => (
                   <tr key={i}>
-                    <td style={{ fontWeight: 500 }}>{row.student}</td>
+                    
                     <td className="muted">{row.course}</td>
                     <td className="muted">{row.date}</td>
-                    <td><StatusBadge status={row.status} /></td>
+                    <td><button className="btn-primary" onClick={() => ''}>
+                          Download
+                        </button></td>
                   </tr>
                 ))}
               </tbody>
