@@ -215,8 +215,6 @@ export default function AdminCourseDetails() {
       return;
     }
 
-    setLoading(true);
-
     const [courseResult, sessionResult, instructorResult] = await Promise.all([
       supabase
         .from("courses")
@@ -272,7 +270,16 @@ export default function AdminCourseDetails() {
   };
 
   useEffect(() => {
-    void loadData();
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setLoading(true);
+      await loadData();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   const handleAdd = async (instructorId: string) => {
