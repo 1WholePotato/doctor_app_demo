@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  CheckCircle, XCircle, Clock, User,
+  BookOpen, CheckCircle, XCircle, Clock, User,
 } from "lucide-react";
 import StudentSidebar from "../components/StudentSidebar";
 import { getSessionUser } from "../lib/auth";
@@ -83,6 +83,11 @@ const styles = `
 
   .sg-loading { font-size: 14px; color: var(--s-text-3); padding: 40px 0; }
   .sg-error { font-size: 13px; color: #DC2626; margin-bottom: 16px; }
+  .sg-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center; }
+  .sg-empty-icon { width: 52px; height: 52px; background: var(--s-teal-soft); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+  .sg-empty-icon svg { width: 24px; height: 24px; color: var(--s-teal); }
+  .sg-empty-title { font-size: 18px; font-weight: 600; color: var(--s-text-1); margin-bottom: 6px; }
+  .sg-empty-sub { font-size: 13px; color: var(--s-text-3); }
 
   @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 `;
@@ -93,10 +98,11 @@ function StatusBadge({ status }: { status: CourseStatus }) {
     passed: { label: "Passed", cls: "status-passed", Icon: CheckCircle },
     failed: { label: "Failed", cls: "status-failed", Icon: XCircle },
   };
-  const { label, cls } = map[status];
+  const { label, cls, Icon } = map[status];
   return (
     <span className={`status-badge ${cls}`}>
-      <span className="status-dot" />{label}
+      <Icon aria-hidden="true" style={{ width: 12, height: 12 }} />
+      {label}
     </span>
   );
 }
@@ -148,7 +154,7 @@ export default function StudentGrades() {
             <h1>My grades</h1>
           </div>
 
-          {loadError && <p className="sg-error">{loadError}</p>}
+          {loadError && <p className="sg-error" role="alert">{loadError}</p>}
 
           {loading ? (
             <p className="sg-loading">Loading grades…</p>
@@ -171,7 +177,11 @@ export default function StudentGrades() {
 
               <p className="s-title">All courses</p>
               {courses.length === 0 ? (
-                <div className="sg-loading">No enrolled courses yet.</div>
+                <div className="sg-empty">
+                  <div className="sg-empty-icon"><BookOpen /></div>
+                  <p className="sg-empty-title">No courses yet</p>
+                  <p className="sg-empty-sub">Enrol in a course to see your grades here.</p>
+                </div>
               ) : (
                 <div className="sg-grid">
                   {courses.map((e) => (

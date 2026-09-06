@@ -234,8 +234,7 @@ export default function Register() {
     }
 
     // 3. Success
-    alert("Account created successfully!");
-    navigate("/login");
+    navigate("/login", { state: { registered: true } });
   };
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -293,7 +292,7 @@ export default function Register() {
               ))}
             </div>
 
-            {banner && <div className="rf-banner">⚠ {banner}</div>}
+            {banner && <div className="rf-banner" role="alert">⚠ {banner}</div>}
 
             <form onSubmit={handleSubmit}>
 
@@ -306,14 +305,14 @@ export default function Register() {
                       <input type="text" value={first_name} placeholder="Jane"
                         className={errors.first_name ? "err" : ""}
                         onChange={(e) => { setFirstname(e.target.value); clearErr("first_name"); }} />
-                      {errors.first_name && <span className="rf-error">⚠ {errors.first_name}</span>}
+                      {errors.first_name && <span className="rf-error" role="alert">⚠ {errors.first_name}</span>}
                     </div>
                     <div className="rf-field">
                       <label>Last name</label>
                       <input type="text" value={last_name} placeholder="Smith"
                         className={errors.last_name ? "err" : ""}
                         onChange={(e) => { setLastname(e.target.value); clearErr("last_name"); }} />
-                      {errors.last_name && <span className="rf-error">⚠ {errors.last_name}</span>}
+                      {errors.last_name && <span className="rf-error" role="alert">⚠ {errors.last_name}</span>}
                     </div>
                   </div>
                   <div className="rf-field">
@@ -321,21 +320,21 @@ export default function Register() {
                     <input type="email" value={email} placeholder="you@example.com"
                       className={errors.email ? "err" : ""}
                       onChange={(e) => { setEmail(e.target.value); clearErr("email"); }} />
-                    {errors.email && <span className="rf-error">⚠ {errors.email}</span>}
+                    {errors.email && <span className="rf-error" role="alert">⚠ {errors.email}</span>}
                   </div>
                   <div className="rf-field">
                     <label>Password</label>
                     <input type="password" value={password} placeholder="Min. 6 characters"
                       className={errors.password ? "err" : ""}
                       onChange={(e) => { setPassword(e.target.value); clearErr("password"); }} />
-                    {errors.password && <span className="rf-error">⚠ {errors.password}</span>}
+                    {errors.password && <span className="rf-error" role="alert">⚠ {errors.password}</span>}
                   </div>
                   <div className="rf-field">
                     <label>Date of birth</label>
                     <input type="date" value={birth_date}
                       className={errors.birth_date ? "err" : ""}
                       onChange={(e) => { setBirthdate(e.target.value); clearErr("birth_date"); }} />
-                    {errors.birth_date && <span className="rf-error">⚠ {errors.birth_date}</span>}
+                    {errors.birth_date && <span className="rf-error" role="alert">⚠ {errors.birth_date}</span>}
                   </div>
                   <div className="rf-nav">
                     <button type="button" className="rf-next" onClick={handleNext}>Continue →</button>
@@ -364,7 +363,7 @@ export default function Register() {
                       <input type="text" value={id_num} placeholder="13-digit ID number"
                         className={errors.id_num ? "err" : ""}
                         onChange={(e) => { setIdnum(e.target.value); clearErr("id_num"); }} />
-                      {errors.id_num && <span className="rf-error">⚠ {errors.id_num}</span>}
+                      {errors.id_num && <span className="rf-error" role="alert">⚠ {errors.id_num}</span>}
                     </div>
                   ) : (
                     <div className="rf-field">
@@ -372,7 +371,7 @@ export default function Register() {
                       <input type="text" value={passport_num} placeholder="e.g. A12345678"
                         className={errors.passport_num ? "err" : ""}
                         onChange={(e) => { setpassportNum(e.target.value); clearErr("passport_num"); }} />
-                      {errors.passport_num && <span className="rf-error">⚠ {errors.passport_num}</span>}
+                      {errors.passport_num && <span className="rf-error" role="alert">⚠ {errors.passport_num}</span>}
                     </div>
                   )}
 
@@ -391,7 +390,7 @@ export default function Register() {
                     <input type="tel" value={cell_num} placeholder="+27 82 000 0000"
                       className={errors.cell_num ? "err" : ""}
                       onChange={(e) => { setCellNum(e.target.value); clearErr("cell_num"); }} />
-                    {errors.cell_num && <span className="rf-error">⚠ {errors.cell_num}</span>}
+                    {errors.cell_num && <span className="rf-error" role="alert">⚠ {errors.cell_num}</span>}
                   </div>
                   <div className="rf-field">
                     <label>HPCSA/SANC Number <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(optional)</span></label>
