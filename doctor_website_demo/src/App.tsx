@@ -11,6 +11,7 @@ import StudentLanding from './pages/StudentLanding'
 import StudentCourses from './pages/StudentCourses'
 import StudentCourseDetails from './pages/StudentCourseDetails'
 import StudentGrades  from './pages/StudentGrades'
+import AdminGrades from './pages/AdminGrades'
 import './index.css'
 
 import { Routes, Route } from "react-router-dom"
@@ -29,6 +30,7 @@ function App() {
       <Route path ="/studentlanding" element={<StudentLanding/>}/>
       <Route path="/courses" element={<StudentCourses/>}/>
       <Route path="/grades" element={<StudentGrades/>}/>
+      <Route path="/adminGrades" element={<AdminGrades />} />
       <Route path="/courses/:id" element={<StudentCourseDetails/>}/>
     </Routes>
   </>
