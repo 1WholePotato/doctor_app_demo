@@ -18,6 +18,7 @@
 
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { signOut } from "../lib/auth";
 import {
   BookOpen, LayoutDashboard, Settings, LogOut,
   Bell, GraduationCap, CalendarDays, Clock, Search, Users,
@@ -168,6 +169,11 @@ export default function StudentCourses() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
 
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login");
+  };
+
   const filtered = COURSES.filter((c) =>
     c.title.toLowerCase().includes(query.toLowerCase()) ||
     c.category.toLowerCase().includes(query.toLowerCase())
@@ -201,7 +207,7 @@ export default function StudentCourses() {
                 <p className="sl-avatar-role">student123@gmail.com</p>
               </div>
             </div>
-            <button className="sl-nav-item" style={{ color: "#4A6080" }}><LogOut />Sign out</button>
+            <button className="sl-nav-item" style={{ color: "#4A6080" }} onClick={() => void handleSignOut()}><LogOut />Sign out</button>
           </div>
         </aside>
 

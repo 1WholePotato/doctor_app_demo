@@ -16,6 +16,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import { getSessionUser, homeForRole } from "../lib/auth";
 
 const styles = `
   :root {
@@ -131,11 +132,6 @@ const styles = `
   }
 `;
 
-const TEST_USERS = [
-  { email: "admin123@gmail.com",   password: "1234", role: "admin" },
-  { email: "student123@gmail.com", password: "1234", role: "student" },
-];
-
 export default function Login() {
   const navigate = useNavigate();
   const [email,    setEmail]    = useState("");
@@ -149,36 +145,21 @@ export default function Login() {
     setError("");
     setLoading(true);
 
-    // ── Supabase auth (uncomment when ready) ──────────────────────────────
-    // const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-    // if (authError) { setError(authError.message); setLoading(false); return; }
-    // const { data: profile, error: profileError } = await supabase
-    //   .from("Users").select("role_id").eq("id", data.user.id).single();
-    // if (profileError) { setError("Could not fetch user profile"); setLoading(false); return; }
-    // if (profile.role_id === "PUT_ADMIN_ROLE_ID_HERE") {
-    //   navigate("/dashboard");
-    // } else {
-    //   navigate("/studentlanding");
-    // }
-    // ─────────────────────────────────────────────────────────────────────
-
-    // ── Test user login (remove once Supabase is live) ────────────────────
-    const match = TEST_USERS.find(
-      (u) => u.email === email && u.password === password
-    );
-
-    if (!match) {
-      setError("Incorrect email or password. Please try again.");
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    if (authError) {
+      setError(authError.message);
       setLoading(false);
       return;
     }
 
-    if (match.role === "admin") {
-      navigate("/dashboard");
-    } else {
-      navigate("/studentlanding");
+    const profile = await getSessionUser();
+    if (!profile) {
+      setError("Could not fetch user profile");
+      setLoading(false);
+      return;
     }
-    // ─────────────────────────────────────────────────────────────────────
+
+    navigate(homeForRole(profile.role_id));
   };
 
   return (

@@ -16,7 +16,8 @@
  */
 
 import React, { useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
+import { signOut } from "../lib/auth";
 import {
   BookOpen,
   Users,
@@ -274,6 +275,12 @@ export default function AdminCourseDetails() {
   const { id } = useParams<{ id: string }>();
   const routerLocation = useLocation();
   const { pathname } = routerLocation;
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login");
+  };
 
   // Course data — prefer state passed from the list, fall back to dummy lookup
   const passedCourse = (routerLocation.state as any)?.course;
@@ -296,14 +303,14 @@ export default function AdminCourseDetails() {
           <div className="sidebar-logo"><BookOpen size={20} color="var(--gold)" />Dr <span>Admin</span></div>
           <nav className="sidebar-nav">
             <p className="nav-section-label">Main</p>
-            <NavItem to="/"             icon={LayoutDashboard} label="Dashboard" active={pathname === "/"} />
+            <NavItem to="/dashboard"    icon={LayoutDashboard} label="Dashboard" active={pathname === "/dashboard"} />
             <NavItem to="/admincourses" icon={BookOpen}        label="Courses"   active={pathname.startsWith("/admincourses")} />
             <NavItem to="/patients"     icon={Users}           label="Students"  active={pathname.startsWith("/patients")} />
             <p className="nav-section-label">Account</p>
             <NavItem to="/settings"     icon={Settings}        label="Settings"  active={pathname.startsWith("/settings")} />
           </nav>
           <div className="sidebar-footer">
-            <button className="nav-item" style={{ color: "#665F5C" }}><LogOut />Sign out</button>
+            <button className="nav-item" style={{ color: "#665F5C" }} onClick={() => void handleSignOut()}><LogOut />Sign out</button>
           </div>
         </aside>
 

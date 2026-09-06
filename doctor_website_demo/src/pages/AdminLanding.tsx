@@ -33,7 +33,8 @@
  */
 
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { signOut } from "../lib/auth";
 import {
   BookOpen,
   Users,
@@ -231,6 +232,12 @@ function StatusBadge({ status }: { status: string }) {
 
 function AdminLanding() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login");
+  };
 
   return (
     <>
@@ -247,7 +254,7 @@ function AdminLanding() {
 
           <nav className="sidebar-nav">
             <p className="nav-section-label">Main</p>
-            <NavItem to="/"            icon={LayoutDashboard} label="Dashboard"  active={pathname === "/"} />
+            <NavItem to="/dashboard"    icon={LayoutDashboard} label="Dashboard"  active={pathname === "/dashboard"} />
             <NavItem to="/admincourses" icon={BookOpen}        label="Courses"    active={pathname.startsWith("/admincourses")} />
             <NavItem to="/patients"    icon={Users}           label="Students"   active={pathname.startsWith("/patients")} />
 
@@ -256,7 +263,7 @@ function AdminLanding() {
           </nav>
 
           <div className="sidebar-footer">
-            <button className="nav-item" style={{ color: "#665F5C" }}>
+            <button className="nav-item" style={{ color: "#665F5C" }} onClick={() => void handleSignOut()}>
               <LogOut />
               Sign out
             </button>

@@ -16,7 +16,8 @@
  */
  
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { signOut } from "../lib/auth";
 import {
   BookOpen, LayoutDashboard, Settings, LogOut,
   Bell, GraduationCap, Download, Clock, CheckCircle, XCircle, CalendarDays,
@@ -160,6 +161,12 @@ function NavItem({ to, icon: Icon, label, active }: { to: string; icon: React.El
  
 export default function StudentGrades() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login");
+  };
  
   const passed = DUMMY_ENROLLMENTS.filter(e => e.status === "passed").length;
   const busy   = DUMMY_ENROLLMENTS.filter(e => e.status === "busy").length;
@@ -192,7 +199,7 @@ export default function StudentGrades() {
                 <p className="sl-avatar-role">student123@gmail.com</p>
               </div>
             </div>
-            <button className="sl-nav-item" style={{ color: "#4A6080" }}><LogOut />Sign out</button>
+            <button className="sl-nav-item" style={{ color: "#4A6080" }} onClick={() => void handleSignOut()}><LogOut />Sign out</button>
           </div>
         </aside>
  

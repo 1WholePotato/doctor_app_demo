@@ -11,6 +11,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import {supabase} from "../supabaseClient";
+import { signOut } from "../lib/auth";
 import { useEffect } from "react";
 
 // ─── Global styles (same token system as AdminLanding) ────────────────────────
@@ -303,6 +304,11 @@ function AddCourseModal({
 export default function AdminCourses() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login");
+  };
   //const [courses, setCourses] = useState<Course[]>(DUMMY_COURSES);
   const [courses, setCourses] = useState<Course[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -400,7 +406,7 @@ const handleUpdate = async (course: Course) => {
 
           <nav className="sidebar-nav">
             <p className="nav-section-label">Main</p>
-            <NavItem to="/"             icon={LayoutDashboard} label="Dashboard" active={pathname === "/"} />
+            <NavItem to="/dashboard"    icon={LayoutDashboard} label="Dashboard" active={pathname === "/dashboard"} />
             <NavItem to="/admincourses" icon={BookOpen}        label="Courses"   active={pathname.startsWith("/admincourses")} />
             <NavItem to="/patients"     icon={Users}           label="Students"  active={pathname.startsWith("/patients")} />
             <p className="nav-section-label">Account</p>
@@ -408,7 +414,7 @@ const handleUpdate = async (course: Course) => {
           </nav>
 
           <div className="sidebar-footer">
-            <button className="nav-item" style={{ color: "#665F5C" }}>
+            <button className="nav-item" style={{ color: "#665F5C" }} onClick={() => void handleSignOut()}>
               <LogOut />
               Sign out
             </button>

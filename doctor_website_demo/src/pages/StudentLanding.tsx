@@ -20,7 +20,8 @@
  */
 
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { signOut } from "../lib/auth";
 import {
   BookOpen, LayoutDashboard, Settings, LogOut,
   Bell, GraduationCap, CalendarDays, ChevronRight, Clock,
@@ -203,6 +204,12 @@ function NotifIcon({ type }: { type: string }) {
 
 export default function StudentLanding() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login");
+  };
 
   return (
     <>
@@ -237,7 +244,7 @@ export default function StudentLanding() {
                 <p className="sl-avatar-role">student123@gmail.com</p>
               </div>
             </div>
-            <button className="sl-nav-item" style={{ color: "#4A6080" }}>
+            <button className="sl-nav-item" style={{ color: "#4A6080" }} onClick={() => void handleSignOut()}>
               <LogOut />Sign out
             </button>
           </div>
