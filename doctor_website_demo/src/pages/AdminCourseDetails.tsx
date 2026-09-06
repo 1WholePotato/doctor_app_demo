@@ -296,9 +296,9 @@ export default function AdminCourseDetails() {
           <div className="sidebar-logo"><BookOpen size={20} color="var(--gold)" />Dr <span>Admin</span></div>
           <nav className="sidebar-nav">
             <p className="nav-section-label">Main</p>
-            <NavItem to="/"             icon={LayoutDashboard} label="Dashboard" active={pathname === "/"} />
+            <NavItem to="/dashboard"    icon={LayoutDashboard} label="Dashboard" active={pathname === "/dashboard"} />
             <NavItem to="/admincourses" icon={BookOpen}        label="Courses"   active={pathname.startsWith("/admincourses")} />
-            <NavItem to="/patients"     icon={Users}           label="Students"  active={pathname.startsWith("/patients")} />
+            <NavItem to="/admin/users"  icon={Users}           label="Students"  active={pathname.startsWith("/admin/users")} />
             <p className="nav-section-label">Account</p>
             <NavItem to="/settings"     icon={Settings}        label="Settings"  active={pathname.startsWith("/settings")} />
           </nav>

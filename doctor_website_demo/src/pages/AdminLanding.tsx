@@ -247,9 +247,9 @@ function AdminLanding() {
 
           <nav className="sidebar-nav">
             <p className="nav-section-label">Main</p>
-            <NavItem to="/"            icon={LayoutDashboard} label="Dashboard"  active={pathname === "/"} />
+            <NavItem to="/dashboard"    icon={LayoutDashboard} label="Dashboard"  active={pathname === "/dashboard"} />
             <NavItem to="/admincourses" icon={BookOpen}        label="Courses"    active={pathname.startsWith("/admincourses")} />
-            <NavItem to="/patients"    icon={Users}           label="Students"   active={pathname.startsWith("/patients")} />
+            <NavItem to="/admin/users"  icon={Users}           label="Students"   active={pathname.startsWith("/admin/users")} />
 
             <p className="nav-section-label">Account</p>
             <NavItem to="/settings"    icon={Settings}        label="Settings"   active={pathname.startsWith("/settings")} />
@@ -307,7 +307,7 @@ function AdminLanding() {
               <span className="action-arrow"><ArrowUpRight /></span>
             </Link>
 
-            <Link to="/patients" className="action-card">
+            <Link to="/admin/users" className="action-card">
               <div className="action-icon" style={{ background: "#EAF2FB" }}>
                 <Users color="#3A7FC1" />
               </div>
