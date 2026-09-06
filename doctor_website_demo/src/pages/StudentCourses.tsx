@@ -197,7 +197,7 @@ export default function StudentCourses() {
             <NavItem to="/grades"         icon={GraduationCap}   label="Grades"       active={pathname.startsWith("/grades")} />
             <NavItem to="/notifications"  icon={Bell}            label="Notifications" active={pathname.startsWith("/notifications")} />
             <p className="sl-nav-label">Account</p>
-            <NavItem to="/settings"       icon={Settings}        label="Settings"     active={pathname.startsWith("/settings")} />
+            <NavItem to="/profile"        icon={Settings}        label="Profile"      active={pathname.startsWith("/profile")} />
           </nav>
           <div className="sl-footer">
             <div className="sl-avatar-row">

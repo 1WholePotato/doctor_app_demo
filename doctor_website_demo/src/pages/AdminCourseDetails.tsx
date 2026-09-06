@@ -305,7 +305,7 @@ export default function AdminCourseDetails() {
             <p className="nav-section-label">Main</p>
             <NavItem to="/dashboard"    icon={LayoutDashboard} label="Dashboard" active={pathname === "/dashboard"} />
             <NavItem to="/admincourses" icon={BookOpen}        label="Courses"   active={pathname.startsWith("/admincourses")} />
-            <NavItem to="/patients"     icon={Users}           label="Students"  active={pathname.startsWith("/patients")} />
+            <NavItem to="/admin/users"  icon={Users}           label="Students"  active={pathname.startsWith("/admin/users")} />
             <p className="nav-section-label">Account</p>
             <NavItem to="/settings"     icon={Settings}        label="Settings"  active={pathname.startsWith("/settings")} />
           </nav>

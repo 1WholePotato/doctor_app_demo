@@ -4,14 +4,16 @@ import Register from "./pages/Register";
 import AdminLanding from "./pages/AdminLanding";
 import AdminCourse from "./pages/AdminCourse";
 import AdminCourseDetails from "./pages/AdminCourseDetails";
+import AdminUsers from "./pages/AdminUsers";
 import StudentLanding from "./pages/StudentLanding";
 import StudentCourses from "./pages/StudentCourses";
 import StudentCourseDetails from "./pages/StudentCourseDetails";
 import StudentGrades from "./pages/StudentGrades";
+import StudentProfile from "./pages/StudentProfile";
 import RequireAuth from "./components/RequireAuth";
 import "./index.css";
 
-import { Routes, Route } from "react-router-dom";
+import { Navigate, Routes, Route } from "react-router-dom";
 
 function App() {
   return (
@@ -45,6 +47,15 @@ function App() {
           }
         />
         <Route
+          path="/admin/users"
+          element={
+            <RequireAuth role="admin">
+              <AdminUsers />
+            </RequireAuth>
+          }
+        />
+        <Route path="/patients" element={<Navigate to="/admin/users" replace />} />
+        <Route
           path="/studentlanding"
           element={
             <RequireAuth role="student">
@@ -73,6 +84,14 @@ function App() {
           element={
             <RequireAuth role="student">
               <StudentCourseDetails />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <RequireAuth role="student">
+              <StudentProfile />
             </RequireAuth>
           }
         />
