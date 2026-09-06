@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { getSessionUser, homeForRole } from "../lib/auth";
 
@@ -97,6 +97,11 @@ const styles = `
     padding: 11px 14px; font-size: 13px; color: #A12D2D;
     margin-bottom: 18px; display: flex; align-items: center; gap: 8px;
   }
+  .lf-success {
+    background: #EAF5EE; border: 1px solid #B8DFC8; border-radius: 10px;
+    padding: 11px 14px; font-size: 13px; color: #2E7D52;
+    margin-bottom: 18px; display: flex; align-items: center; gap: 8px;
+  }
 
   .lf-submit {
     width: 100%; background: var(--text-1); color: #fff; border: none;
@@ -119,6 +124,8 @@ const styles = `
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const registered = (location.state as { registered?: boolean } | null)?.registered;
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
   const [error,    setError]    = useState("");
@@ -204,9 +211,15 @@ export default function Login() {
                 <Link to="/forgot-password" className="lf-forgot">Forgot password?</Link>
               </div>
 
+              {registered && (
+                <div className="lf-success" role="status">
+                  Account created. Sign in below.
+                </div>
+              )}
+
               {error && (
-                <div className="lf-error">
-                  <span>⚠</span> {error}
+                <div className="lf-error" role="alert">
+                  <span aria-hidden="true">⚠</span> {error}
                 </div>
               )}
 
@@ -217,7 +230,7 @@ export default function Login() {
 
             <p className="lf-footer">
               Don't have an account?
-              <a href="/register">Register here</a>
+              <Link to="/register">Register here</Link>
             </p>
           </div>
         </div>

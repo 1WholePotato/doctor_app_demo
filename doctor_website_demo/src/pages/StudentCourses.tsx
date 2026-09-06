@@ -108,10 +108,11 @@ function StatusBadge({ status }: { status: CourseStatus }) {
     passed: { label: "Passed", cls: "status-passed", Icon: CheckCircle },
     failed: { label: "Failed", cls: "status-failed", Icon: XCircle },
   };
-  const { label, cls } = map[status];
+  const { label, cls, Icon } = map[status];
   return (
     <span className={`status-badge ${cls}`}>
-      <span className="status-dot" />{label}
+      <Icon aria-hidden="true" style={{ width: 12, height: 12 }} />
+      {label}
     </span>
   );
 }
@@ -178,7 +179,7 @@ export default function StudentCourses() {
             </div>
           </div>
 
-          {loadError && <p className="sc-error">{loadError}</p>}
+          {loadError && <p className="sc-error" role="alert">{loadError}</p>}
 
           {loading ? (
             <p className="sc-loading">Loading courses…</p>
