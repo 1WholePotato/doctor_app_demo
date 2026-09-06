@@ -1,18 +1,3 @@
-/**
- * Login.tsx — Production-grade Login Page
- *
- * CHANGES:
- * 1. Matches the admin design system (Fraunces + DM Sans, gold accent, same tokens).
- * 2. Split layout — dark left panel with branding, white right panel with form.
- * 3. Role-based redirect: admin123 → /dashboard, student123 → /studentlanding.
- * 4. Supabase code left commented — uncomment when ready.
- * 5. Inline error message for wrong credentials.
- * 6. No new npm packages needed.
- *
- * Google Fonts (already in index.html):
- *   Fraunces + DM Sans
- */
-
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
@@ -136,7 +121,6 @@ export default function Login() {
   const navigate = useNavigate();
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(false);
   const [error,    setError]    = useState("");
   const [loading,  setLoading]  = useState(false);
 
@@ -160,6 +144,7 @@ export default function Login() {
     }
 
     navigate(homeForRole(profile.role_id));
+    setLoading(false);
   };
 
   return (
@@ -215,15 +200,7 @@ export default function Login() {
                 />
               </div>
 
-              <div className="lf-row">
-                <label className="lf-remember">
-                  <input
-                    type="checkbox"
-                    checked={remember}
-                    onChange={(e) => setRemember(e.target.checked)}
-                  />
-                  Remember me
-                </label>
+              <div className="lf-row" style={{ justifyContent: "flex-end" }}>
                 <Link to="/forgot-password" className="lf-forgot">Forgot password?</Link>
               </div>
 

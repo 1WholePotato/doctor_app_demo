@@ -30,7 +30,7 @@ export async function getSessionUser(): Promise<AppUser | null> {
     .eq("id", authUser.id)
     .single();
 
-  if (error || !data) return null;
+  if (error || !data || !data.active) return null;
   return data as AppUser;
 }
 
