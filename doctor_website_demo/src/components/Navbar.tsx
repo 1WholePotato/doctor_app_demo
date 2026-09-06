@@ -1,9 +1,7 @@
-import { BookOpen, CalendarDays, GraduationCap, Award, MapPin, Clock } from "lucide-react";
-import React from "react";
 import { Link } from "react-router-dom";
 // ─── Shared styles ────────────────────────────────────────────────────────────
 
-const styles = `
+export const styles = `
   :root {
     --bg:           #F7F6F3;
     --surface:      #FFFFFF;
@@ -179,7 +177,7 @@ const styles = `
 
 // ─── Navbar (shared across all three sections) ────────────────────────────────
 
-function LandingNav() {
+export function LandingNav() {
   return (
     <nav className="lp-nav">
       <Link to="/" className="lp-nav-logo">

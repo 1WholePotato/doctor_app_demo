@@ -30,7 +30,6 @@
  *   }
  */
 
-import React from "react";
 import { Link } from "react-router-dom";
 import { BookOpen, CalendarDays, GraduationCap, Award, MapPin, Clock } from "lucide-react";
 

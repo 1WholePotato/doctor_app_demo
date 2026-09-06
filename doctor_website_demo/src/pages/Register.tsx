@@ -20,6 +20,7 @@
 import React, { useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useNavigate, Link } from "react-router-dom";
+import { resolveStudentRoleId } from "../lib/roles";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -181,17 +182,40 @@ export default function Register() {
 
     setLoading(true);
 
+    const studentRoleId = await resolveStudentRoleId();
+    if (!studentRoleId) {
+      setBanner(
+        "Student role is not configured. Set VITE_STUDENT_ROLE_ID or add a student role in the database."
+      );
+      setLoading(false);
+      return;
+    }
+
     // 1. Create user in Supabase Auth
     const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) { setBanner(error.message); setLoading(false); return; }
+    if (error) {
+      setBanner(error.message);
+      setLoading(false);
+      return;
+    }
 
     const user = data.user;
-    if (!user) { setBanner("User not created"); setLoading(false); return; }
+    if (!user) {
+      setBanner("User not created");
+      setLoading(false);
+      return;
+    }
 
-    // 2. Insert into Users table
+    if (!data.session) {
+      setBanner("Account created. Please check your email to confirm before signing in.");
+      setLoading(false);
+      return;
+    }
+
+    // 2. Insert into users table
     const { error: insertError } = await supabase.from("users").insert([{
       id:           user.id,
-      role_id:      "PUT_STUDENT_ROLE_ID_HERE",
+      role_id:      studentRoleId,
       first_name: first_name,
       last_name : last_name,
       birth_date: birth_date,
@@ -203,7 +227,11 @@ export default function Register() {
       active:       true,
     }]);
 
-    if (insertError) { setBanner(insertError.message); setLoading(false); return; }
+    if (insertError) {
+      setBanner(insertError.message);
+      setLoading(false);
+      return;
+    }
 
     // 3. Success
     alert("Account created successfully!");
