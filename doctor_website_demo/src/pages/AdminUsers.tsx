@@ -9,6 +9,16 @@ import { supabase } from "../supabaseClient";
 import AdminSidebar from "../components/AdminSidebar";
 import { getSessionUser } from "../lib/auth";
 import { loadRoles, roleLabel, type RoleOption } from "../lib/roles";
+import {
+  ensureInstructorRecord,
+  fetchAllowedCourseIds,
+  fetchAllowedCourseIdsByInstructor,
+  fetchCourseOptions,
+  findInstructorIdByEmail,
+  isInstructorRole,
+  setInstructorCourses,
+  type CourseOption,
+} from "../lib/instructorCourses";
 
 const globalStyles = `
   :root {
@@ -74,7 +84,7 @@ const globalStyles = `
   .empty-sub { font-size: 14px; color: var(--text-3); max-width: 280px; line-height: 1.6; }
 
   .modal-overlay { position: fixed; inset: 0; background: rgba(17,17,16,.45); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; animation: fadeIn .15s ease; }
-  .modal { background: var(--surface); border-radius: 18px; width: 100%; max-width: 480px; padding: 32px; position: relative; animation: slideUp .2s ease; }
+  .modal { background: var(--surface); border-radius: 18px; width: 100%; max-width: 560px; padding: 32px; position: relative; animation: slideUp .2s ease; max-height: calc(100vh - 40px); overflow: auto; }
   .modal-close { position: absolute; top: 20px; right: 20px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-2); transition: background .12s; }
   .modal-close:hover { background: var(--border); }
   .modal-close svg { width: 16px; height: 16px; }
@@ -96,6 +106,14 @@ const globalStyles = `
   .btn-submit { width: 100%; background: var(--text-1); color: #fff; border: none; padding: 13px; border-radius: 10px; font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer; transition: background .15s; margin-top: 6px; }
   .btn-submit:hover { background: #2a2a28; }
   .btn-submit:disabled { background: var(--text-3); cursor: not-allowed; }
+
+  .course-help { font-size: 13px; color: var(--text-2); line-height: 1.5; margin: -8px 0 14px; }
+  .course-list { display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: #FAFAF8; }
+  .course-option { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--text-1); cursor: pointer; }
+  .course-option input { margin-top: 2px; accent-color: var(--gold); }
+  .course-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .course-pill { font-size: 11px; font-weight: 500; color: #7A5E1A; background: var(--gold-soft); border: 1px solid #E6D7A8; padding: 3px 8px; border-radius: 20px; }
+  .muted-dash { color: var(--text-3); }
 
   .au-loading { font-size: 14px; color: var(--text-3); padding: 40px 0; }
 
@@ -124,32 +142,86 @@ function StatusBadge({ active }: { active: boolean }) {
   );
 }
 
+function sameIds(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const left = [...a].sort();
+  const right = [...b].sort();
+  return left.every((id, index) => id === right[index]);
+}
+
 function ChangeRoleModal({
   user,
   roles,
   currentUserId,
+  courses,
   onClose,
   onSaved,
 }: {
   user: UserRow;
   roles: RoleOption[];
   currentUserId: string;
+  courses: CourseOption[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [roleId, setRoleId] = useState(user.role_id);
+  const [courseIds, setCourseIds] = useState<string[]>([]);
+  const [initialCourseIds, setInitialCourseIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [loadingCourses, setLoadingCourses] = useState(true);
   const [error, setError] = useState("");
+  const [tableMissing, setTableMissing] = useState(false);
 
   const isSelf = user.id === currentUserId;
+  const assigningInstructor = isInstructorRole(roleId, roles);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAssigned() {
+      const instructorId = await findInstructorIdByEmail(user.email);
+      if (!instructorId) {
+        if (!cancelled) setLoadingCourses(false);
+        return;
+      }
+
+      const result = await fetchAllowedCourseIds(instructorId);
+      if (cancelled) return;
+
+      setTableMissing(result.tableMissing);
+      if (result.error && !result.tableMissing) setError(result.error);
+      setCourseIds(result.courseIds);
+      setInitialCourseIds(result.courseIds);
+      setLoadingCourses(false);
+    }
+
+    void loadAssigned();
+    return () => {
+      cancelled = true;
+    };
+  }, [user.email]);
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) onClose();
   };
 
+  const toggleCourse = (courseId: string) => {
+    setCourseIds((current) =>
+      current.includes(courseId)
+        ? current.filter((id) => id !== courseId)
+        : [...current, courseId],
+    );
+  };
+
   const handleSubmit = async () => {
     if (isSelf) return;
     setError("");
+
+    if (assigningInstructor && courseIds.length === 0) {
+      setError("Choose at least one course this instructor can give.");
+      return;
+    }
+
     setSaving(true);
 
     const { error: updateError } = await supabase
@@ -157,16 +229,51 @@ function ChangeRoleModal({
       .update({ role_id: roleId })
       .eq("id", user.id);
 
-    setSaving(false);
-
     if (updateError) {
+      setSaving(false);
       setError(updateError.message);
       return;
     }
 
+    if (assigningInstructor) {
+      const instructor = await ensureInstructorRecord(user);
+      if (instructor.error) {
+        setSaving(false);
+        setError(instructor.error);
+        return;
+      }
+
+      const assigned = await setInstructorCourses(instructor.instructorId, courseIds);
+      if (assigned.error) {
+        setSaving(false);
+        setTableMissing(assigned.tableMissing);
+        setError(
+          assigned.tableMissing
+            ? "Run scripts/ensure-instructor-courses.sql in the Supabase SQL editor, then try again."
+            : assigned.error,
+        );
+        return;
+      }
+    } else {
+      const instructorId = await findInstructorIdByEmail(user.email);
+      if (instructorId) {
+        const cleared = await setInstructorCourses(instructorId, []);
+        if (cleared.error && !cleared.tableMissing) {
+          setSaving(false);
+          setError(cleared.error);
+          return;
+        }
+      }
+    }
+
+    setSaving(false);
     onSaved();
     onClose();
   };
+
+  const unchanged =
+    roleId === user.role_id &&
+    sameIds(courseIds, initialCourseIds);
 
   return (
     <div className="modal-overlay" onClick={handleOverlayClick}>
@@ -195,20 +302,55 @@ function ChangeRoleModal({
             You cannot change your own role.
           </div>
         ) : (
-          <div className="field">
-            <label htmlFor="role-select">Role</label>
-            <select
-              id="role-select"
-              value={roleId}
-              onChange={(e) => setRoleId(e.target.value)}
-            >
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <>
+            <div className="field">
+              <label htmlFor="role-select">Role</label>
+              <select
+                id="role-select"
+                value={roleId}
+                onChange={(e) => setRoleId(e.target.value)}
+              >
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {assigningInstructor && (
+              <div className="field">
+                <label>Courses they can give</label>
+                <p className="course-help">
+                  Instructors only appear as teachers on the courses you select here.
+                </p>
+                {tableMissing && (
+                  <div className="field-error">
+                    <AlertCircle />
+                    Run scripts/ensure-instructor-courses.sql in the Supabase SQL editor first.
+                  </div>
+                )}
+                {loadingCourses ? (
+                  <p className="readonly-sub">Loading courses…</p>
+                ) : courses.length === 0 ? (
+                  <p className="readonly-sub">Create a course before assigning an instructor.</p>
+                ) : (
+                  <div className="course-list">
+                    {courses.map((course) => (
+                      <label key={course.id} className="course-option">
+                        <input
+                          type="checkbox"
+                          checked={courseIds.includes(course.id)}
+                          onChange={() => toggleCourse(course.id)}
+                        />
+                        {course.title}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
 
         {error && (
@@ -221,10 +363,10 @@ function ChangeRoleModal({
         <button
           type="button"
           className="btn-submit"
-          disabled={isSelf || saving || roleId === user.role_id}
+          disabled={isSelf || saving || unchanged || tableMissing}
           onClick={() => void handleSubmit()}
         >
-          {saving ? "Saving…" : "Save role"}
+          {saving ? "Saving…" : assigningInstructor ? "Save role and courses" : "Save role"}
         </button>
       </div>
     </div>
@@ -237,16 +379,23 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [roles, setRoles] = useState<RoleOption[]>([]);
+  const [courses, setCourses] = useState<CourseOption[]>([]);
+  const [coursesByEmail, setCoursesByEmail] = useState<Map<string, string[]>>(new Map());
   const [currentUserId, setCurrentUserId] = useState("");
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [selected, setSelected] = useState<UserRow | null>(null);
   const [loadError, setLoadError] = useState("");
 
   const fetchUsers = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("users")
-      .select("id, first_name, last_name, email, role_id, active, cell_num")
-      .order("last_name");
+    const [{ data, error }, courseResult, assignmentResult, instructorsResult] = await Promise.all([
+      supabase
+        .from("users")
+        .select("id, first_name, last_name, email, role_id, active, cell_num")
+        .order("last_name"),
+      fetchCourseOptions(),
+      fetchAllowedCourseIdsByInstructor(),
+      supabase.from("instructors").select("id, email"),
+    ]);
 
     if (error) {
       setLoadError(error.message);
@@ -254,7 +403,27 @@ export default function AdminUsers() {
     }
 
     setUsers((data ?? []) as UserRow[]);
-    setLoadError("");
+    setCourses(courseResult.courses);
+
+    const emailByInstructorId = new Map(
+      (instructorsResult.data ?? []).map((row) => [row.id, row.email]),
+    );
+    const next = new Map<string, string[]>();
+    for (const [instructorId, courseIds] of assignmentResult.byInstructorId) {
+      const email = emailByInstructorId.get(instructorId);
+      if (email) next.set(email, courseIds);
+    }
+    setCoursesByEmail(next);
+
+    const messages = [
+      courseResult.error,
+      assignmentResult.tableMissing
+        ? "Instructor course assignments need scripts/ensure-instructor-courses.sql run in the SQL editor."
+        : assignmentResult.error,
+      instructorsResult.error?.message,
+    ].filter((message): message is string => Boolean(message));
+
+    setLoadError(messages[0] ?? "");
   }, []);
 
   useEffect(() => {
@@ -289,6 +458,9 @@ export default function AdminUsers() {
     if (filter === "inactive") return !u.active;
     return true;
   });
+
+  const courseTitle = (courseId: string) =>
+    courses.find((course) => course.id === courseId)?.title ?? "Course";
 
   if (loading) {
     return (
@@ -355,33 +527,52 @@ export default function AdminUsers() {
                     <th>Name</th>
                     <th>Email</th>
                     <th>Role</th>
+                    <th>Courses</th>
                     <th>Status</th>
                     <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((u) => (
-                    <tr key={u.id}>
-                      <td>
-                        {u.first_name} {u.last_name}
-                      </td>
-                      <td className="muted">{u.email}</td>
-                      <td className="muted">{roleLabel(u.role_id, roles)}</td>
-                      <td>
-                        <StatusBadge active={u.active} />
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="btn-link"
-                          disabled={u.id === currentUserId}
-                          onClick={() => setSelected(u)}
-                        >
-                          Change role
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filtered.map((u) => {
+                    const assigned = isInstructorRole(u.role_id, roles)
+                      ? coursesByEmail.get(u.email) ?? []
+                      : [];
+                    return (
+                      <tr key={u.id}>
+                        <td>
+                          {u.first_name} {u.last_name}
+                        </td>
+                        <td className="muted">{u.email}</td>
+                        <td className="muted">{roleLabel(u.role_id, roles)}</td>
+                        <td>
+                          {assigned.length === 0 ? (
+                            <span className="muted-dash">—</span>
+                          ) : (
+                            <div className="course-pills">
+                              {assigned.map((courseId) => (
+                                <span key={courseId} className="course-pill">
+                                  {courseTitle(courseId)}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <StatusBadge active={u.active} />
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn-link"
+                            disabled={u.id === currentUserId}
+                            onClick={() => setSelected(u)}
+                          >
+                            Change role
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -393,6 +584,7 @@ export default function AdminUsers() {
         <ChangeRoleModal
           user={selected}
           roles={roles}
+          courses={courses}
           currentUserId={currentUserId}
           onClose={() => setSelected(null)}
           onSaved={() => void fetchUsers()}

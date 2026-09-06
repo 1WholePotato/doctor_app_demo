@@ -9,7 +9,8 @@ import {
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import AdminSidebar from "../components/AdminSidebar";
-import { fetchInstructors, instructorName, type Instructor } from "../lib/instructors";
+import { instructorName, type Instructor } from "../lib/instructors";
+import { fetchInstructorsForCourse, grantInstructorCourse } from "../lib/instructorCourses";
 import { firstLocationId } from "../lib/locations";
 
 const globalStyles = `
@@ -226,7 +227,7 @@ export default function AdminCourseDetails() {
         .from("course_sessions")
         .select("id, active, instructors ( first_name, last_name, email )")
         .eq("course_id", id),
-      fetchInstructors(),
+      fetchInstructorsForCourse(id),
     ]);
 
     setInstructors(instructorResult.instructors);
@@ -291,6 +292,7 @@ export default function AdminCourseDetails() {
       end_date: new Date().toISOString().slice(0, 10),
       start_time: "09:00:00",
       end_time: "12:00:00",
+      max_students: 20,
       active: true,
     });
 
@@ -298,6 +300,9 @@ export default function AdminCourseDetails() {
       alert(error.message);
       return;
     }
+
+    const grantError = await grantInstructorCourse(instructorId, id);
+    if (grantError) alert(grantError);
 
     await loadData();
   };

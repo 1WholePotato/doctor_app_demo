@@ -18,6 +18,7 @@ function envRole(id: string | undefined, name: string): RoleOption | null {
 function normalizeRoleName(name: string): string {
   const lower = name.toLowerCase();
   if (lower.includes("admin")) return "Admin";
+  if (lower.includes("instructor") || lower.includes("teacher")) return "Instructor";
   if (lower.includes("student")) return "Student";
   return name;
 }

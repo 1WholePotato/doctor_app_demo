@@ -17,6 +17,7 @@ const STUDENT_ROLE_ID = "4fd9e72e-f94b-4222-b5c1-95b447088d4d";
 const DEMO_PASSWORD = "DemoPass1234";
 const ADMIN_EMAIL = "doctor.demo.admin@gmail.com";
 const STUDENT_EMAIL = "doctor.demo.student@gmail.com";
+const INSTRUCTOR_EMAIL = "doctor.demo.instructor@gmail.com";
 
 function loadEnvFile(path) {
   if (!existsSync(path)) {
@@ -54,43 +55,49 @@ function logFail(msg) {
   console.error(`✗ ${msg}`);
 }
 
-async function ensureAuthUser(supabase, email, password, metadata) {
-  const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+async function findAuthUserByEmail(admin, email) {
+  const needle = email.toLowerCase();
+  let page = 1;
+  const perPage = 200;
+
+  for (;;) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error) throw new Error(`Auth user lookup failed: ${error.message}`);
+
+    const users = data?.users ?? [];
+    const match = users.find((user) => user.email?.toLowerCase() === needle);
+    if (match) return match;
+    if (users.length < perPage) return null;
+
+    page += 1;
+    if (page > 20) return null;
+  }
+}
+
+/** Create or update an auth user with email already confirmed. Needs the service role. */
+async function ensureAuthUser(admin, email, password, metadata) {
+  const existing = await findAuthUserByEmail(admin, email);
+
+  if (existing) {
+    const { data, error } = await admin.auth.admin.updateUserById(existing.id, {
+      password,
+      email_confirm: true,
+      user_metadata: metadata,
+    });
+    if (error) throw new Error(`Could not confirm auth user ${email}: ${error.message}`);
+    logOk(`Forced confirmed auth user: ${email}`);
+    return data.user;
+  }
+
+  const { data, error } = await admin.auth.admin.createUser({
     email,
     password,
+    email_confirm: true,
+    user_metadata: metadata,
   });
-
-  if (signInData.user) {
-    logOk(`Signed in existing auth user: ${email}`);
-    return signInData.user;
-  }
-
-  const unconfirmed = signInError?.message.toLowerCase().includes("email not confirmed");
-  if (unconfirmed) {
-    logWarn(`${email} exists but is unconfirmed`);
-  } else if (
-    signInError &&
-    !signInError.message.toLowerCase().includes("invalid login credentials")
-  ) {
-    logWarn(`Sign-in check for ${email}: ${signInError.message}`);
-  }
-
-  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: metadata },
-  });
-
-  if (signUpData.user) {
-    logOk(`Have auth user id for ${email}`);
-    return signUpData.user;
-  }
-
-  if (signUpError) {
-    throw new Error(`Could not create auth user ${email}: ${signUpError.message}`);
-  }
-
-  throw new Error(`Auth sign-up returned no user for ${email}`);
+  if (error) throw new Error(`Could not create auth user ${email}: ${error.message}`);
+  logOk(`Created confirmed auth user: ${email}`);
+  return data.user;
 }
 
 async function upsertProfile(supabase, userId, profile) {
@@ -116,6 +123,61 @@ async function upsertProfile(supabase, userId, profile) {
   logOk(`Inserted users profile for ${profile.email}`);
 }
 
+async function ensureRole(supabase, name) {
+  const { data, error } = await supabase.from("roles").select("id, name");
+  if (error) throw new Error(`Role lookup failed: ${error.message}`);
+
+  const existing = (data ?? []).find((row) => row.name.toLowerCase() === name.toLowerCase());
+  if (existing) {
+    logOk(`Role exists: ${existing.name}`);
+    return existing.id;
+  }
+
+  const { data: inserted, error: insertError } = await supabase
+    .from("roles")
+    .insert({ name })
+    .select("id, name")
+    .single();
+
+  if (insertError || !inserted) {
+    throw new Error(`Role insert failed: ${insertError?.message ?? "no row"}`);
+  }
+
+  logOk(`Inserted role: ${inserted.name}`);
+  return inserted.id;
+}
+
+async function instructorCoursesTableReady(supabase) {
+  const { error } = await supabase.from("instructor_courses").select("id").limit(1);
+  if (!error) return true;
+
+  logWarn("instructor_courses table is missing.");
+  logWarn("Run doctor_website_demo/scripts/ensure-instructor-courses.sql in the Supabase SQL editor, then npm run seed again.");
+  return false;
+}
+
+async function ensureInstructorCourse(supabase, instructorId, courseId) {
+  const { data: existing, error: fetchError } = await supabase
+    .from("instructor_courses")
+    .select("id")
+    .eq("instructor_id", instructorId)
+    .eq("course_id", courseId)
+    .maybeSingle();
+
+  if (fetchError) throw new Error(`instructor_courses lookup failed: ${fetchError.message}`);
+  if (existing) {
+    logOk(`Instructor already assigned to course ${courseId}`);
+    return;
+  }
+
+  const { error } = await supabase
+    .from("instructor_courses")
+    .insert({ instructor_id: instructorId, course_id: courseId });
+
+  if (error) throw new Error(`instructor_courses insert failed: ${error.message}`);
+  logOk(`Assigned instructor to course ${courseId}`);
+}
+
 async function findByTitle(supabase, table, titleColumn, title) {
   const { data, error } = await supabase.from(table).select("id").eq(titleColumn, title).maybeSingle();
   if (error) throw new Error(`${table} lookup failed: ${error.message}`);
@@ -129,7 +191,10 @@ async function ensureInstructor(supabase, instructor) {
     return existingId;
   }
 
-  const { data, error } = await supabase.from("instructors").insert(instructor).select("id").single();
+  const { data, error } = await supabase.from("instructors").insert({
+    ...instructor,
+    active: instructor.active ?? true,
+  }).select("id").single();
   if (error) throw new Error(`Instructor insert failed: ${error.message}`);
   logOk(`Inserted instructor: ${instructor.email}`);
   return data.id;
@@ -191,6 +256,7 @@ async function ensureSession(supabase, courseId, instructorId, locationId) {
       end_date: "2026-10-14",
       start_time: "09:00:00",
       end_time: "12:00:00",
+      max_students: 20,
       active: true,
     })
     .select("id")
@@ -201,7 +267,7 @@ async function ensureSession(supabase, courseId, instructorId, locationId) {
   return data.id;
 }
 
-async function ensureBooking(supabase, userId, courseId, paymentStatus) {
+async function ensureBooking(supabase, userId, courseId, paymentStatus, totalAmount) {
   const { data: existing, error: fetchError } = await supabase
     .from("bookings")
     .select("id, payment_status")
@@ -215,7 +281,7 @@ async function ensureBooking(supabase, userId, courseId, paymentStatus) {
     if (existing.payment_status !== paymentStatus) {
       const { error } = await supabase
         .from("bookings")
-        .update({ payment_status: paymentStatus })
+        .update({ payment_status: paymentStatus, total_amount: totalAmount })
         .eq("id", existing.id);
       if (error) throw new Error(`Booking update failed: ${error.message}`);
       logOk(`Updated booking payment_status → ${paymentStatus}`);
@@ -227,7 +293,13 @@ async function ensureBooking(supabase, userId, courseId, paymentStatus) {
 
   const { data, error } = await supabase
     .from("bookings")
-    .insert({ user_id: userId, course_id: courseId, payment_status: paymentStatus })
+    .insert({
+      user_id: userId,
+      course_id: courseId,
+      payment_status: paymentStatus,
+      material_fee: 0,
+      total_amount: totalAmount,
+    })
     .select("id")
     .single();
 
@@ -312,16 +384,17 @@ async function seedCatalog(supabase, studentId) {
 
   if (!studentId) {
     logWarn("Skipping bookings; student user id is not available");
-    return;
+    return { courseIds, instructorIds };
   }
 
-  const paidBookingId = await ensureBooking(supabase, studentId, courseIds[0], "paid");
-  await ensureBooking(supabase, studentId, courseIds[1], "passed");
-  await ensureBooking(supabase, studentId, courseIds[2], "failed");
+  const paidBookingId = await ensureBooking(supabase, studentId, courseIds[0], "paid", courseDefs[0].course_price);
+  await ensureBooking(supabase, studentId, courseIds[1], "passed", courseDefs[1].course_price);
+  await ensureBooking(supabase, studentId, courseIds[2], "failed", courseDefs[2].course_price);
   await ensurePayment(supabase, paidBookingId, courseDefs[0].course_price);
+  return { courseIds, instructorIds };
 }
 
-async function seedUsers(supabase) {
+async function seedUsers(supabase, instructorRoleId) {
   const adminAuth = await ensureAuthUser(supabase, ADMIN_EMAIL, DEMO_PASSWORD, {
     first_name: "Demo",
     last_name: "Admin",
@@ -366,36 +439,72 @@ async function seedUsers(supabase) {
     active: true,
   });
 
-  return studentAuth.id;
+  const instructorAuth = await ensureAuthUser(supabase, INSTRUCTOR_EMAIL, DEMO_PASSWORD, {
+    first_name: "Demo",
+    last_name: "Instructor",
+  });
+
+  await upsertProfile(supabase, instructorAuth.id, {
+    email: INSTRUCTOR_EMAIL,
+    role_id: instructorRoleId,
+    first_name: "Demo",
+    last_name: "Instructor",
+    birth_date: "1988-03-12",
+    id_num: "8803125800081",
+    passport_num: null,
+    cell_num: "0823330003",
+    sanc_num: "INS0001",
+    active: true,
+  });
+
+  const demoTeacherId = await ensureInstructor(supabase, {
+    first_name: "Demo",
+    last_name: "Instructor",
+    email: INSTRUCTOR_EMAIL,
+    cell_num: "0823330003",
+  });
+
+  return { studentId: studentAuth.id, demoTeacherId };
 }
 
 async function main() {
   const env = loadEnvFile(envPath);
   const url = env.VITE_SUPABASE_URL;
-  const anonKey = env.VITE_SUPABASE_ANON_KEY;
+  const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!url || !anonKey) {
-    logFail("VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are required in .env.local");
+  if (!url) {
+    logFail("VITE_SUPABASE_URL is required in .env.local");
     process.exit(1);
   }
 
-  const supabase = createClient(url, anonKey);
-  let studentId = null;
-
-  try {
-    studentId = await seedUsers(supabase);
-  } catch (err) {
-    logWarn(err instanceof Error ? err.message : String(err));
-    logWarn("Confirm demo emails in Supabase Auth, or disable Confirm email, then re-run the seed.");
+  if (!serviceRoleKey) {
+    logFail("Add SUPABASE_SERVICE_ROLE_KEY to .env.local (not VITE_*).");
+    logFail("Dashboard → Project Settings → API → service_role. This key stays local; seed uses it to force-confirm users without turning Confirm email off.");
+    process.exit(1);
   }
 
+  const supabase = createClient(url, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
   try {
-    await seedCatalog(supabase, studentId);
-    await supabase.auth.signOut();
-    logOk("Demo seed finished.");
+    const instructorRoleId = await ensureRole(supabase, "instructor");
+    const { studentId, demoTeacherId } = await seedUsers(supabase, instructorRoleId);
+    const { courseIds, instructorIds } = await seedCatalog(supabase, studentId);
+
+    if (await instructorCoursesTableReady(supabase)) {
+      await ensureInstructorCourse(supabase, instructorIds[0], courseIds[0]);
+      await ensureInstructorCourse(supabase, instructorIds[1], courseIds[1]);
+      await ensureInstructorCourse(supabase, instructorIds[2], courseIds[2]);
+      await ensureInstructorCourse(supabase, demoTeacherId, courseIds[0]);
+      await ensureInstructorCourse(supabase, demoTeacherId, courseIds[1]);
+    }
+
+    logOk("Demo seed finished. Confirm email can stay on.");
     console.log("Demo accounts:");
-    console.log(`  Admin:   ${ADMIN_EMAIL} / ${DEMO_PASSWORD}`);
-    console.log(`  Student: ${STUDENT_EMAIL} / ${DEMO_PASSWORD}`);
+    console.log(`  Admin:      ${ADMIN_EMAIL} / ${DEMO_PASSWORD}`);
+    console.log(`  Student:    ${STUDENT_EMAIL} / ${DEMO_PASSWORD}`);
+    console.log(`  Instructor: ${INSTRUCTOR_EMAIL} / ${DEMO_PASSWORD}`);
   } catch (err) {
     logFail(err instanceof Error ? err.message : String(err));
     process.exit(1);

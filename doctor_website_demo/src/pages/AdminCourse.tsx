@@ -4,6 +4,7 @@ import { BookOpen, Plus, X, AlertCircle } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import AdminSidebar from "../components/AdminSidebar";
 import { fetchInstructors, instructorName, type Instructor } from "../lib/instructors";
+import { grantInstructorCourse } from "../lib/instructorCourses";
 import { firstLocationId } from "../lib/locations";
 
 // ─── Global styles (same token system as AdminLanding) ────────────────────────
@@ -338,11 +339,15 @@ export default function AdminCourses() {
       end_date: new Date().toISOString().slice(0, 10),
       start_time: "09:00:00",
       end_time: "12:00:00",
+      max_students: 20,
       active: true,
     });
 
     if (sessionError) {
       alert(`Course created, but teacher assignment failed: ${sessionError.message}`);
+    } else {
+      const grantError = await grantInstructorCourse(course.instructorId, data.id);
+      if (grantError) alert(grantError);
     }
 
     await loadCourses();
