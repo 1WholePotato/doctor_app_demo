@@ -32,7 +32,7 @@
  *   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
  */
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   BookOpen,
@@ -44,6 +44,11 @@ import {
   ArrowUpRight,
   ChevronRight,
 } from "lucide-react";
+import {
+  downloadClassListCsv,
+  fetchUpcomingSessions,
+  type UpcomingSession,
+} from "../lib/classLists";
 
 // ─── Inline styles (CSS-in-JS via style objects) ────────────────────────────
 // Using a <style> tag injected once so we can use @keyframes & :hover selectors
@@ -174,6 +179,13 @@ const globalStyles = `
   .badge-pending { background: #FEF4E4; color: #9A6500; }
   .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 
+  .btn-primary { display: inline-flex; align-items: center; gap: 7px; background: var(--text-1); color: #fff; border: none; padding: 9px 16px; border-radius: 10px; font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; transition: background .15s, transform .1s; }
+  .btn-primary:hover:not(:disabled) { background: #2a2a28; transform: translateY(-1px); }
+  .btn-primary:disabled { background: #C8C6C0; color: #fff; cursor: not-allowed; transform: none; }
+  .download-note { display: block; margin-top: 6px; font-size: 11px; color: var(--text-3); max-width: 180px; line-height: 1.4; }
+  .query-error { margin-bottom: 12px; padding: 12px 16px; border-radius: 10px; background: #FEF4E4; color: #9A6500; font-size: 13px; line-height: 1.5; }
+  .table-empty { text-align: center; color: var(--text-3); padding: 32px 20px !important; font-size: 14px; }
+
   /* Animations */
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(12px); }
@@ -186,15 +198,6 @@ const globalStyles = `
     .main-content { padding: 28px 24px; }
   }
 `;
-
-// ─── Sample data ──────────────────────────────────────────────────────────────
-
-const courses = [
-  { student: "John Doe",    course: "Advanced Anatomy",     date: "2 Apr 2026",  status: "paid" },
-  { student: "Pieter van W", course: "Clinical Diagnostics", date: "1 Mar 2026", status: "pending" },
-  { student: "Gielie Botha", course: "Pharmacology 101",    date: "3 Mar 2026",  status: "pending" },
-  { student: "Sarah Nkosi",  course: "Advanced Anatomy",    date: "14 Mar 2026", status: "paid" },
-];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -216,21 +219,32 @@ function NavItem({
     </Link>
   );
 }
-
-function StatusBadge({ status }: { status: string }) {
-  const paid = status === "paid";
-  return (
-    <span className={`badge ${paid ? "badge-paid" : "badge-pending"}`}>
-      <span className="badge-dot" />
-      {paid ? "Paid" : "Pending"}
-    </span>
-  );
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 function AdminLanding() {
   const { pathname } = useLocation();
+  const [sessions, setSessions] = useState<UpcomingSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [queryError, setQueryError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      const result = await fetchUpcomingSessions();
+      if (cancelled) return;
+
+      setSessions(result.sessions);
+      setQueryError(result.error);
+      setLoading(false);
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <>
@@ -247,7 +261,7 @@ function AdminLanding() {
 
           <nav className="sidebar-nav">
             <p className="nav-section-label">Main</p>
-            <NavItem to="/"            icon={LayoutDashboard} label="Dashboard"  active={pathname === "/"} />
+            <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard"  active={pathname === "/dashboard"} />
             <NavItem to="/admincourses" icon={BookOpen}        label="Courses"    active={pathname.startsWith("/admincourses")} />
             <NavItem to="/patients"    icon={Users}           label="Students"   active={pathname.startsWith("/patients")} />
 
@@ -339,26 +353,48 @@ function AdminLanding() {
           </div>
 
           <div className="table-card">
+            {queryError && (
+              <p className="query-error" role="alert">{queryError}</p>
+            )}
             <table className="table-inner">
               <thead>
                 <tr>
-                  
                   <th>Course</th>
                   <th>Date</th>
                   <th>Classlist</th>
                 </tr>
               </thead>
               <tbody>
-                {courses.map((row, i) => (
-                  <tr key={i}>
-                    
-                    <td className="muted">{row.course}</td>
-                    <td className="muted">{row.date}</td>
-                    <td><button className="btn-primary" onClick={() => ''}>
-                          Download
-                        </button></td>
+                {loading ? (
+                  <tr>
+                    <td colSpan={3} className="table-empty">Loading upcoming classes…</td>
                   </tr>
-                ))}
+                ) : sessions.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="table-empty">No upcoming classes scheduled</td>
+                  </tr>
+                ) : (
+                  sessions.map((session) => (
+                    <tr key={session.id}>
+                      <td className="muted">{session.courseTitle}</td>
+                      <td className="muted">{session.displayDate}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn-primary"
+                          disabled={!session.canDownload}
+                          title={session.downloadDisabledReason}
+                          onClick={() => downloadClassListCsv(session)}
+                        >
+                          Download
+                        </button>
+                        {!session.canDownload && session.downloadDisabledReason && (
+                          <span className="download-note">{session.downloadDisabledReason}</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
