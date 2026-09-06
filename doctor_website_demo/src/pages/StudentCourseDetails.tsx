@@ -15,14 +15,13 @@
  * NPM: lucide-react (already installed)
  */
 
-import React, { useState } from "react";
-import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
-import { signOut } from "../lib/auth";
+import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import {
-  BookOpen, LayoutDashboard, Settings, LogOut,
-  Bell, GraduationCap, CalendarDays, Clock,
+  BookOpen, CalendarDays, Clock,
   MapPin, User, ChevronLeft, CheckCircle, X, Users,
 } from "lucide-react";
+import StudentSidebar from "../components/StudentSidebar";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -179,26 +178,12 @@ function SeatsBadge({ seats }: { seats: number }) {
   return <span className={`seats-badge ${cls}`}><span className="seats-dot" />{label}</span>;
 }
 
-function NavItem({ to, icon: Icon, label, active }: { to: string; icon: React.ElementType; label: string; active: boolean }) {
-  return (
-    <Link to={to} className={`sl-nav-item${active ? " active" : ""}`}>
-      <Icon />{label}
-    </Link>
-  );
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function StudentCourseDetails() {
-  const { pathname } = useLocation();
   const routerLocation = useLocation();
-  const navigate = useNavigate();
 
-  const handleSignOut = async () => {
-    await signOut();
-    navigate("/login");
-  };
-  const passedCourse = (routerLocation.state as any)?.course;
+  const passedCourse = (routerLocation.state as { course?: typeof FALLBACK_COURSE })?.course;
   const course = passedCourse ?? FALLBACK_COURSE;
 
   const [bookedIds, setBookedIds]         = useState<number[]>([]);
@@ -216,32 +201,7 @@ export default function StudentCourseDetails() {
       <style>{styles}</style>
       <div className="scd-shell">
 
-        {/* ── Sidebar ── */}
-        <aside className="sl-sidebar">
-          <div className="sl-logo">
-            <div className="sl-logo-mark"><BookOpen /></div>
-            <div className="sl-logo-text">MedLearn<span>Student Portal</span></div>
-          </div>
-          <nav className="sl-nav">
-            <p className="sl-nav-label">Menu</p>
-            <NavItem to="/studentlanding" icon={LayoutDashboard} label="Dashboard"     active={pathname === "/studentlanding"} />
-            <NavItem to="/courses"        icon={BookOpen}        label="My Courses"    active={pathname.startsWith("/courses")} />
-            <NavItem to="/grades"         icon={GraduationCap}   label="Grades"        active={pathname.startsWith("/grades")} />
-            <NavItem to="/notifications"  icon={Bell}            label="Notifications" active={pathname.startsWith("/notifications")} />
-            <p className="sl-nav-label">Account</p>
-            <NavItem to="/profile"        icon={Settings}        label="Profile"       active={pathname.startsWith("/profile")} />
-          </nav>
-          <div className="sl-footer">
-            <div className="sl-avatar-row">
-              <div className="sl-avatar">JS</div>
-              <div>
-                <p className="sl-avatar-name">John Student</p>
-                <p className="sl-avatar-role">student123@gmail.com</p>
-              </div>
-            </div>
-            <button className="sl-nav-item" style={{ color: "#4A6080" }} onClick={() => void handleSignOut()}><LogOut />Sign out</button>
-          </div>
-        </aside>
+        <StudentSidebar prefix="sl" />
 
         {/* ── Main ── */}
         <main className="scd-main">

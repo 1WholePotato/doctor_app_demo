@@ -14,7 +14,7 @@
  */
 
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { getSessionUser, homeForRole } from "../lib/auth";
 
@@ -224,7 +224,7 @@ export default function Login() {
                   />
                   Remember me
                 </label>
-                <a href="#" className="lf-forgot">Forgot password?</a>
+                <Link to="/forgot-password" className="lf-forgot">Forgot password?</Link>
               </div>
 
               {error && (

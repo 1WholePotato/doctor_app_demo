@@ -1,13 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import {
-  BookOpen,
-  LayoutDashboard,
-  Settings,
-  LogOut,
-  Bell,
-  GraduationCap,
-} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import StudentSidebar from "../components/StudentSidebar";
 import { supabase } from "../supabaseClient";
 import { getSessionUser, type AppUser } from "../lib/auth";
 import { loadRoles, roleLabel } from "../lib/roles";
@@ -81,31 +74,7 @@ const styles = `
   .sp-loading { font-size: 14px; color: var(--s-text-3); padding: 40px 0; }
 `;
 
-function NavItem({
-  to,
-  icon: Icon,
-  label,
-  active,
-}: {
-  to: string;
-  icon: React.ElementType;
-  label: string;
-  active: boolean;
-}) {
-  return (
-    <Link to={to} className={`sp-nav-item${active ? " active" : ""}`}>
-      <Icon />
-      {label}
-    </Link>
-  );
-}
-
-function initials(first: string, last: string) {
-  return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase() || "?";
-}
-
 export default function StudentProfile() {
-  const { pathname } = useLocation();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -241,68 +210,7 @@ export default function StudentProfile() {
     <>
       <style>{styles}</style>
       <div className="sp-shell">
-        <aside className="sp-sidebar">
-          <div className="sp-logo">
-            <div className="sp-logo-mark">
-              <BookOpen />
-            </div>
-            <div className="sp-logo-text">
-              MedLearn
-              <span>Student Portal</span>
-            </div>
-          </div>
-
-          <nav className="sp-nav">
-            <p className="sp-nav-label">Menu</p>
-            <NavItem
-              to="/studentlanding"
-              icon={LayoutDashboard}
-              label="Dashboard"
-              active={pathname === "/studentlanding"}
-            />
-            <NavItem
-              to="/courses"
-              icon={BookOpen}
-              label="My Courses"
-              active={pathname.startsWith("/courses")}
-            />
-            <NavItem
-              to="/grades"
-              icon={GraduationCap}
-              label="Grades"
-              active={pathname.startsWith("/grades")}
-            />
-            <NavItem
-              to="/notifications"
-              icon={Bell}
-              label="Notifications"
-              active={pathname.startsWith("/notifications")}
-            />
-            <p className="sp-nav-label">Account</p>
-            <NavItem
-              to="/profile"
-              icon={Settings}
-              label="Profile"
-              active={pathname.startsWith("/profile")}
-            />
-          </nav>
-
-          <div className="sp-footer">
-            <div className="sp-avatar-row">
-              <div className="sp-avatar">{initials(first_name, last_name)}</div>
-              <div>
-                <p className="sp-avatar-name">
-                  {first_name} {last_name}
-                </p>
-                <p className="sp-avatar-role">{email}</p>
-              </div>
-            </div>
-            <button className="sp-nav-item" style={{ color: "#4A6080" }}>
-              <LogOut />
-              Sign out
-            </button>
-          </div>
-        </aside>
+        <StudentSidebar prefix="sp" />
 
         <main className="sp-main">
           <div className="sp-header">

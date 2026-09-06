@@ -1,15 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
-  BookOpen,
   Users,
-  LayoutDashboard,
-  Settings,
-  LogOut,
   X,
   AlertCircle,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
+import AdminSidebar from "../components/AdminSidebar";
 import { getSessionUser } from "../lib/auth";
 import { loadRoles, roleLabel, type RoleOption } from "../lib/roles";
 
@@ -117,25 +114,6 @@ type UserRow = {
 };
 
 type StatusFilter = "all" | "active" | "inactive";
-
-function NavItem({
-  to,
-  icon: Icon,
-  label,
-  active,
-}: {
-  to: string;
-  icon: React.ElementType;
-  label: string;
-  active: boolean;
-}) {
-  return (
-    <Link to={to} className={`nav-item${active ? " active" : ""}`}>
-      <Icon />
-      {label}
-    </Link>
-  );
-}
 
 function StatusBadge({ active }: { active: boolean }) {
   return (
@@ -254,7 +232,6 @@ function ChangeRoleModal({
 }
 
 export default function AdminUsers() {
-  const { pathname } = useLocation();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -330,48 +307,7 @@ export default function AdminUsers() {
     <>
       <style>{globalStyles}</style>
       <div className="au-shell">
-        <aside className="sidebar">
-          <div className="sidebar-logo">
-            <BookOpen size={20} color="var(--gold)" />
-            Dr <span>Admin</span>
-          </div>
-
-          <nav className="sidebar-nav">
-            <p className="nav-section-label">Main</p>
-            <NavItem
-              to="/dashboard"
-              icon={LayoutDashboard}
-              label="Dashboard"
-              active={pathname === "/dashboard"}
-            />
-            <NavItem
-              to="/admincourses"
-              icon={BookOpen}
-              label="Courses"
-              active={pathname.startsWith("/admincourses")}
-            />
-            <NavItem
-              to="/admin/users"
-              icon={Users}
-              label="Students"
-              active={pathname.startsWith("/admin/users")}
-            />
-            <p className="nav-section-label">Account</p>
-            <NavItem
-              to="/settings"
-              icon={Settings}
-              label="Settings"
-              active={pathname.startsWith("/settings")}
-            />
-          </nav>
-
-          <div className="sidebar-footer">
-            <button className="nav-item" style={{ color: "#665F5C" }}>
-              <LogOut />
-              Sign out
-            </button>
-          </div>
-        </aside>
+        <AdminSidebar />
 
         <main className="au-main">
           <header className="au-header">

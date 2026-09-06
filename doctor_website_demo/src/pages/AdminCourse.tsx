@@ -1,18 +1,10 @@
-import React, { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import {
-  BookOpen,
-  Users,
-  LayoutDashboard,
-  Settings,
-  LogOut,
-  Plus,
-  X,
-  AlertCircle,
-} from "lucide-react";
-import {supabase} from "../supabaseClient";
-import { signOut } from "../lib/auth";
-import { useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { BookOpen, Plus, X, AlertCircle } from "lucide-react";
+import { supabase } from "../supabaseClient";
+import AdminSidebar from "../components/AdminSidebar";
+import { fetchInstructors, instructorName, type Instructor } from "../lib/instructors";
+import { firstLocationId } from "../lib/locations";
 
 // ─── Global styles (same token system as AdminLanding) ────────────────────────
 
@@ -126,107 +118,62 @@ const globalStyles = `
   .btn-submit { width: 100%; background: var(--text-1); color: #fff; border: none; padding: 13px; border-radius: 10px; font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer; transition: background .15s; margin-top: 6px; }
   .btn-submit:hover { background: #2a2a28; }
 
+  .load-error { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #C0392B; margin-bottom: 20px; }
+  .load-error svg { width: 14px; height: 14px; }
+
   /* ── Animations ── */
   @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 `;
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 interface Course {
-  id: number;
+  id: string;
   title: string;
   description: string;
-  category: string;
   price: number;
+  instructorName: string;
 }
 
-// ─── Dummy data ───────────────────────────────────────────────────────────────
-
-const DUMMY_COURSES: Course[] = [
-  {
-    id: 1,
-    title: "Advanced Human Anatomy",
-    description: "A deep dive into musculoskeletal systems, organ placement, and clinical correlations used in daily practice.",
-    category: "Anatomy",
-    price: 1499,
-  },
-  {
-    id: 2,
-    title: "Clinical Pharmacology Essentials",
-    description: "Drug classes, mechanisms of action, and prescribing principles for general practitioners and specialists.",
-    category: "Pharmacology",
-    price: 1299,
-  },
-  {
-    id: 3,
-    title: "Diagnostic Imaging Fundamentals",
-    description: "Reading X-rays, CT scans, and MRIs with confidence. Covers the most common presentations seen in practice.",
-    category: "Diagnostics",
-    price: 1799,
-  },
-];
-
-const CATEGORIES = [
-  "Anatomy",
-  "Pharmacology",
-  "Diagnostics",
-  "Cardiology",
-  "Neurology",
-  "Paediatrics",
-  "Surgery",
-  "General Practice",
-];
-
-// ─── Sidebar nav item ─────────────────────────────────────────────────────────
-
-function NavItem({
-  to,
-  icon: Icon,
-  label,
-  active,
-}: {
-  to: string;
-  icon: React.ElementType;
-  label: string;
-  active: boolean;
-}) {
-  return (
-    <Link to={to} className={`nav-item${active ? " active" : ""}`}>
-      <Icon />
-      {label}
-    </Link>
-  );
-}
-
-// ─── Modal ────────────────────────────────────────────────────────────────────
+type NewCourse = {
+  title: string;
+  description: string;
+  price: number;
+  instructorId: string;
+};
 
 function AddCourseModal({
   onClose,
   onAdd,
+  instructors,
 }: {
   onClose: () => void;
-  onAdd: (c: Omit<Course, "id">) => void;
+  onAdd: (c: NewCourse) => void;
+  instructors: Instructor[];
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("Anatomy");
+  const [instructorId, setInstructorId] = useState(instructors[0]?.id ?? "");
   const [price, setPrice] = useState("");
-  const [errors, setErrors] = useState<{ title?: string; price?: string }>({});
+  const [errors, setErrors] = useState<{ title?: string; price?: string; instructorId?: string }>({});
 
   const handleSubmit = () => {
-    const newErrors: { title?: string; price?: string } = {};
+    const newErrors: typeof errors = {};
     if (!title.trim()) newErrors.title = "Course title is required";
     if (!price || isNaN(Number(price)) || Number(price) <= 0)
       newErrors.price = "Enter a valid price";
+    if (!instructorId) newErrors.instructorId = "Assign a teacher";
     if (Object.keys(newErrors).length) { setErrors(newErrors); return; }
 
-    onAdd({ title: title.trim(), description: description.trim(), category, price: Number(price) });
+    onAdd({
+      title: title.trim(),
+      description: description.trim(),
+      price: Number(price),
+      instructorId,
+    });
     onClose();
   };
 
-  // Close on overlay click
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) onClose();
   };
@@ -265,14 +212,22 @@ function AddCourseModal({
 
         <div className="field-row">
           <div className="field">
-            <label htmlFor="course-cat">Category</label>
+            <label htmlFor="course-teacher">Teacher</label>
             <select
-              id="course-cat"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              id="course-teacher"
+              value={instructorId}
+              onChange={(e) => { setInstructorId(e.target.value); setErrors((p) => ({ ...p, instructorId: undefined })); }}
             >
-              {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+              {instructors.length === 0 && <option value="">No teachers in database</option>}
+              {instructors.map((instructor) => (
+                <option key={instructor.id} value={instructor.id}>
+                  {instructorName(instructor)}
+                </option>
+              ))}
             </select>
+            {errors.instructorId && (
+              <span className="field-error"><AlertCircle />{errors.instructorId}</span>
+            )}
           </div>
 
           <div className="field">
@@ -299,129 +254,107 @@ function AddCourseModal({
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
-
 export default function AdminCourses() {
-  const { pathname } = useLocation();
   const navigate = useNavigate();
-
-  const handleSignOut = async () => {
-    await signOut();
-    navigate("/login");
-  };
-  //const [courses, setCourses] = useState<Course[]>(DUMMY_COURSES);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
-  //const [showModal, setShowModal] = useState(false);
+  const loadCourses = async () => {
+    const [{ data, error }, instructorResult] = await Promise.all([
+      supabase.from("courses").select("id, course_title, course_description, course_price").order("course_title"),
+      fetchInstructors(),
+    ]);
 
- //This is too load info from table 
-useEffect(() => {
-    loadCourses();
-}, []);
-
-const loadCourses = async () => {
-    const { data, error } = await supabase
-        .from("courses")
-        .select("*")
-        .order("course_title");
+    setInstructors(instructorResult.instructors);
 
     if (error) {
-        console.error(error);
-        return;
+      setLoadError(error.message);
+      return;
     }
 
-    const formattedCourses: Course[] = data.map((course) => ({
+    const { data: sessionRows } = await supabase
+      .from("course_sessions")
+      .select("course_id, instructors ( first_name, last_name, email )")
+      .eq("active", true);
+
+    const teacherByCourse = new Map<string, string>();
+    for (const row of sessionRows ?? []) {
+      const instructor = Array.isArray(row.instructors) ? row.instructors[0] : row.instructors;
+      if (!row.course_id || !instructor || teacherByCourse.has(row.course_id)) continue;
+      teacherByCourse.set(row.course_id, instructorName(instructor));
+    }
+
+    if (instructorResult.error) {
+      setLoadError(instructorResult.error);
+    } else {
+      setLoadError("");
+    }
+
+    setCourses(
+      (data ?? []).map((course) => ({
         id: course.id,
         title: course.course_title,
-        description: course.course_description,
-        category: course.category,
+        description: course.course_description ?? "",
         price: course.course_price,
-    }));
+        instructorName: teacherByCourse.get(course.id) ?? "Unassigned",
+      })),
+    );
+  };
 
-    setCourses(formattedCourses);
-};
+  useEffect(() => {
+    void loadCourses();
+  }, []);
 
-  //const handleAdd = (data: Omit<Course, "id">) => {
-    //setCourses((prev) => [{ id: Date.now(), ...data }, ...prev]);
-  //};
-  
-  //This is too insert courses
-  const handleAdd = async (course: Omit<Course, "id">) => {
+  const handleAdd = async (course: NewCourse) => {
+    const { data, error } = await supabase
+      .from("courses")
+      .insert({
+        course_title: course.title,
+        course_description: course.description,
+        course_price: course.price,
+        active: true,
+      })
+      .select("id")
+      .single();
 
-    const { error } = await supabase
-        .from("courses")
-        .insert([
-            {
-                course_title: course.title,
-                course_description: course.description,
-                category: course.category,
-                course_price: course.price,
-                active: true
-            }
-        ]);
+    if (error || !data) {
+      alert(error?.message ?? "Could not create course");
+      return;
+    }
 
-    if (error) {
-        alert(error.message);
-        return;
+    const locationId = await firstLocationId();
+    if (!locationId) {
+      alert("Add a location in the database before assigning a teacher.");
+      return;
+    }
+
+    const { error: sessionError } = await supabase.from("course_sessions").insert({
+      course_id: data.id,
+      instructor_id: course.instructorId,
+      location_id: locationId,
+      start_date: new Date().toISOString().slice(0, 10),
+      end_date: new Date().toISOString().slice(0, 10),
+      start_time: "09:00:00",
+      end_time: "12:00:00",
+      active: true,
+    });
+
+    if (sessionError) {
+      alert(`Course created, but teacher assignment failed: ${sessionError.message}`);
     }
 
     await loadCourses();
-};
-
-//This is to update a course
-const handleUpdate = async (course: Course) => {
-
-    const { error } = await supabase
-        .from("courses")
-        .update({
-            course_title: course.title,
-            course_description: course.description,
-            category: course.category,
-            course_price: course.price
-        })
-        .eq("id", course.id);
-
-    if (error) {
-        alert(error.message);
-        return;
-    }
-
-    await loadCourses();
-
-    alert("Course updated successfully.");
-};
+  };
 
   return (
     <>
       <style>{globalStyles}</style>
 
       <div className="ac-shell">
-        {/* ── Sidebar ── */}
-        <aside className="sidebar">
-          <div className="sidebar-logo">
-            <BookOpen size={20} color="var(--gold)" />
-            Dr <span>Admin</span>
-          </div>
+        <AdminSidebar />
 
-          <nav className="sidebar-nav">
-            <p className="nav-section-label">Main</p>
-            <NavItem to="/dashboard"    icon={LayoutDashboard} label="Dashboard" active={pathname === "/dashboard"} />
-            <NavItem to="/admincourses" icon={BookOpen}        label="Courses"   active={pathname.startsWith("/admincourses")} />
-            <NavItem to="/admin/users"  icon={Users}           label="Students"  active={pathname.startsWith("/admin/users")} />
-            <p className="nav-section-label">Account</p>
-            <NavItem to="/settings"     icon={Settings}        label="Settings"  active={pathname.startsWith("/settings")} />
-          </nav>
-
-          <div className="sidebar-footer">
-            <button className="nav-item" style={{ color: "#665F5C" }} onClick={() => void handleSignOut()}>
-              <LogOut />
-              Sign out
-            </button>
-          </div>
-        </aside>
-
-        {/* ── Main content ── */}
         <main className="ac-main">
           <div className="ac-header">
             <div className="ac-header-left">
@@ -432,6 +365,10 @@ const handleUpdate = async (course: Course) => {
               <Plus /> Add course
             </button>
           </div>
+
+          {loadError && (
+            <p className="load-error"><AlertCircle />{loadError}</p>
+          )}
 
           {courses.length === 0 ? (
             <div className="empty-state">
@@ -455,7 +392,7 @@ const handleUpdate = async (course: Course) => {
                     <p className="card-desc">{course.description}</p>
                   )}
                   <div className="card-footer">
-                    <span className="category-pill">{course.category}</span>
+                    <span className="category-pill">{course.instructorName}</span>
                     <span className="card-arrow">View →</span>
                   </div>
                 </div>
@@ -465,9 +402,12 @@ const handleUpdate = async (course: Course) => {
         </main>
       </div>
 
-      {/* ── Modal (rendered outside the shell so it overlays everything) ── */}
       {showModal && (
-        <AddCourseModal onClose={() => setShowModal(false)} onAdd={handleAdd} />
+        <AddCourseModal
+          onClose={() => setShowModal(false)}
+          onAdd={handleAdd}
+          instructors={instructors}
+        />
       )}
     </>
   );

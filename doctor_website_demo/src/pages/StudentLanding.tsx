@@ -19,13 +19,11 @@
  * Google Fonts: add Plus Jakarta Sans link to public/index.html
  */
 
-import React from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { signOut } from "../lib/auth";
+import { Link } from "react-router-dom";
 import {
-  BookOpen, LayoutDashboard, Settings, LogOut,
-  Bell, GraduationCap, CalendarDays, ChevronRight, Clock,
+  BookOpen, CalendarDays, ChevronRight, Clock, Bell,
 } from "lucide-react";
+import StudentSidebar from "../components/StudentSidebar";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -182,16 +180,6 @@ function gradeClass(pct: number) {
   return "low";
 }
 
-// ─── Sidebar nav item ─────────────────────────────────────────────────────────
-
-function NavItem({ to, icon: Icon, label, active }: { to: string; icon: React.ElementType; label: string; active: boolean }) {
-  return (
-    <Link to={to} className={`sl-nav-item${active ? " active" : ""}`}>
-      <Icon />{label}
-    </Link>
-  );
-}
-
 // ─── Notification icon ────────────────────────────────────────────────────────
 
 function NotifIcon({ type }: { type: string }) {
@@ -203,52 +191,12 @@ function NotifIcon({ type }: { type: string }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function StudentLanding() {
-  const { pathname } = useLocation();
-  const navigate = useNavigate();
-
-  const handleSignOut = async () => {
-    await signOut();
-    navigate("/login");
-  };
-
   return (
     <>
       <style>{styles}</style>
       <div className="sl-shell">
 
-        {/* ── Sidebar ── */}
-        <aside className="sl-sidebar">
-          <div className="sl-logo">
-            <div className="sl-logo-mark"><BookOpen /></div>
-            <div className="sl-logo-text">
-              MedLearn
-              <span>Student Portal</span>
-            </div>
-          </div>
-
-          <nav className="sl-nav">
-            <p className="sl-nav-label">Menu</p>
-            <NavItem to="/studentlanding" icon={LayoutDashboard} label="Dashboard" active={pathname === "/studentlanding"} />
-            <NavItem to="/courses"        icon={BookOpen}        label="My Courses" active={pathname.startsWith("/courses")} />
-            <NavItem to="/grades"         icon={GraduationCap}   label="Grades"     active={pathname.startsWith("/grades")} />
-            <NavItem to="/notifications"  icon={Bell}            label="Notifications" active={pathname.startsWith("/notifications")} />
-            <p className="sl-nav-label">Account</p>
-            <NavItem to="/profile"        icon={Settings}        label="Profile"    active={pathname.startsWith("/profile")} />
-          </nav>
-
-          <div className="sl-footer">
-            <div className="sl-avatar-row">
-              <div className="sl-avatar">JS</div>
-              <div>
-                <p className="sl-avatar-name">John Student</p>
-                <p className="sl-avatar-role">student123@gmail.com</p>
-              </div>
-            </div>
-            <button className="sl-nav-item" style={{ color: "#4A6080" }} onClick={() => void handleSignOut()}>
-              <LogOut />Sign out
-            </button>
-          </div>
-        </aside>
+        <StudentSidebar prefix="sl" />
 
         {/* ── Main ── */}
         <main className="sl-main">

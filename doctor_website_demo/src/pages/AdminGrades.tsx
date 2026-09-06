@@ -1,4 +1,4 @@
-const globalStyles = `:root {
+export const globalStyles = `:root {
     --bg:        #F7F6F3;
     --surface:   #FFFFFF;
     --sidebar:   #111110;
@@ -134,3 +134,5 @@ const globalStyles = `:root {
     .main-content { padding: 28px 24px; }
   }
 `;
+
+void globalStyles;

@@ -32,19 +32,16 @@
  *   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
  */
 
-import React, { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { signOut } from "../lib/auth";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   BookOpen,
   Users,
-  TrendingUp,
-  LayoutDashboard,
   Settings,
-  LogOut,
   ArrowUpRight,
   ChevronRight,
 } from "lucide-react";
+import AdminSidebar from "../components/AdminSidebar";
 import {
   downloadClassListCsv,
   fetchUpcomingSessions,
@@ -200,39 +197,10 @@ const globalStyles = `
   }
 `;
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function NavItem({
-  to,
-  icon: Icon,
-  label,
-  active,
-}: {
-  to: string;
-  icon: React.ElementType;
-  label: string;
-  active: boolean;
-}) {
-  return (
-    <Link to={to} className={`nav-item${active ? " active" : ""}`}>
-      <Icon />
-      {label}
-    </Link>
-  );
-}
-// ─── Main component ───────────────────────────────────────────────────────────
-
 function AdminLanding() {
-  const { pathname } = useLocation();
-  const navigate = useNavigate();
   const [sessions, setSessions] = useState<UpcomingSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [queryError, setQueryError] = useState<string | null>(null);
-
-  const handleSignOut = async () => {
-    await signOut();
-    navigate("/login");
-  };
 
   useEffect(() => {
     let cancelled = false;
@@ -259,30 +227,7 @@ function AdminLanding() {
       <style>{globalStyles}</style>
 
       <div className="admin-shell">
-        {/* ── Sidebar ── */}
-        <aside className="sidebar">
-          <div className="sidebar-logo">
-            <BookOpen size={20} color="var(--gold)" />
-            Dr <span>Admin</span>
-          </div>
-
-          <nav className="sidebar-nav">
-            <p className="nav-section-label">Main</p>
-            <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard"  active={pathname === "/dashboard"} />
-            <NavItem to="/admincourses" icon={BookOpen}        label="Courses"    active={pathname.startsWith("/admincourses")} />
-            <NavItem to="/admin/users"  icon={Users}           label="Students"   active={pathname.startsWith("/admin/users")} />
-
-            <p className="nav-section-label">Account</p>
-            <NavItem to="/settings"    icon={Settings}        label="Settings"   active={pathname.startsWith("/settings")} />
-          </nav>
-
-          <div className="sidebar-footer">
-            <button className="nav-item" style={{ color: "#665F5C" }} onClick={() => void handleSignOut()}>
-              <LogOut />
-              Sign out
-            </button>
-          </div>
-        </aside>
+        <AdminSidebar />
 
         {/* ── Main Content ── */}
         <main className="main-content">
@@ -368,34 +313,34 @@ function AdminLanding() {
                 <tr>
                   <th>Course</th>
                   <th>Date</th>
+                  <th>Instructor</th>
                   <th>Classlist</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={3} className="table-empty">Loading upcoming classes…</td>
+                    <td colSpan={4} className="table-empty">Loading upcoming classes…</td>
                   </tr>
                 ) : sessions.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="table-empty">No upcoming classes scheduled</td>
+                    <td colSpan={4} className="table-empty">No upcoming classes scheduled</td>
                   </tr>
                 ) : (
                   sessions.map((session) => (
                     <tr key={session.id}>
                       <td className="muted">{session.courseTitle}</td>
                       <td className="muted">{session.displayDate}</td>
+                      <td className="muted">{session.instructor}</td>
                       <td>
                         <button
                           type="button"
                           className="btn-primary"
-                          disabled={!session.canDownload}
-                          title={session.downloadDisabledReason}
                           onClick={() => downloadClassListCsv(session)}
                         >
                           Download
                         </button>
-                        {!session.canDownload && session.downloadDisabledReason && (
+                        {session.downloadDisabledReason && (
                           <span className="download-note">{session.downloadDisabledReason}</span>
                         )}
                       </td>
