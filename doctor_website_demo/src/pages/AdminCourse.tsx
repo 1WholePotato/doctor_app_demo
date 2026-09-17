@@ -305,7 +305,15 @@ export default function AdminCourses() {
   };
 
   useEffect(() => {
-    void loadCourses();
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      await loadCourses();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleAdd = async (course: NewCourse) => {

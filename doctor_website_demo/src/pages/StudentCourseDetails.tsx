@@ -15,13 +15,18 @@
  * NPM: lucide-react (already installed)
  */
 
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
 import {
-  BookOpen, CalendarDays, Clock,
-  MapPin, User, ChevronLeft, CheckCircle, X, Users,
+  CalendarDays, Clock,
+  MapPin, User, ChevronLeft, Users,
 } from "lucide-react";
 import StudentSidebar from "../components/StudentSidebar";
+import {
+  fetchStudentCourseDetail,
+  type StudentCourseDetail,
+  type StudentSessionRow,
+} from "../lib/studentCourses";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -118,8 +123,11 @@ const styles = `
   .book-btn { background: var(--s-teal); color: #fff; border: none; padding: 8px 18px; border-radius: 8px; font-family: var(--s-font); font-size: 13px; font-weight: 500; cursor: pointer; transition: background .15s; white-space: nowrap; }
   .book-btn:hover { background: var(--s-teal-mid); }
   .book-btn:disabled { background: var(--s-border); color: var(--s-text-3); cursor: not-allowed; }
-  .booked-label { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; color: var(--s-teal-mid); }
-  .booked-label svg { width: 14px; height: 14px; }
+  .booked-label { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; color: var(--s-text-3); }
+
+  .scd-empty { padding: 32px 18px; text-align: center; font-size: 13px; color: var(--s-text-3); }
+  .scd-loading { font-size: 14px; color: var(--s-text-3); margin-bottom: 16px; }
+  .scd-error { font-size: 13px; color: #DC2626; margin-bottom: 16px; }
 
   /* ── Booking modal ── */
   .modal-overlay { position: fixed; inset: 0; background: rgba(15,30,53,.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; animation: fadeIn .15s ease; }
@@ -139,38 +147,7 @@ const styles = `
   .modal-btn:hover { background: var(--s-teal-mid); }
 
   @keyframes fadeUp  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-  @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 `;
-
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-interface Session {
-  id: number;
-  date: string;
-  location: string;
-  instructor: string;
-  duration: string;
-  seatsLeft: number;
-  totalSeats: number;
-}
-
-const DUMMY_SESSIONS: Session[] = [
-  { id: 1, date: "10 Apr 2026", location: "Cape Town Medical Centre, Room 4A",      instructor: "Dr Pietie van Wyk",  duration: "3 hrs", seatsLeft: 6, totalSeats: 20 },
-  { id: 2, date: "17 Apr 2026", location: "JHB Health Campus, Lab 2",               instructor: "Dr Sielie Botha",    duration: "3 hrs", seatsLeft: 4, totalSeats: 18 },
-  { id: 3, date: "24 Apr 2026", location: "Pretoria University Hospital, Seminar B", instructor: "Dr Mielie Joubert", duration: "3 hrs", seatsLeft: 2, totalSeats: 15 },
-];
-
-const FALLBACK_COURSE = {
-  title: "CPR Training",
-  description: "Learn life-saving CPR techniques used in cardiac emergencies, including chest compressions and AED operation.",
-  category: "Emergency",
-  duration: "3 hrs",
-  seatsLeft: 6,
-  totalSeats: 20,
-};
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function SeatsBadge({ seats }: { seats: number }) {
   const cls   = seats <= 1 ? "seats-full" : seats <= 3 ? "seats-low" : "seats-ok";
@@ -181,20 +158,69 @@ function SeatsBadge({ seats }: { seats: number }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function StudentCourseDetails() {
+  const { id } = useParams<{ id: string }>();
   const routerLocation = useLocation();
+  const passedCourse = (routerLocation.state as { course?: { courseId?: string; title?: string; description?: string } })?.course;
 
-  const passedCourse = (routerLocation.state as { course?: typeof FALLBACK_COURSE })?.course;
-  const course = passedCourse ?? FALLBACK_COURSE;
+  const [course, setCourse] = useState<StudentCourseDetail | null>(null);
+  const [sessions, setSessions] = useState<StudentSessionRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
-  const [bookedIds, setBookedIds]         = useState<number[]>([]);
-  const [showModal, setShowModal]         = useState(false);
-  const [bookedSession, setBookedSession] = useState<Session | null>(null);
+  useEffect(() => {
+    const courseId = id;
+    if (!courseId) {
+      setLoadError("Missing course id");
+      setLoading(false);
+      return;
+    }
 
-  const handleBook = (session: Session) => {
-    setBookedIds((prev) => [...prev, session.id]);
-    setBookedSession(session);
-    setShowModal(true);
-  };
+    let cancelled = false;
+
+    async function load(resolvedId: string) {
+      setLoading(true);
+      const result = await fetchStudentCourseDetail(resolvedId);
+      if (cancelled) return;
+
+      if (result.error) {
+        setLoadError(result.error);
+        setCourse(null);
+        setSessions([]);
+      } else {
+        setLoadError("");
+        setCourse(result.course);
+        setSessions(result.sessions);
+      }
+      setLoading(false);
+    }
+
+    void load(courseId);
+    return () => { cancelled = true; };
+  }, [id]);
+
+  const displayCourse = course ?? (passedCourse && id ? {
+    id,
+    title: passedCourse.title ?? "Course",
+    description: passedCourse.description ?? "",
+    category: "Course",
+    duration: "—",
+    totalSeats: 0,
+  } satisfies StudentCourseDetail : null);
+
+  if (!id) {
+    return (
+      <>
+        <style>{styles}</style>
+        <div className="scd-shell">
+          <StudentSidebar prefix="sl" />
+          <main className="scd-main">
+            <p className="scd-error">Missing course id.</p>
+            <Link to="/courses" className="back-link"><ChevronLeft />Back to courses</Link>
+          </main>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -207,17 +233,24 @@ export default function StudentCourseDetails() {
         <main className="scd-main">
           <Link to="/courses" className="back-link"><ChevronLeft />Back to courses</Link>
 
+          {loadError && <p className="scd-error">{loadError}</p>}
+          {loading && <p className="scd-loading">Loading course…</p>}
+
+          {displayCourse && (
+          <>
           {/* Course hero */}
           <div className="hero">
             <div className="hero-left">
-              <p className="eyebrow">{course.category}</p>
-              <h1>{course.title}</h1>
-              <p>{course.description}</p>
+              <p className="eyebrow">{displayCourse.category}</p>
+              <h1>{displayCourse.title}</h1>
+              <p>{displayCourse.description || "No description provided."}</p>
             </div>
             <div className="hero-right">
-              <span className="hero-cat">{course.category}</span>
-              <span className="hero-meta"><Clock />Duration: {course.duration ?? "3 hrs"}</span>
-              <span className="hero-meta"><Users />{course.totalSeats ?? 20} seats per session</span>
+              <span className="hero-cat">{displayCourse.category}</span>
+              <span className="hero-meta"><Clock />Duration: {displayCourse.duration}</span>
+              {displayCourse.totalSeats > 0 && (
+                <span className="hero-meta"><Users />{displayCourse.totalSeats} seats per session</span>
+              )}
             </div>
           </div>
 
@@ -227,6 +260,9 @@ export default function StudentCourseDetails() {
           </div>
 
           <div className="sessions-card">
+            {sessions.length === 0 && !loading ? (
+              <p className="scd-empty">No upcoming sessions for this course.</p>
+            ) : (
             <table className="sessions-table">
               <thead>
                 <tr>
@@ -238,9 +274,7 @@ export default function StudentCourseDetails() {
                 </tr>
               </thead>
               <tbody>
-                {DUMMY_SESSIONS.map((session) => {
-                  const isBooked = bookedIds.includes(session.id);
-                  return (
+                {sessions.map((session) => (
                     <tr key={session.id}>
                       <td>
                         <div className="cell-icon"><CalendarDays />{session.date}</div>
@@ -251,51 +285,28 @@ export default function StudentCourseDetails() {
                       <td className="muted">
                         <div className="cell-icon"><User />{session.instructor}</div>
                       </td>
-                      <td><SeatsBadge seats={isBooked ? session.seatsLeft - 1 : session.seatsLeft} /></td>
+                      <td><SeatsBadge seats={session.seatsLeft} /></td>
                       <td style={{ textAlign: "right" }}>
-                        {isBooked ? (
-                          <span className="booked-label"><CheckCircle />Booked</span>
-                        ) : (
-                          <button
-                            className="book-btn"
-                            onClick={() => handleBook(session)}
-                            disabled={session.seatsLeft === 0}
-                          >
-                            Book now
-                          </button>
-                        )}
+                        <button
+                          className="book-btn"
+                          type="button"
+                          disabled
+                          title="Online booking pending server RLS (issue #4)"
+                          aria-label="Book now — online booking not yet available"
+                        >
+                          Book now
+                        </button>
                       </td>
                     </tr>
-                  );
-                })}
+                ))}
               </tbody>
             </table>
+            )}
           </div>
+          </>
+          )}
         </main>
       </div>
-
-      {/* ── Booking confirmation modal ── */}
-      {showModal && bookedSession && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setShowModal(false)}><X /></button>
-
-            <div className="modal-icon"><CheckCircle /></div>
-            <h2>You're booked!</h2>
-            <p>Your spot has been reserved. See you there.</p>
-
-            <div className="modal-summary">
-              <div className="ms-row"><BookOpen /><span><strong>{course.title}</strong></span></div>
-              <div className="ms-row"><CalendarDays /><span>{bookedSession.date}</span></div>
-              <div className="ms-row"><MapPin /><span>{bookedSession.location}</span></div>
-              <div className="ms-row"><User /><span>{bookedSession.instructor}</span></div>
-              <div className="ms-row"><Clock /><span>{bookedSession.duration}</span></div>
-            </div>
-
-            <button className="modal-btn" onClick={() => setShowModal(false)}>Done</button>
-          </div>
-        </div>
-      )}
     </>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { getSessionUser, homeForRole, type AppUser } from "../lib/auth";
 import { isAdminRole } from "../lib/roles";
+import { supabase } from "../supabaseClient";
 
 type RequireAuthProps = {
   children: ReactNode;
@@ -12,7 +13,21 @@ export default function RequireAuth({ children, role }: RequireAuthProps) {
   const [user, setUser] = useState<AppUser | null | undefined>(undefined);
 
   useEffect(() => {
-    void getSessionUser().then(setUser);
+    let cancelled = false;
+
+    const refresh = () => {
+      void getSessionUser().then((next) => {
+        if (!cancelled) setUser(next);
+      });
+    };
+
+    refresh();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(refresh);
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
   if (user === undefined) {

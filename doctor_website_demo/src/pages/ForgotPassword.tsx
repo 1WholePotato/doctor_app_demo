@@ -59,7 +59,7 @@ export default function ForgotPassword() {
             <p className="eyebrow">Account</p>
             <h1>Forgot password</h1>
             <p className="sub">Dummy reset page for navigation testing.</p>
-            <div className="fp-banner">
+            <div className="fp-banner" role="status">
               Password reset email is not enabled in this demo. Ask an admin if you are locked out, or return to sign in.
             </div>
             <Link to="/login" className="fp-back">← Back to sign in</Link>

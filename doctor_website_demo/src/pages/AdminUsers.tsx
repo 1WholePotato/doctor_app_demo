@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Users,
@@ -69,6 +69,8 @@ const globalStyles = `
   .table-inner tbody td { padding: 16px 20px; font-size: 14px; color: var(--text-1); }
   .table-inner tbody td.muted { color: var(--text-2); }
 
+  .table-inner tbody td.courses-cell { max-width: 240px; min-width: 0; vertical-align: top; }
+
   .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
   .badge-paid { background: #EAF5EE; color: #2E7D52; }
   .badge-pending { background: #FEF4E4; color: #9A6500; }
@@ -109,8 +111,8 @@ const globalStyles = `
 
   .course-help { font-size: 13px; color: var(--text-2); line-height: 1.5; margin: -8px 0 14px; }
   .course-list { display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: #FAFAF8; }
-  .course-option { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--text-1); cursor: pointer; }
-  .course-option input { margin-top: 2px; accent-color: var(--gold); }
+  .course-option { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--text-1); cursor: pointer; line-height: 1.4; }
+  .course-option input { margin-top: 2px; accent-color: var(--gold); flex-shrink: 0; width: 16px; height: 16px; }
   .course-pills { display: flex; flex-wrap: wrap; gap: 6px; }
   .course-pill { font-size: 11px; font-weight: 500; color: #7A5E1A; background: var(--gold-soft); border: 1px solid #E6D7A8; padding: 3px 8px; border-radius: 20px; }
   .muted-dash { color: var(--text-3); }
@@ -171,6 +173,7 @@ function ChangeRoleModal({
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [error, setError] = useState("");
   const [tableMissing, setTableMissing] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const isSelf = user.id === currentUserId;
   const assigningInstructor = isInstructorRole(roleId, roles);
@@ -200,6 +203,16 @@ function ChangeRoleModal({
       cancelled = true;
     };
   }, [user.email]);
+
+  useEffect(() => {
+    dialogRef.current?.querySelector<HTMLElement>("#role-select")?.focus();
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) onClose();
@@ -277,7 +290,7 @@ function ChangeRoleModal({
 
   return (
     <div className="modal-overlay" onClick={handleOverlayClick}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="role-modal-title">
+      <div className="modal" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="role-modal-title">
         <button className="modal-close" onClick={onClose} aria-label="Close">
           <X />
         </button>
@@ -297,7 +310,7 @@ function ChangeRoleModal({
         </div>
 
         {isSelf ? (
-          <div className="field-error">
+          <div className="field-error" role="alert">
             <AlertCircle />
             You cannot change your own role.
           </div>
@@ -319,13 +332,13 @@ function ChangeRoleModal({
             </div>
 
             {assigningInstructor && (
-              <div className="field">
-                <label>Courses they can give</label>
+              <fieldset className="field" style={{ border: "none", padding: 0, margin: 0 }}>
+                <legend className="readonly-label" style={{ marginBottom: 6 }}>Courses they can give</legend>
                 <p className="course-help">
                   Instructors only appear as teachers on the courses you select here.
                 </p>
                 {tableMissing && (
-                  <div className="field-error">
+                  <div className="field-error" role="alert">
                     <AlertCircle />
                     Run scripts/ensure-instructor-courses.sql in the Supabase SQL editor first.
                   </div>
@@ -336,25 +349,29 @@ function ChangeRoleModal({
                   <p className="readonly-sub">Create a course before assigning an instructor.</p>
                 ) : (
                   <div className="course-list">
-                    {courses.map((course) => (
-                      <label key={course.id} className="course-option">
-                        <input
-                          type="checkbox"
-                          checked={courseIds.includes(course.id)}
-                          onChange={() => toggleCourse(course.id)}
-                        />
-                        {course.title}
-                      </label>
-                    ))}
+                    {courses.map((course) => {
+                      const inputId = `course-${course.id}`;
+                      return (
+                        <label key={course.id} htmlFor={inputId} className="course-option">
+                          <input
+                            id={inputId}
+                            type="checkbox"
+                            checked={courseIds.includes(course.id)}
+                            onChange={() => toggleCourse(course.id)}
+                          />
+                          {course.title}
+                        </label>
+                      );
+                    })}
                   </div>
                 )}
-              </div>
+              </fieldset>
             )}
           </>
         )}
 
         {error && (
-          <div className="field-error">
+          <div className="field-error" role="alert">
             <AlertCircle />
             {error}
           </div>
@@ -467,7 +484,8 @@ export default function AdminUsers() {
       <>
         <style>{globalStyles}</style>
         <div className="au-shell">
-          <main className="au-main" style={{ marginLeft: 0 }}>
+          <AdminSidebar />
+          <main className="au-main">
             <p className="au-loading">Loading users…</p>
           </main>
         </div>
@@ -501,7 +519,7 @@ export default function AdminUsers() {
           </div>
 
           {loadError && (
-            <div className="field-error" style={{ marginBottom: 16 }}>
+            <div className="field-error" role="alert" style={{ marginBottom: 16 }}>
               <AlertCircle />
               {loadError}
             </div>
@@ -544,7 +562,7 @@ export default function AdminUsers() {
                         </td>
                         <td className="muted">{u.email}</td>
                         <td className="muted">{roleLabel(u.role_id, roles)}</td>
-                        <td>
+                        <td className="courses-cell">
                           {assigned.length === 0 ? (
                             <span className="muted-dash">—</span>
                           ) : (
