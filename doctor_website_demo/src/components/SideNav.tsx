@@ -1,3 +1,8 @@
+/**
+ * STUB COMPONENT: SideNav (DashboardLayout)
+ * NOTE: Legacy sidebar navigation stub tracked under frontend tickets.
+ * Retained until formal layout consolidation is merged.
+ */
 import { Link, Outlet } from "react-router-dom";
 
 export default function DashboardLayout() {

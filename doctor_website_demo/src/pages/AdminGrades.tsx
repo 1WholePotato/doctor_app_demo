@@ -1,3 +1,8 @@
+/**
+ * STUB / PLACEHOLDER FILE: AdminGrades.tsx
+ * NOTE: Tracked under Issue #3 & frontend design tickets.
+ * Exporting empty stub component with styles to maintain compatibility.
+ */
 export const globalStyles = `:root {
     --bg:        #F7F6F3;
     --surface:   #FFFFFF;
@@ -56,7 +61,7 @@ export const globalStyles = `:root {
 
   /* Stat cards */
   .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 36px; }
-  .stat-card {
+  .stat-card {\
     background: var(--surface); border-radius: var(--radius);
     border: 1px solid var(--border); padding: 22px 24px;
     opacity: 0; animation: fadeUp 0.4s ease forwards;
@@ -135,4 +140,6 @@ export const globalStyles = `:root {
   }
 `;
 
-void globalStyles;
+export default function AdminGrades() {
+  return null;
+}

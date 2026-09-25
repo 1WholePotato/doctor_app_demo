@@ -168,10 +168,7 @@ export default function StudentCourseDetails() {
   const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
-    const courseId = id;
-    if (!courseId) {
-      setLoadError("Missing course id");
-      setLoading(false);
+    if (!id) {
       return;
     }
 
@@ -194,7 +191,7 @@ export default function StudentCourseDetails() {
       setLoading(false);
     }
 
-    void load(courseId);
+    void load(id);
     return () => { cancelled = true; };
   }, [id]);
 

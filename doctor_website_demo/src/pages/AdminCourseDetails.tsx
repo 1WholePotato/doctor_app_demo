@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   Plus,
@@ -208,7 +208,7 @@ export default function AdminCourseDetails() {
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!id) {
       setLoadError("Missing course id");
       setLoading(false);
@@ -267,7 +267,7 @@ export default function AdminCourseDetails() {
     );
 
     setLoading(false);
-  };
+  }, [id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -280,7 +280,7 @@ export default function AdminCourseDetails() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [loadData]);
 
   const handleAdd = async (instructorId: string) => {
     if (!id) return;
