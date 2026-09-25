@@ -82,7 +82,9 @@ export async function fetchUpcomingSessions(): Promise<FetchUpcomingSessionsResu
 
   const { data: bookingRows, error: bookingsError } = await supabase
     .from("bookings")
-    .select("id, user_id, course_id, payment_status, users ( first_name, last_name, email )");
+    .select("id, user_id, course_id, payment_status, users ( first_name, last_name, email )")
+    .eq("payment_status", "paid")
+    .limit(200);
 
   if (bookingsError) {
     errors.push(`bookings: ${bookingsError.message}`);

@@ -25,98 +25,7 @@ import { resolveStudentRoleId } from "../lib/roles";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = `
-  :root {
-    --bg:        #F7F6F3;
-    --surface:   #FFFFFF;
-    --sidebar:   #111110;
-    --gold:      #C9A84C;
-    --gold-soft: #F5EDD6;
-    --text-1:    #111110;
-    --text-2:    #6B6A66;
-    --text-3:    #A09F9A;
-    --border:    #E8E6E1;
-    --font-display: 'Fraunces', Georgia, serif;
-    --font-body:    'DM Sans', system-ui, sans-serif;
-  }
-
-  .reg-shell { min-height: 100vh; display: flex; font-family: var(--font-body); }
-
-  /* ── Left branding panel ── */
-  .reg-left {
-    width: 380px; flex-shrink: 0; background: var(--sidebar);
-    display: flex; flex-direction: column; justify-content: space-between;
-    padding: 48px 44px;
-  }
-  .reg-logo { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-size: 18px; font-weight: 300; color: #fff; }
-  .reg-logo span { color: var(--gold); }
-  .reg-logo-dot { width: 28px; height: 28px; border-radius: 8px; background: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 15px; }
-  .reg-hero { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-  .reg-hero h2 { font-family: var(--font-display); font-size: 32px; font-weight: 300; color: #fff; line-height: 1.3; margin-bottom: 16px; letter-spacing: -.01em; }
-  .reg-hero h2 em { font-style: italic; color: var(--gold); }
-  .reg-hero p { font-size: 14px; color: #888887; line-height: 1.7; max-width: 260px; }
-  .reg-steps-preview { margin-top: 36px; display: flex; flex-direction: column; gap: 12px; }
-  .rsp-item { display: flex; align-items: center; gap: 12px; }
-  .rsp-num { width: 24px; height: 24px; border-radius: 50%; background: rgba(201,168,76,.2); color: var(--gold); font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .rsp-num.done { background: var(--gold); color: #111110; }
-  .rsp-label { font-size: 13px; color: #888887; }
-  .rsp-label.done { color: #fff; }
-  .reg-footer { font-size: 12px; color: #444443; }
-
-  /* ── Right form panel ── */
-  .reg-right { flex: 1; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 48px 40px; }
-  .reg-form-wrap { width: 100%; max-width: 400px; }
-  .reg-form-wrap .eyebrow { font-size: 11px; font-weight: 500; color: var(--text-3); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
-  .reg-form-wrap h1 { font-family: var(--font-display); font-size: 26px; font-weight: 300; color: var(--text-1); margin-bottom: 8px; }
-  .reg-form-wrap .sub { font-size: 13px; color: var(--text-3); margin-bottom: 24px; }
-
-  /* Progress bar */
-  .progress-track { display: flex; align-items: center; gap: 0; margin-bottom: 28px; }
-  .progress-step { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
-  .progress-circle { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; border: 2px solid var(--border); color: var(--text-3); background: var(--surface); transition: all .2s; }
-  .progress-circle.active { border-color: var(--text-1); background: var(--text-1); color: #fff; }
-  .progress-circle.complete { border-color: var(--gold); background: var(--gold); color: #fff; }
-  .progress-label { font-size: 10px; font-weight: 500; color: var(--text-3); text-align: center; letter-spacing: .03em; white-space: nowrap; }
-  .progress-label.active { color: var(--text-1); font-weight: 600; }
-  .progress-line { flex: 1; height: 2px; background: var(--border); margin-bottom: 20px; max-width: 40px; transition: background .2s; }
-  .progress-line.done { background: var(--gold); }
-
-  /* Fields */
-  .rf-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
-  .rf-field label { font-size: 12px; font-weight: 500; color: var(--text-2); letter-spacing: .04em; text-transform: uppercase; }
-  .rf-field input { width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; font-family: var(--font-body); font-size: 14px; color: var(--text-1); background: var(--surface); outline: none; transition: border-color .15s; }
-  .rf-field input:focus { border-color: var(--gold); }
-  .rf-field input.err { border-color: #C0392B; }
-  .rf-error { font-size: 12px; color: #C0392B; display: flex; align-items: center; gap: 4px; }
-  .rf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-
-  /* Citizenship toggle */
-  .citi-toggle { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px; margin-bottom: 16px; }
-  .citi-opt { flex: 1; padding: 9px; text-align: center; font-size: 13px; font-weight: 500; border-radius: 7px; cursor: pointer; border: none; background: none; font-family: var(--font-body); color: var(--text-3); transition: background .15s, color .15s; }
-  .citi-opt.active { background: var(--text-1); color: #fff; }
-
-  /* Nav buttons */
-  .rf-nav { display: flex; gap: 10px; margin-top: 4px; }
-  .rf-back { flex: 1; background: var(--surface); color: var(--text-2); border: 1px solid var(--border); padding: 12px; border-radius: 10px; font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer; transition: background .15s; }
-  .rf-back:hover { background: var(--border); }
-  .rf-next { flex: 2; background: var(--text-1); color: #fff; border: none; padding: 12px; border-radius: 10px; font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer; transition: background .15s; }
-  .rf-next:hover { background: #2a2a28; }
-  .rf-next:disabled { background: var(--text-3); cursor: not-allowed; }
-
-  /* Error banner */
-  .rf-banner { background: #FEE9E9; border: 1px solid #F5C1C1; border-radius: 10px; padding: 11px 14px; font-size: 13px; color: #A12D2D; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-
-  /* Footer */
-  .rf-footer { text-align: center; font-size: 13px; color: var(--text-3); margin-top: 18px; }
-  .rf-footer a { color: var(--gold); text-decoration: none; margin-left: 4px; }
-  .rf-footer a:hover { text-decoration: underline; }
-
-  /* Step fade */
-  .step-wrap { animation: stepIn .2s ease; }
-  @keyframes stepIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
-
-  @media (max-width: 768px) { .reg-left { display: none; } .reg-right { background: var(--surface); } }
-`;
+import "../styles/auth.css";
 
 const STEP_LABELS = ["Personal", "Identity", "Contact"];
 
@@ -242,9 +151,7 @@ export default function Register() {
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <>
-      <style>{styles}</style>
-      <div className="reg-shell">
+    <div className="reg-shell">
 
         {/* ── Left branding panel ── */}
         <div className="reg-left">
@@ -442,6 +349,5 @@ export default function Register() {
         </div>
 
       </div>
-    </>
   );
 }

@@ -4,75 +4,6 @@ import { supabase } from "../supabaseClient";
 import { getSessionUser, type AppUser } from "../lib/auth";
 import { loadRoles, roleLabel } from "../lib/roles";
 
-const styles = `
-  :root {
-    --s-bg:       #F4F7FB;
-    --s-surface:  #FFFFFF;
-    --s-navy:     #0F1E35;
-    --s-teal:     #2BBFAA;
-    --s-teal-soft:#E6F7F5;
-    --s-teal-mid: #1A9E8C;
-    --s-text-1:   #0F1E35;
-    --s-text-2:   #4A5568;
-    --s-text-3:   #94A3B8;
-    --s-border:   #E2E8F0;
-    --s-radius:   12px;
-    --s-font:     'Plus Jakarta Sans', system-ui, sans-serif;
-  }
-
-  .sp-shell * { box-sizing: border-box; margin: 0; padding: 0; }
-  .sp-shell { font-family: var(--s-font); background: var(--s-bg); min-height: 100vh; display: flex; }
-
-  .sp-sidebar { width: 224px; min-height: 100vh; background: var(--s-navy); display: flex; flex-direction: column; padding: 26px 14px; position: fixed; top: 0; left: 0; bottom: 0; z-index: 10; }
-  .sp-logo { display: flex; align-items: center; gap: 10px; padding: 0 8px; margin-bottom: 32px; }
-  .sp-logo-mark { width: 30px; height: 30px; border-radius: 8px; background: var(--s-teal); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .sp-logo-mark svg { width: 16px; height: 16px; color: #fff; }
-  .sp-logo-text { font-size: 14px; font-weight: 600; color: #fff; letter-spacing: -.01em; line-height: 1.2; }
-  .sp-logo-text span { display: block; font-size: 11px; font-weight: 400; color: #64748B; }
-  .sp-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
-  .sp-nav-label { font-size: 10px; font-weight: 600; letter-spacing: .08em; color: #2D3F58; text-transform: uppercase; padding: 0 10px; margin: 18px 0 5px; }
-  .sp-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 9px; color: #64748B; font-size: 13px; font-weight: 400; text-decoration: none; transition: background .15s, color .15s; cursor: pointer; border: none; background: none; width: 100%; text-align: left; }
-  .sp-nav-item:hover { background: rgba(255,255,255,.06); color: #CBD5E1; }
-  .sp-nav-item.active { background: rgba(43,191,170,.15); color: var(--s-teal); font-weight: 500; }
-  .sp-nav-item svg { width: 17px; height: 17px; flex-shrink: 0; }
-  .sp-footer { margin-top: auto; padding-top: 18px; border-top: 1px solid #1E3050; }
-  .sp-avatar-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; margin-bottom: 10px; }
-  .sp-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--s-teal); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: #fff; flex-shrink: 0; }
-  .sp-avatar-name { font-size: 13px; font-weight: 500; color: #CBD5E1; }
-  .sp-avatar-role { font-size: 11px; color: #4A6080; }
-
-  .sp-main { margin-left: 224px; flex: 1; padding: 32px 40px; max-width: 720px; }
-  .sp-header { margin-bottom: 24px; }
-  .sp-header .eyebrow { font-size: 11px; font-weight: 600; color: var(--s-text-3); letter-spacing: .07em; text-transform: uppercase; margin-bottom: 5px; }
-  .sp-header h1 { font-size: 28px; font-weight: 600; color: var(--s-text-1); letter-spacing: -.02em; }
-
-  .sp-card { background: var(--s-surface); border: 1px solid var(--s-border); border-radius: var(--s-radius); padding: 28px; }
-  .sp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .sp-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
-  .sp-field label { font-size: 12px; font-weight: 500; color: var(--s-text-2); letter-spacing: .04em; text-transform: uppercase; }
-  .sp-field input { width: 100%; border: 1px solid var(--s-border); border-radius: 8px; padding: 11px 14px; font-family: var(--s-font); font-size: 14px; color: var(--s-text-1); background: var(--s-surface); outline: none; transition: border-color .15s; }
-  .sp-field input:focus { border-color: var(--s-teal); }
-  .sp-field input.err { border-color: #C0392B; }
-  .sp-field input:disabled { background: #F8FAFC; color: var(--s-text-3); cursor: not-allowed; }
-  .sp-error { font-size: 12px; color: #C0392B; }
-  .sp-readonly { font-size: 14px; color: var(--s-text-1); padding: 11px 0; }
-  .sp-readonly-label { font-size: 12px; font-weight: 500; color: var(--s-text-2); letter-spacing: .04em; text-transform: uppercase; margin-bottom: 4px; }
-
-  .citi-toggle { display: flex; background: var(--s-surface); border: 1px solid var(--s-border); border-radius: 8px; padding: 4px; margin-bottom: 16px; }
-  .citi-opt { flex: 1; padding: 9px; text-align: center; font-size: 13px; font-weight: 500; border-radius: 6px; cursor: pointer; border: none; background: none; font-family: var(--s-font); color: var(--s-text-3); transition: background .15s, color .15s; }
-  .citi-opt.active { background: var(--s-navy); color: #fff; }
-
-  .sp-banner { border-radius: 8px; padding: 11px 14px; font-size: 13px; margin-bottom: 16px; }
-  .sp-banner.err { background: #FEE9E9; border: 1px solid #F5C1C1; color: #A12D2D; }
-  .sp-banner.ok { background: var(--s-teal-soft); border: 1px solid #A7E8DE; color: var(--s-teal-mid); }
-
-  .sp-btn { background: var(--s-teal); color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-family: var(--s-font); font-size: 14px; font-weight: 500; cursor: pointer; transition: background .15s; margin-top: 8px; }
-  .sp-btn:hover { background: var(--s-teal-mid); }
-  .sp-btn:disabled { background: var(--s-text-3); cursor: not-allowed; }
-
-  .sp-loading { font-size: 14px; color: var(--s-text-3); padding: 40px 0; }
-`;
-
 export default function StudentProfile() {
   const navigate = useNavigate();
 
@@ -195,7 +126,6 @@ export default function StudentProfile() {
   if (loading) {
     return (
       <>
-        <style>{styles}</style>
         <main className="sp-main">
           <p className="sp-loading">Loading profile…</p>
         </main>
@@ -205,7 +135,6 @@ export default function StudentProfile() {
 
   return (
     <>
-      <style>{styles}</style>
         <main className="sp-main">
           <div className="sp-header">
             <p className="eyebrow">Account</p>
