@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import type { S3Client } from "@aws-sdk/client-s3";
 
 /**
  * Cloudflare R2 / S3-compatible client configuration
@@ -16,18 +16,26 @@ export const R2_PUBLIC_BASE_URL = import.meta.env.VITE_R2_PUBLIC_URL ?? "";
 const localEndpoint = import.meta.env.VITE_R2_ENDPOINT;
 const endpoint = localEndpoint || (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : undefined);
 
-export const s3Client = new S3Client({
-  region: "auto",
-  endpoint,
-  credentials: {
-    accessKeyId,
-    secretAccessKey,
-  },
-  forcePathStyle: true,
-});
+let s3ClientInstance: S3Client | null = null;
+
+async function getS3Client(): Promise<S3Client> {
+  if (s3ClientInstance) return s3ClientInstance;
+  const { S3Client: S3ClientClass } = await import("@aws-sdk/client-s3");
+  s3ClientInstance = new S3ClientClass({
+    region: "auto",
+    endpoint,
+    credentials: {
+      accessKeyId,
+      secretAccessKey,
+    },
+    forcePathStyle: true,
+  });
+  return s3ClientInstance;
+}
 
 /**
  * Uploads a course completion certificate PDF to Cloudflare R2
+ * Dynamically imports AWS S3 client to keep bundle lean.
  */
 export async function uploadCertificateToR2(
   key: string,
@@ -35,6 +43,9 @@ export async function uploadCertificateToR2(
   contentType = "application/pdf"
 ): Promise<{ success: boolean; url: string; error?: string }> {
   try {
+    const { PutObjectCommand } = await import("@aws-sdk/client-s3");
+    const client = await getS3Client();
+
     const command = new PutObjectCommand({
       Bucket: R2_BUCKET,
       Key: key,
@@ -42,7 +53,7 @@ export async function uploadCertificateToR2(
       ContentType: contentType,
     });
 
-    await s3Client.send(command);
+    await client.send(command);
 
     const publicUrl = R2_PUBLIC_BASE_URL
       ? `${R2_PUBLIC_BASE_URL.replace(/\/$/, "")}/${key}`

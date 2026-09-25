@@ -18,6 +18,7 @@
  */
 
 import React, { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import { useNavigate, Link } from "react-router-dom";
 import { resolveStudentRoleId } from "../lib/roles";
@@ -130,6 +131,7 @@ export default function Register() {
   const [last_name,     setLastname]    = useState("");
   const [email,         setEmail]       = useState("");
   const [password,      setPassword]    = useState("");
+  const [showPassword,  setShowPassword] = useState(false);
   const [birth_date,    setBirthdate]   = useState("");
   const [id_num,        setIdnum]       = useState("");
   const [passport_num,  setpassportNum] = useState("");
@@ -324,9 +326,32 @@ export default function Register() {
                   </div>
                   <div className="rf-field">
                     <label>Password</label>
-                    <input type="password" value={password} placeholder="Min. 6 characters"
-                      className={errors.password ? "err" : ""}
-                      onChange={(e) => { setPassword(e.target.value); clearErr("password"); }} />
+                    <div style={{ position: "relative" }}>
+                      <input type={showPassword ? "text" : "password"} value={password} placeholder="Min. 6 characters"
+                        className={errors.password ? "err" : ""}
+                        style={{ paddingRight: "40px", width: "100%" }}
+                        onChange={(e) => { setPassword(e.target.value); clearErr("password"); }} />
+                      <button
+                        type="button"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        onClick={() => setShowPassword(!showPassword)}
+                        style={{
+                          position: "absolute",
+                          right: "12px",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "var(--text-3)",
+                          display: "flex",
+                          alignItems: "center",
+                          padding: 0,
+                        }}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
                     {errors.password && <span className="rf-error" role="alert">⚠ {errors.password}</span>}
                   </div>
                   <div className="rf-field">

@@ -52,9 +52,18 @@ export async function fetchStudentCourses(userId: string): Promise<{
     return { courses: [], error: error.message };
   }
 
+  const courseIds = Array.from(
+    new Set((data ?? []).map((row) => row.course_id).filter((id): id is string => Boolean(id)))
+  );
+
+  if (courseIds.length === 0) {
+    return { courses: [], error: null };
+  }
+
   const { data: sessions } = await supabase
     .from("course_sessions")
     .select("course_id, instructors ( first_name, last_name, email )")
+    .in("course_id", courseIds)
     .eq("active", true);
 
   const instructorByCourse = new Map<string, string>();

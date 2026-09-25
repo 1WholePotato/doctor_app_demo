@@ -21,18 +21,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    void refreshUser();
+    let mounted = true;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Single source of truth: onAuthStateChange fires INITIAL_SESSION on setup
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!session) {
-        setUser(null);
-        setLoading(false);
+        if (mounted) {
+          setUser(null);
+          setLoading(false);
+        }
       } else {
-        void refreshUser();
+        try {
+          const current = await getSessionUser();
+          if (mounted) setUser(current);
+        } catch (err) {
+          console.error("Auth session change error:", err);
+          if (mounted) setUser(null);
+        } finally {
+          if (mounted) setLoading(false);
+        }
       }
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);

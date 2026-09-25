@@ -18,15 +18,22 @@ function NavItem({
   icon: Icon,
   label,
   active,
+  onPrefetch,
 }: {
   prefix: Prefix;
   to: string;
   icon: ElementType;
   label: string;
   active: boolean;
+  onPrefetch?: () => void;
 }) {
   return (
-    <Link to={to} className={`${prefix}-nav-item${active ? " active" : ""}`}>
+    <Link
+      to={to}
+      className={`${prefix}-nav-item${active ? " active" : ""}`}
+      onMouseEnter={onPrefetch}
+      onFocus={onPrefetch}
+    >
       <Icon />
       {label}
     </Link>
@@ -70,6 +77,7 @@ export default function StudentSidebar({ prefix = "sl" }: { prefix?: Prefix }) {
           icon={LayoutDashboard}
           label="Dashboard"
           active={pathname === "/studentlanding"}
+          onPrefetch={() => void import("../pages/StudentLanding")}
         />
         <NavItem
           prefix={prefix}
@@ -77,6 +85,7 @@ export default function StudentSidebar({ prefix = "sl" }: { prefix?: Prefix }) {
           icon={BookOpen}
           label="My Courses"
           active={pathname.startsWith("/courses")}
+          onPrefetch={() => void import("../pages/StudentCourses")}
         />
         <NavItem
           prefix={prefix}
@@ -84,6 +93,7 @@ export default function StudentSidebar({ prefix = "sl" }: { prefix?: Prefix }) {
           icon={GraduationCap}
           label="Grades"
           active={pathname.startsWith("/grades")}
+          onPrefetch={() => void import("../pages/StudentGrades")}
         />
         <NavItem
           prefix={prefix}
@@ -91,6 +101,7 @@ export default function StudentSidebar({ prefix = "sl" }: { prefix?: Prefix }) {
           icon={Bell}
           label="Notifications"
           active={pathname.startsWith("/notifications")}
+          onPrefetch={() => void import("../pages/StudentNotifications")}
         />
         <p className={`${prefix}-nav-label`}>Account</p>
         <NavItem
@@ -99,6 +110,7 @@ export default function StudentSidebar({ prefix = "sl" }: { prefix?: Prefix }) {
           icon={Settings}
           label="Profile"
           active={pathname.startsWith("/profile")}
+          onPrefetch={() => void import("../pages/StudentProfile")}
         />
       </nav>
 

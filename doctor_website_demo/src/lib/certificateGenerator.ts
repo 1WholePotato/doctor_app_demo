@@ -1,5 +1,3 @@
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
-
 export interface CertificateDetails {
   studentName: string;
   courseTitle: string;
@@ -11,8 +9,11 @@ export interface CertificateDetails {
 /**
  * Generates an authoritative 1-page completion certificate in A4 Landscape
  * using pdf-lib (zero DOM/canvas dependency, runs cleanly in browser & node).
+ * Dynamically imports pdf-lib to keep ~400kB out of initial bundle.
  */
 export async function generateCertificatePdf(details: CertificateDetails): Promise<Uint8Array> {
+  const { PDFDocument, rgb, StandardFonts } = await import("pdf-lib");
+
   const pdfDoc = await PDFDocument.create();
   // Standard A4 Landscape: 841.89 x 595.28 points
   const page = pdfDoc.addPage([841.89, 595.28]);

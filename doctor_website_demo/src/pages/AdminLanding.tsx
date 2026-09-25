@@ -211,7 +211,7 @@ function AdminLanding() {
       const [result, userRes, courseRes, bookingRes] = await Promise.all([
         fetchUpcomingSessions(),
         supabase.from("users").select("id", { count: "exact", head: true }).eq("role", "student"),
-        supabase.from("courses").select("id, course_price"),
+        supabase.from("courses").select("id", { count: "exact", head: true }).eq("active", true),
         supabase.from("bookings").select("payment_status, courses(course_price)").eq("payment_status", "paid"),
       ]);
       if (cancelled) return;
@@ -220,7 +220,7 @@ function AdminLanding() {
       setQueryError(result.error);
 
       const studentCount = userRes.count ?? 0;
-      const courseCount = courseRes.data?.length ?? 0;
+      const courseCount = courseRes.count ?? 0;
       let revenue = 0;
       if (bookingRes.data) {
         for (const b of bookingRes.data) {
