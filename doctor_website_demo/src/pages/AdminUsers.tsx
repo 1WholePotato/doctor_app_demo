@@ -6,7 +6,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
-import AdminSidebar from "../components/AdminSidebar";
 import { getSessionUser } from "../lib/auth";
 import { loadRoles, roleLabel, type RoleOption } from "../lib/roles";
 import {
@@ -483,12 +482,9 @@ export default function AdminUsers() {
     return (
       <>
         <style>{globalStyles}</style>
-        <div className="au-shell">
-          <AdminSidebar />
-          <main className="au-main">
-            <p className="au-loading">Loading users…</p>
-          </main>
-        </div>
+        <main className="au-main">
+          <p className="au-loading">Loading users…</p>
+        </main>
       </>
     );
   }
@@ -496,10 +492,7 @@ export default function AdminUsers() {
   return (
     <>
       <style>{globalStyles}</style>
-      <div className="au-shell">
-        <AdminSidebar />
-
-        <main className="au-main">
+      <main className="au-main">
           <header className="au-header">
             <p className="eyebrow">People</p>
             <h1>Users</h1>
@@ -596,7 +589,6 @@ export default function AdminUsers() {
             </div>
           )}
         </main>
-      </div>
 
       {selected && (
         <ChangeRoleModal

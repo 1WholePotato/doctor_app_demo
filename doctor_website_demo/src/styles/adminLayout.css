@@ -1,0 +1,122 @@
+:root {
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --bg: #F8F7F4;
+  --surface: #FFFFFF;
+  --sidebar: #111110;
+  --gold: #C9A84C;
+  --gold-soft: #F5EDD6;
+  --text-1: #1A1A19;
+  --text-2: #666664;
+  --text-3: #999996;
+  --border: #E8E6E1;
+  --radius: 12px;
+}
+
+.admin-layout-shell * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-layout-shell {
+  font-family: var(--font-body);
+  background: var(--bg);
+  min-height: 100vh;
+  display: flex;
+}
+
+/* Shared Admin Sidebar */
+.sidebar {
+  width: 228px;
+  min-height: 100vh;
+  background: var(--sidebar);
+  display: flex;
+  flex-direction: column;
+  padding: 28px 16px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 10;
+}
+
+.sidebar-logo {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 300;
+  color: #fff;
+  letter-spacing: 0.02em;
+  padding: 0 8px;
+  margin-bottom: 36px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sidebar-logo span {
+  color: var(--gold);
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: #888887;
+  font-size: 14px;
+  font-weight: 400;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+.nav-item.active {
+  background: rgba(201, 168, 76, 0.15);
+  color: var(--gold);
+}
+
+.nav-item svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.nav-section-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: #444443;
+  text-transform: uppercase;
+  padding: 0 12px;
+  margin: 20px 0 6px;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid #222221;
+}
+
+.admin-layout-content {
+  margin-left: 228px;
+  flex: 1;
+  min-height: 100vh;
+}

@@ -1,4 +1,3 @@
-import AdminSidebar from "../components/AdminSidebar";
 
 const globalStyles = `
   :root {
@@ -39,9 +38,7 @@ export default function AdminSettings() {
   return (
     <>
       <style>{globalStyles}</style>
-      <div className="as-shell">
-        <AdminSidebar />
-        <main className="as-main">
+      <main className="as-main">
           <p className="eyebrow">Account</p>
           <h1>Settings</h1>
           <div className="as-card">
@@ -50,7 +47,6 @@ export default function AdminSettings() {
             </p>
           </div>
         </main>
-      </div>
     </>
   );
 }

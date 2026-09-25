@@ -41,7 +41,6 @@ import {
   ArrowUpRight,
   ChevronRight,
 } from "lucide-react";
-import AdminSidebar from "../components/AdminSidebar";
 import { supabase } from "../supabaseClient";
 import {
   downloadClassListCsv,
@@ -246,9 +245,6 @@ function AdminLanding() {
       {/* Inject global styles once */}
       <style>{globalStyles}</style>
 
-      <div className="admin-shell">
-        <AdminSidebar />
-
         {/* ── Main Content ── */}
         <main className="main-content">
 
@@ -372,7 +368,6 @@ function AdminLanding() {
           </div>
 
         </main>
-      </div>
     </>
   );
 }

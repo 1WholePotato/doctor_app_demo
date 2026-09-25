@@ -4,7 +4,6 @@ import {
 } from "lucide-react";
 import { generateCertificatePdf, downloadCertificateFile } from "../lib/certificateGenerator";
 import { uploadCertificateToR2 } from "../lib/storage";
-import StudentSidebar from "../components/StudentSidebar";
 import { getSessionUser } from "../lib/auth";
 import { fetchStudentCourses, type CourseStatus, type StudentCourseRow } from "../lib/studentCourses";
 
@@ -178,9 +177,6 @@ export default function StudentGrades() {
   return (
     <>
       <style>{styles}</style>
-      <div className="sg-shell">
-        <StudentSidebar prefix="sl" />
-
         <main className="sg-main">
           <div className="sg-header">
             <p className="eyebrow">Academic record</p>
@@ -271,7 +267,6 @@ export default function StudentGrades() {
             </>
           )}
         </main>
-      </div>
     </>
   );
 }

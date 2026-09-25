@@ -1,4 +1,3 @@
-import StudentSidebar from "../components/StudentSidebar";
 
 const styles = `
   :root {
@@ -46,8 +45,6 @@ export default function StudentNotifications() {
   return (
     <>
       <style>{styles}</style>
-      <div className="sn-shell">
-        <StudentSidebar prefix="sl" />
         <main className="sn-main">
           <p className="eyebrow">Inbox</p>
           <h1>Notifications</h1>
@@ -56,7 +53,6 @@ export default function StudentNotifications() {
             <p>When a class is confirmed or a result is posted, it will show up here.</p>
           </div>
         </main>
-      </div>
     </>
   );
 }

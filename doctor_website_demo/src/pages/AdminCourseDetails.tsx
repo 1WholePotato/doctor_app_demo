@@ -8,7 +8,6 @@ import {
   ChevronLeft,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
-import AdminSidebar from "../components/AdminSidebar";
 import { instructorName, type Instructor } from "../lib/instructors";
 import { fetchInstructorsForCourse, grantInstructorCourse } from "../lib/instructorCourses";
 import { firstLocationId } from "../lib/locations";
@@ -157,6 +156,14 @@ function AddSessionModal({
   const [instructorId, setInstructorId] = useState(instructors[0]?.id ?? "");
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   const handleSubmit = () => {
     if (!instructorId) {
       setError("Select a teacher");
@@ -206,6 +213,7 @@ export default function AdminCourseDetails() {
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
@@ -287,7 +295,7 @@ export default function AdminCourseDetails() {
 
     const locationId = await firstLocationId();
     if (!locationId) {
-      alert("Add a location in the database before assigning a teacher.");
+      setActionError("Add a location in the database before assigning a teacher.");
       return;
     }
 
@@ -304,12 +312,12 @@ export default function AdminCourseDetails() {
     });
 
     if (error) {
-      alert(error.message);
+      setActionError(error.message);
       return;
     }
 
     const grantError = await grantInstructorCourse(instructorId, id);
-    if (grantError) alert(grantError);
+    if (grantError) setActionError(grantError);
 
     await loadData();
   };
@@ -318,12 +326,9 @@ export default function AdminCourseDetails() {
     return (
       <>
         <style>{globalStyles}</style>
-        <div className="acd-shell">
-          <AdminSidebar />
-          <main className="acd-main">
-            <p className="acd-loading">Loading course…</p>
-          </main>
-        </div>
+        <main className="acd-main">
+          <p className="acd-loading">Loading course…</p>
+        </main>
       </>
     );
   }
@@ -332,12 +337,12 @@ export default function AdminCourseDetails() {
     <>
       <style>{globalStyles}</style>
 
-      <div className="acd-shell">
-        <AdminSidebar />
-
-        <main className="acd-main">
+      <main className="acd-main">
           <Link to="/admincourses" className="back-link"><ChevronLeft />Back to courses</Link>
 
+          {actionError && (
+            <p className="load-error" style={{ marginBottom: 16 }}><AlertCircle />{actionError}</p>
+          )}
           {loadError && (
             <p className="load-error"><AlertCircle />{loadError}</p>
           )}
@@ -395,7 +400,6 @@ export default function AdminCourseDetails() {
             )}
           </div>
         </main>
-      </div>
 
       {showModal && (
         <AddSessionModal

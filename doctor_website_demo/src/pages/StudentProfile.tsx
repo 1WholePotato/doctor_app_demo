@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import StudentSidebar from "../components/StudentSidebar";
 import { supabase } from "../supabaseClient";
 import { getSessionUser, type AppUser } from "../lib/auth";
 import { loadRoles, roleLabel } from "../lib/roles";
@@ -197,11 +196,9 @@ export default function StudentProfile() {
     return (
       <>
         <style>{styles}</style>
-        <div className="sp-shell">
-          <main className="sp-main" style={{ marginLeft: 0, maxWidth: "100%" }}>
-            <p className="sp-loading">Loading profile…</p>
-          </main>
-        </div>
+        <main className="sp-main">
+          <p className="sp-loading">Loading profile…</p>
+        </main>
       </>
     );
   }
@@ -209,9 +206,6 @@ export default function StudentProfile() {
   return (
     <>
       <style>{styles}</style>
-      <div className="sp-shell">
-        <StudentSidebar prefix="sp" />
-
         <main className="sp-main">
           <div className="sp-header">
             <p className="eyebrow">Account</p>
@@ -392,7 +386,6 @@ export default function StudentProfile() {
             </form>
           </div>
         </main>
-      </div>
     </>
   );
 }

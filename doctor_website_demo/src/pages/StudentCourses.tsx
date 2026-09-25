@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   BookOpen, Search, User, CheckCircle, XCircle, Clock,
 } from "lucide-react";
-import StudentSidebar from "../components/StudentSidebar";
 import { getSessionUser } from "../lib/auth";
 import { fetchStudentCourses, type CourseStatus, type StudentCourseRow } from "../lib/studentCourses";
 import { supabase } from "../supabaseClient";
@@ -179,9 +178,6 @@ export default function StudentCourses() {
   return (
     <>
       <style>{styles}</style>
-      <div className="sc-shell">
-        <StudentSidebar prefix="sl" />
-
         <main className="sc-main">
           <div className="sc-header">
             <div className="sc-header-left">
@@ -316,7 +312,6 @@ export default function StudentCourses() {
             )
           )}
         </main>
-      </div>
     </>
   );
 }

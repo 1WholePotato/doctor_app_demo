@@ -2,6 +2,8 @@ import { Suspense, lazy } from "react";
 import { Navigate, Routes, Route } from "react-router-dom";
 import RequireAuth from "./components/RequireAuth";
 import ErrorBoundary from "./components/ErrorBoundary";
+import AdminLayout from "./components/AdminLayout";
+import StudentLayout from "./components/StudentLayout";
 import { AuthProvider } from "./context/AuthContext";
 import "./index.css";
 
@@ -45,100 +47,44 @@ function App() {
       <AuthProvider>
         <Suspense fallback={<PageLoading />}>
           <Routes>
+            {/* Public routes */}
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset" element={<Navigate to="/forgot-password" replace />} />
+
+            {/* Admin layout routes */}
             <Route
-              path="/dashboard"
               element={
                 <RequireAuth role="admin">
-                  <AdminLanding />
+                  <AdminLayout />
                 </RequireAuth>
               }
-            />
+            >
+              <Route path="/dashboard" element={<AdminLanding />} />
+              <Route path="/admincourses" element={<AdminCourse />} />
+              <Route path="/admincourses/:id" element={<AdminCourseDetails />} />
+              <Route path="/admin/users" element={<AdminUsers />} />
+              <Route path="/settings" element={<AdminSettings />} />
+              <Route path="/patients" element={<Navigate to="/admin/users" replace />} />
+            </Route>
+
+            {/* Student layout routes */}
             <Route
-              path="/admincourses"
-              element={
-                <RequireAuth role="admin">
-                  <AdminCourse />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/admincourses/:id"
-              element={
-                <RequireAuth role="admin">
-                  <AdminCourseDetails />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/admin/users"
-              element={
-                <RequireAuth role="admin">
-                  <AdminUsers />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <RequireAuth role="admin">
-                  <AdminSettings />
-                </RequireAuth>
-              }
-            />
-            <Route path="/patients" element={<Navigate to="/admin/users" replace />} />
-            <Route
-              path="/studentlanding"
               element={
                 <RequireAuth role="student">
-                  <StudentLanding />
+                  <StudentLayout />
                 </RequireAuth>
               }
-            />
-            <Route
-              path="/courses"
-              element={
-                <RequireAuth role="student">
-                  <StudentCourses />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/grades"
-              element={
-                <RequireAuth role="student">
-                  <StudentGrades />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/notifications"
-              element={
-                <RequireAuth role="student">
-                  <StudentNotifications />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/courses/:id"
-              element={
-                <RequireAuth role="student">
-                  <StudentCourseDetails />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <RequireAuth role="student">
-                  <StudentProfile />
-                </RequireAuth>
-              }
-            />
+            >
+              <Route path="/studentlanding" element={<StudentLanding />} />
+              <Route path="/courses" element={<StudentCourses />} />
+              <Route path="/courses/:id" element={<StudentCourseDetails />} />
+              <Route path="/grades" element={<StudentGrades />} />
+              <Route path="/notifications" element={<StudentNotifications />} />
+              <Route path="/profile" element={<StudentProfile />} />
+            </Route>
           </Routes>
         </Suspense>
       </AuthProvider>

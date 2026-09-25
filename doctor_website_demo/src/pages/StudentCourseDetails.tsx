@@ -21,7 +21,6 @@ import {
   CalendarDays, Clock,
   MapPin, User, ChevronLeft, Users,
 } from "lucide-react";
-import StudentSidebar from "../components/StudentSidebar";
 import {
   fetchStudentCourseDetail,
   type StudentCourseDetail,
@@ -208,13 +207,10 @@ export default function StudentCourseDetails() {
     return (
       <>
         <style>{styles}</style>
-        <div className="scd-shell">
-          <StudentSidebar prefix="sl" />
-          <main className="scd-main">
+        <main className="scd-main">
             <p className="scd-error">Missing course id.</p>
             <Link to="/courses" className="back-link"><ChevronLeft />Back to courses</Link>
           </main>
-        </div>
       </>
     );
   }
@@ -222,10 +218,6 @@ export default function StudentCourseDetails() {
   return (
     <>
       <style>{styles}</style>
-      <div className="scd-shell">
-
-        <StudentSidebar prefix="sl" />
-
         {/* ── Main ── */}
         <main className="scd-main">
           <Link to="/courses" className="back-link"><ChevronLeft />Back to courses</Link>
@@ -303,7 +295,6 @@ export default function StudentCourseDetails() {
           </>
           )}
         </main>
-      </div>
     </>
   );
 }

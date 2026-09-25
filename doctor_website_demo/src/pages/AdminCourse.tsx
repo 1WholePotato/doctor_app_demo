@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, Plus, X, AlertCircle } from "lucide-react";
 import { supabase } from "../supabaseClient";
-import AdminSidebar from "../components/AdminSidebar";
 import { fetchInstructors, instructorName, type Instructor } from "../lib/instructors";
 import { grantInstructorCourse } from "../lib/instructorCourses";
 import { firstLocationId } from "../lib/locations";
@@ -260,6 +259,7 @@ export default function AdminCourses() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState("");
 
   const loadCourses = async () => {
@@ -329,13 +329,13 @@ export default function AdminCourses() {
       .single();
 
     if (error || !data) {
-      alert(error?.message ?? "Could not create course");
+      setActionError(error?.message ?? "Could not create course");
       return;
     }
 
     const locationId = await firstLocationId();
     if (!locationId) {
-      alert("Add a location in the database before assigning a teacher.");
+      setActionError("Add a location in the database before assigning a teacher.");
       return;
     }
 
@@ -352,10 +352,10 @@ export default function AdminCourses() {
     });
 
     if (sessionError) {
-      alert(`Course created, but teacher assignment failed: ${sessionError.message}`);
+      setActionError(`Course created, but teacher assignment failed: ${sessionError.message}`);
     } else {
       const grantError = await grantInstructorCourse(course.instructorId, data.id);
-      if (grantError) alert(grantError);
+      if (grantError) setActionError(grantError);
     }
 
     await loadCourses();
@@ -365,10 +365,7 @@ export default function AdminCourses() {
     <>
       <style>{globalStyles}</style>
 
-      <div className="ac-shell">
-        <AdminSidebar />
-
-        <main className="ac-main">
+      <main className="ac-main">
           <div className="ac-header">
             <div className="ac-header-left">
               <p className="eyebrow">Curriculum</p>
@@ -379,6 +376,9 @@ export default function AdminCourses() {
             </button>
           </div>
 
+                    {actionError && (
+            <p className="load-error" style={{ marginBottom: 20 }}><AlertCircle />{actionError}</p>
+          )}
           {loadError && (
             <p className="load-error"><AlertCircle />{loadError}</p>
           )}
@@ -413,7 +413,6 @@ export default function AdminCourses() {
             </div>
           )}
         </main>
-      </div>
 
       {showModal && (
         <AddCourseModal

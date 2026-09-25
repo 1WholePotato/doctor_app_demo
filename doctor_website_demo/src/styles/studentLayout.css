@@ -1,0 +1,179 @@
+:root {
+  --s-navy:     #0F1E35;
+  --s-bg:       #F4F7FB;
+  --s-surface:  #FFFFFF;
+  --s-teal:     #2BBFAA;
+  --s-teal-mid: #1A9E8C;
+  --s-teal-soft:#E8F8F5;
+  --s-text-1:   #0F1E35;
+  --s-text-2:   #4A5568;
+  --s-text-3:   #94A3B8;
+  --s-border:   #E2E8F0;
+  --s-radius:   12px;
+  --s-font:     'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+.student-layout-shell * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.student-layout-shell {
+  font-family: var(--s-font);
+  background: var(--s-bg);
+  min-height: 100vh;
+  display: flex;
+}
+
+/* Shared Student Sidebar */
+.sl-sidebar, .sp-sidebar {
+  width: 224px;
+  min-height: 100vh;
+  background: var(--s-navy);
+  display: flex;
+  flex-direction: column;
+  padding: 26px 14px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 10;
+}
+
+.sl-logo, .sp-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+  margin-bottom: 32px;
+}
+
+.sl-logo-mark, .sp-logo-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--s-teal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sl-logo-mark svg, .sp-logo-mark svg {
+  width: 16px;
+  height: 16px;
+  color: #fff;
+}
+
+.sl-logo-text, .sp-logo-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -.01em;
+  line-height: 1.2;
+}
+
+.sl-logo-text span, .sp-logo-text span {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: #4A6080;
+}
+
+.sl-nav, .sp-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.sl-nav-label, .sp-nav-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  color: #2D3F58;
+  text-transform: uppercase;
+  padding: 0 10px;
+  margin: 18px 0 5px;
+}
+
+.sl-nav-item, .sp-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  color: #64748B;
+  font-size: 13px;
+  font-weight: 400;
+  text-decoration: none;
+  transition: background .15s, color .15s;
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.sl-nav-item:hover, .sp-nav-item:hover {
+  background: rgba(255,255,255,.06);
+  color: #CBD5E1;
+}
+
+.sl-nav-item.active, .sp-nav-item.active {
+  background: rgba(43,191,170,.15);
+  color: var(--s-teal);
+  font-weight: 500;
+}
+
+.sl-nav-item svg, .sp-nav-item svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+
+.sl-footer, .sp-footer {
+  margin-top: auto;
+  padding-top: 18px;
+  border-top: 1px solid #1E3050;
+}
+
+.sl-avatar-row, .sp-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+}
+
+.sl-avatar, .sp-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--s-teal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.sl-avatar-name, .sp-avatar-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #CBD5E1;
+}
+
+.sl-avatar-role, .sp-avatar-role {
+  font-size: 11px;
+  color: #4A6080;
+}
+
+.student-layout-content {
+  margin-left: 224px;
+  flex: 1;
+  min-height: 100vh;
+}

@@ -26,7 +26,6 @@ import { fetchStudentCourses, type StudentCourseRow } from "../lib/studentCourse
 import {
   BookOpen, CalendarDays, ChevronRight, Clock, Bell,
 } from "lucide-react";
-import StudentSidebar from "../components/StudentSidebar";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -220,10 +219,6 @@ export default function StudentLanding() {
   return (
     <>
       <style>{styles}</style>
-      <div className="sl-shell">
-
-        <StudentSidebar prefix="sl" />
-
         {/* ── Main ── */}
         <main className="sl-main">
 
@@ -322,7 +317,6 @@ export default function StudentLanding() {
 
           </div>
         </main>
-      </div>
     </>
   );
 }
