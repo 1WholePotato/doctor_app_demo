@@ -19,7 +19,10 @@
  * Google Fonts: add Plus Jakarta Sans link to public/index.html
  */
 
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { getSessionUser } from "../lib/auth";
+import { fetchStudentCourses, type StudentCourseRow } from "../lib/studentCourses";
 import {
   BookOpen, CalendarDays, ChevronRight, Clock, Bell,
 } from "lucide-react";
@@ -191,6 +194,29 @@ function NotifIcon({ type }: { type: string }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function StudentLanding() {
+  const [userName, setUserName] = useState("Student");
+  const [enrolledCourses, setEnrolledCourses] = useState<StudentCourseRow[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const user = await getSessionUser();
+      if (!user) {
+        return;
+        return;
+      }
+      if (!cancelled) {
+        setUserName(user.first_name || user.email?.split("@")[0] || "Student");
+      }
+      const res = await fetchStudentCourses(user.id);
+      if (!cancelled) {
+        setEnrolledCourses(res.courses);
+      }
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <>
       <style>{styles}</style>
@@ -204,7 +230,7 @@ export default function StudentLanding() {
           {/* Header */}
           <div className="sl-header">
             <p className="eyebrow">Student dashboard</p>
-            <h1>Welcome back, <span>John.</span></h1>
+            <h1>Welcome back, <span>{userName}.</span></h1>
           </div>
 
           {/* Next session banner */}
@@ -238,7 +264,14 @@ export default function StudentLanding() {
             <Link to="/courses" className="s-link">View all <ChevronRight /></Link>
           </div>
           <div className="classes-row">
-            {CLASSES.map((c) => (
+            {enrolledCourses.length > 0 ? enrolledCourses.slice(0, 3).map((c) => (
+              <div className="class-card" key={c.bookingId}>
+                <span className="cc-date-badge"><CalendarDays />Enrolled</span>
+                <p className="cc-title">{c.title}</p>
+                <p className="cc-meta"><Clock />R {c.price.toLocaleString()}</p>
+                <p className="cc-meta" style={{ marginTop: -4 }}>{c.instructor}</p>
+              </div>
+            )) : CLASSES.map((c) => (
               <div className="class-card" key={c.title}>
                 <span className="cc-date-badge"><CalendarDays />{c.date}</span>
                 <p className="cc-title">{c.title}</p>

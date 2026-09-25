@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import {
-  BookOpen, CheckCircle, XCircle, Clock, User,
+  BookOpen, CheckCircle, XCircle, Clock, User, Download,
 } from "lucide-react";
+import { generateCertificatePdf, downloadCertificateFile } from "../lib/certificateGenerator";
+import { uploadCertificateToR2 } from "../lib/storage";
 import StudentSidebar from "../components/StudentSidebar";
 import { getSessionUser } from "../lib/auth";
 import { fetchStudentCourses, type CourseStatus, type StudentCourseRow } from "../lib/studentCourses";
@@ -111,6 +113,8 @@ export default function StudentGrades() {
   const [courses, setCourses] = useState<StudentCourseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,6 +124,10 @@ export default function StudentGrades() {
       if (!user) {
         if (!cancelled) setLoading(false);
         return;
+      }
+      if (!cancelled) {
+        const fullName = `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim();
+        setCurrentUser({ id: user.id, name: fullName });
       }
 
       const result = await fetchStudentCourses(user.id);
@@ -138,7 +146,32 @@ export default function StudentGrades() {
     return () => { cancelled = true; };
   }, []);
 
-  const passed = courses.filter((e) => e.status === "passed").length;
+  const handleDownloadCertificate = async (row: StudentCourseRow) => {
+    try {
+      setDownloadingId(row.bookingId);
+      const studentName = currentUser?.name || "Healthcare Professional";
+      const certBytes = await generateCertificatePdf({
+        studentName,
+        courseTitle: row.title,
+        completionDate: new Date().toISOString().slice(0, 10),
+        instructorName: row.instructor,
+        certificateId: row.bookingId,
+      });
+
+      // Background upload to Cloudflare R2
+      void uploadCertificateToR2(`certificates/${row.bookingId}.pdf`, certBytes);
+
+      // Trigger immediate browser download
+      downloadCertificateFile(certBytes, `Certificate-${row.title.replace(/\s+/g, "_")}.pdf`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Could not generate certificate";
+      setLoadError(msg);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+    const passed = courses.filter((e) => e.status === "passed").length;
   const pending = courses.filter((e) => e.status === "pending").length;
   const failed = courses.filter((e) => e.status === "failed").length;
 
@@ -201,10 +234,34 @@ export default function StudentGrades() {
                           {e.paymentStatus}
                         </span>
                         {e.status === "passed" && (
-                          <span style={{ fontSize: 12, color: "var(--s-teal-mid)", fontWeight: 500 }}>
-                            <CheckCircle style={{ width: 13, height: 13, verticalAlign: "middle", marginRight: 4 }} />
-                            Complete
-                          </span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontSize: 12, color: "var(--s-teal-mid)", fontWeight: 500 }}>
+                              <CheckCircle style={{ width: 13, height: 13, verticalAlign: "middle", marginRight: 4 }} />
+                              Complete
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadCertificate(e)}
+                              disabled={downloadingId === e.bookingId}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                background: "var(--s-teal-soft)",
+                                color: "var(--s-teal-mid)",
+                                border: "1px solid rgba(43,191,170,0.3)",
+                                borderRadius: 6,
+                                padding: "4px 8px",
+                                fontSize: 11,
+                                fontWeight: 600,
+                                cursor: downloadingId === e.bookingId ? "wait" : "pointer",
+                              }}
+                              title="Download 1-page completion certificate"
+                            >
+                              <Download style={{ width: 12, height: 12 }} />
+                              {downloadingId === e.bookingId ? "Preparing..." : "Certificate"}
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>

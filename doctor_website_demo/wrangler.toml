@@ -1,0 +1,11 @@
+name = "doctor-app-demo-r2-local"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Local Cloudflare R2 bucket binding for local emulation using:
+#   npx wrangler dev
+# or for running offline S3-compatible certificate uploads
+[[r2_buckets]]
+binding = "CERTIFICATES_BUCKET"
+bucket_name = "doctor-app-certificates"
+preview_bucket_name = "doctor-app-certificates-preview"

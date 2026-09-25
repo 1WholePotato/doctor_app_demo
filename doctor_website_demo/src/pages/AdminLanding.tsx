@@ -42,6 +42,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import AdminSidebar from "../components/AdminSidebar";
+import { supabase } from "../supabaseClient";
 import {
   downloadClassListCsv,
   fetchUpcomingSessions,
@@ -201,17 +202,36 @@ function AdminLanding() {
   const [sessions, setSessions] = useState<UpcomingSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [queryError, setQueryError] = useState<string | null>(null);
+  const [stats, setStats] = useState({ studentCount: 0, courseCount: 0, revenue: 0 });
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       setLoading(true);
-      const result = await fetchUpcomingSessions();
+      const [result, userRes, courseRes, bookingRes] = await Promise.all([
+        fetchUpcomingSessions(),
+        supabase.from("users").select("id", { count: "exact", head: true }).eq("role", "student"),
+        supabase.from("courses").select("id, course_price"),
+        supabase.from("bookings").select("payment_status, courses(course_price)").eq("payment_status", "paid"),
+      ]);
       if (cancelled) return;
 
       setSessions(result.sessions);
       setQueryError(result.error);
+
+      const studentCount = userRes.count ?? 0;
+      const courseCount = courseRes.data?.length ?? 0;
+      let revenue = 0;
+      if (bookingRes.data) {
+        for (const b of bookingRes.data) {
+          const c = Array.isArray(b.courses) ? b.courses[0] : b.courses;
+          if (c && typeof c.course_price === "number") {
+            revenue += c.course_price;
+          }
+        }
+      }
+      setStats({ studentCount, courseCount, revenue });
       setLoading(false);
     }
 
@@ -242,18 +262,18 @@ function AdminLanding() {
           <div className="stats-grid">
             <div className="stat-card">
               <p className="stat-label">Total Students</p>
-              <p className="stat-value">1,284</p>
-              <p className="stat-sub"><span className="up">↑ 12%</span> vs last month</p>
+              <p className="stat-value">{stats.studentCount.toLocaleString()}</p>
+              <p className="stat-sub"><span className="up">Active</span> verified accounts</p>
             </div>
             <div className="stat-card">
               <p className="stat-label">Active Courses</p>
-              <p className="stat-value">32</p>
-              <p className="stat-sub">Across 4 categories</p>
+              <p className="stat-value">{stats.courseCount}</p>
+              <p className="stat-sub">Available curriculum</p>
             </div>
             <div className="stat-card">
-              <p className="stat-label">Revenue (MTD)</p>
-              <p className="stat-value">R 54k</p>
-              <p className="stat-sub"><span className="up">↑ 8%</span> vs last month</p>
+              <p className="stat-label">Revenue (Gross)</p>
+              <p className="stat-value">R {stats.revenue.toLocaleString()}</p>
+              <p className="stat-sub"><span className="up">Paid</span> course bookings</p>
             </div>
           </div>
 
