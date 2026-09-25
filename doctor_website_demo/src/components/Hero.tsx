@@ -46,6 +46,18 @@ export function Hero() {
     <>
       
       <div className="lp-shell">
+        <nav className="lp-nav">
+          <Link to="/" className="lp-nav-logo">
+            <div className="lp-nav-logo-dot">✚</div>
+            Dr MedLearn <span>CME</span>
+          </Link>
+          <div className="lp-nav-links">
+            <a href="#about" className="lp-nav-link">About</a>
+            <a href="#doctor" className="lp-nav-link">Faculty</a>
+            <Link to="/login" className="lp-nav-link">Sign in</Link>
+            <Link to="/register" className="lp-nav-cta">Register</Link>
+          </div>
+        </nav>
         
 
         <section className="hero-section">
