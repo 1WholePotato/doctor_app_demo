@@ -8,12 +8,20 @@ import "../styles/studentPages.css";
 export default function StudentLayout() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [prevPath, setPrevPath] = useState(location.pathname);
 
-  if (prevPath !== location.pathname) {
-    setPrevPath(location.pathname);
+  useEffect(() => {
+    // Close drawer when route changes
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMobileOpen(false);
-  }
+  }, [location.pathname]);
+
+  useEffect(() => {
+    // Prevent background scrolling while drawer is active on mobile
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

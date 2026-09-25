@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import { Skeleton } from "../components/Skeleton";
 import { getSessionUser, type AppUser } from "../lib/auth";
 import { loadRoles, roleLabel } from "../lib/roles";
 
@@ -125,11 +126,22 @@ export default function StudentProfile() {
 
   if (loading) {
     return (
-      <>
-        <main className="sp-main">
-          <p className="sp-loading">Loading profile…</p>
-        </main>
-      </>
+      <main className="sp-main">
+        <div className="sp-header">
+          <p className="eyebrow">Account</p>
+          <h1>My profile</h1>
+        </div>
+        <div className="sp-card" style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <div className="sp-row">
+            <Skeleton width="100%" height={44} borderRadius={10} />
+            <Skeleton width="100%" height={44} borderRadius={10} />
+          </div>
+          <Skeleton width="100%" height={44} borderRadius={10} />
+          <Skeleton width="100%" height={44} borderRadius={10} />
+          <Skeleton width="100%" height={44} borderRadius={10} />
+          <Skeleton width="140px" height={42} borderRadius={10} style={{ marginTop: 12 }} />
+        </div>
+      </main>
     );
   }
 
@@ -149,8 +161,9 @@ export default function StudentProfile() {
             <form onSubmit={handleSave}>
               <div className="sp-row">
                 <div className="sp-field">
-                  <label>First name</label>
+                  <label htmlFor="sp-first-name">First name</label>
                   <input
+                    id="sp-first-name"
                     type="text"
                     value={first_name}
                     className={errors.first_name ? "err" : ""}
@@ -160,12 +173,13 @@ export default function StudentProfile() {
                     }}
                   />
                   {errors.first_name && (
-                    <span className="sp-error">⚠ {errors.first_name}</span>
+                    <span className="sp-error" role="alert">⚠ {errors.first_name}</span>
                   )}
                 </div>
                 <div className="sp-field">
-                  <label>Last name</label>
+                  <label htmlFor="sp-last-name">Last name</label>
                   <input
+                    id="sp-last-name"
                     type="text"
                     value={last_name}
                     className={errors.last_name ? "err" : ""}
@@ -175,14 +189,15 @@ export default function StudentProfile() {
                     }}
                   />
                   {errors.last_name && (
-                    <span className="sp-error">⚠ {errors.last_name}</span>
+                    <span className="sp-error" role="alert">⚠ {errors.last_name}</span>
                   )}
                 </div>
               </div>
 
               <div className="sp-field">
-                <label>Email</label>
+                <label htmlFor="sp-email">Email</label>
                 <input
+                  id="sp-email"
                   type="email"
                   value={email}
                   className={errors.email ? "err" : ""}
@@ -191,12 +206,13 @@ export default function StudentProfile() {
                     clearErr("email");
                   }}
                 />
-                {errors.email && <span className="sp-error">⚠ {errors.email}</span>}
+                {errors.email && <span className="sp-error" role="alert">⚠ {errors.email}</span>}
               </div>
 
               <div className="sp-field">
-                <label>Date of birth</label>
+                <label htmlFor="sp-birth-date">Date of birth</label>
                 <input
+                  id="sp-birth-date"
                   type="date"
                   value={birth_date}
                   className={errors.birth_date ? "err" : ""}
@@ -206,7 +222,7 @@ export default function StudentProfile() {
                   }}
                 />
                 {errors.birth_date && (
-                  <span className="sp-error">⚠ {errors.birth_date}</span>
+                  <span className="sp-error" role="alert">⚠ {errors.birth_date}</span>
                 )}
               </div>
 
@@ -232,8 +248,9 @@ export default function StudentProfile() {
 
               {isCiti ? (
                 <div className="sp-field">
-                  <label>SA ID number</label>
+                  <label htmlFor="sp-id-num">SA ID number</label>
                   <input
+                    id="sp-id-num"
                     type="text"
                     value={id_num}
                     className={errors.id_num ? "err" : ""}
@@ -242,12 +259,13 @@ export default function StudentProfile() {
                       clearErr("id_num");
                     }}
                   />
-                  {errors.id_num && <span className="sp-error">⚠ {errors.id_num}</span>}
+                  {errors.id_num && <span className="sp-error" role="alert">⚠ {errors.id_num}</span>}
                 </div>
               ) : (
                 <div className="sp-field">
-                  <label>Passport number</label>
+                  <label htmlFor="sp-passport-num">Passport number</label>
                   <input
+                    id="sp-passport-num"
                     type="text"
                     value={passport_num}
                     className={errors.passport_num ? "err" : ""}
@@ -257,14 +275,15 @@ export default function StudentProfile() {
                     }}
                   />
                   {errors.passport_num && (
-                    <span className="sp-error">⚠ {errors.passport_num}</span>
+                    <span className="sp-error" role="alert">⚠ {errors.passport_num}</span>
                   )}
                 </div>
               )}
 
               <div className="sp-field">
-                <label>Cell number</label>
+                <label htmlFor="sp-cell-num">Cell number</label>
                 <input
+                  id="sp-cell-num"
                   type="tel"
                   value={cell_num}
                   className={errors.cell_num ? "err" : ""}
@@ -273,11 +292,11 @@ export default function StudentProfile() {
                     clearErr("cell_num");
                   }}
                 />
-                {errors.cell_num && <span className="sp-error">⚠ {errors.cell_num}</span>}
+                {errors.cell_num && <span className="sp-error" role="alert">⚠ {errors.cell_num}</span>}
               </div>
 
               <div className="sp-field">
-                <label>
+                <label htmlFor="sp-sanc-num">
                   HPCSA/SANC Number{" "}
                   <span
                     style={{
@@ -292,6 +311,7 @@ export default function StudentProfile() {
                   </span>
                 </label>
                 <input
+                  id="sp-sanc-num"
                   type="text"
                   value={sanc_num}
                   onChange={(ev) => setSancNum(ev.target.value)}

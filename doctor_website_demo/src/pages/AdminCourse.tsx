@@ -159,10 +159,16 @@ export default function AdminCourses() {
       return;
     }
 
-    const { data: sessionRows } = await supabase
-      .from("course_sessions")
-      .select("course_id, instructors ( first_name, last_name, email )")
-      .eq("active", true);
+    const courseIds = (data ?? []).map((c) => c.id);
+    let sessionRows: { course_id: string; instructors: unknown }[] = [];
+    if (courseIds.length > 0) {
+      const { data: rows } = await supabase
+        .from("course_sessions")
+        .select("course_id, instructors ( first_name, last_name, email )")
+        .in("course_id", courseIds)
+        .eq("active", true);
+      if (rows) sessionRows = rows as { course_id: string; instructors: unknown }[];
+    }
 
     const teacherByCourse = new Map<string, string>();
     for (const row of sessionRows ?? []) {

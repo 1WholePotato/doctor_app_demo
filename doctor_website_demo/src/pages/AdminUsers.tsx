@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import { getSessionUser } from "../lib/auth";
+import { TableRowSkeleton } from "../components/Skeleton";
 import { loadRoles, roleLabel, type RoleOption } from "../lib/roles";
 import {
   ensureInstructorRecord,
@@ -375,15 +376,7 @@ export default function AdminUsers() {
   const courseTitle = (courseId: string) =>
     courses.find((course) => course.id === courseId)?.title ?? "Course";
 
-  if (loading) {
-    return (
-      <>
-        <main className="au-main">
-          <p className="au-loading">Loading users…</p>
-        </main>
-      </>
-    );
-  }
+
 
   return (
     <>
@@ -413,7 +406,7 @@ export default function AdminUsers() {
             </div>
           )}
 
-          {filtered.length === 0 ? (
+          {!loading && filtered.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">
                 <Users />
@@ -439,7 +432,15 @@ export default function AdminUsers() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((u) => {
+                  {loading ? (
+                    <>
+                      <TableRowSkeleton cols={6} />
+                      <TableRowSkeleton cols={6} />
+                      <TableRowSkeleton cols={6} />
+                      <TableRowSkeleton cols={6} />
+                      <TableRowSkeleton cols={6} />
+                    </>
+                  ) : filtered.map((u) => {
                     const assigned = isInstructorRole(u.role_id, roles)
                       ? coursesByEmail.get(u.email) ?? []
                       : [];

@@ -50,70 +50,53 @@ function slugify(text: string): string {
   );
 }
 
-function isPaid(status: string): boolean {
-  return status.trim().toLowerCase() === "paid";
-}
-
 export async function fetchUpcomingSessions(): Promise<FetchUpcomingSessionsResult> {
-  const errors: string[] = [];
-
-  const { data: courses, error: coursesError } = await supabase
-    .from("courses")
-    .select("id, course_title, active")
+  const { data: sessionRows, error: sessionsError } = await supabase
+    .from("course_sessions")
+    .select(`
+      id,
+      course_id,
+      start_date,
+      courses ( id, course_title, active ),
+      instructors ( first_name, last_name, email )
+    `)
     .eq("active", true)
-    .order("course_title");
+    .order("start_date", { ascending: true })
+    .limit(50);
 
-  if (coursesError) {
+  if (sessionsError) {
     return {
       sessions: [],
       sourceTable: null,
-      error: `courses: ${coursesError.message}`,
+      error: `course_sessions: ${sessionsError.message}`,
     };
   }
 
-  const { data: sessionRows, error: sessionsError } = await supabase
-    .from("course_sessions")
-    .select("id, course_id, instructor_id, active, start_date, instructors ( first_name, last_name, email )")
-    .eq("active", true);
+  // Filter sessions that have an active course attached
+  const validSessions = (sessionRows ?? []).filter((s) => {
+    const course = asRecord(s.courses);
+    return course && course.active !== false;
+  });
 
-  if (sessionsError) {
-    errors.push(`course_sessions: ${sessionsError.message}`);
-  }
+  const courseIds = Array.from(new Set(validSessions.map((s) => s.course_id).filter((id): id is string => Boolean(id))));
 
-  const { data: bookingRows, error: bookingsError } = await supabase
-    .from("bookings")
-    .select("id, user_id, course_id, payment_status, users ( first_name, last_name, email )")
-    .eq("payment_status", "paid")
-    .limit(200);
-
-  if (bookingsError) {
-    errors.push(`bookings: ${bookingsError.message}`);
-  }
-
-  const instructorByCourse = new Map<string, string>();
-  const dateByCourse = new Map<string, string>();
-  for (const row of sessionRows ?? []) {
-    const record = asRecord(row);
-    if (!record) continue;
-    const courseId = readString(record, ["course_id"]);
-    if (!courseId) continue;
-    const startDate = readString(record, ["start_date"]);
-    if (startDate && !dateByCourse.has(courseId)) dateByCourse.set(courseId, startDate);
-    const instructor = asRecord(record.instructors);
-    if (instructor && !instructorByCourse.has(courseId)) {
-      instructorByCourse.set(courseId, instructorName({
-        first_name: readString(instructor, ["first_name"]),
-        last_name: readString(instructor, ["last_name"]),
-        email: readString(instructor, ["email"]),
-      }));
+  let bookingRows: RawRecord[] = [];
+  if (courseIds.length > 0) {
+    const { data, error } = await supabase
+      .from("bookings")
+      .select("id, user_id, course_id, payment_status, users ( first_name, last_name, email )")
+      .in("course_id", courseIds)
+      .eq("payment_status", "paid")
+      .limit(500);
+    if (!error && data) {
+      bookingRows = data as RawRecord[];
     }
   }
 
   const attendeesByCourse = new Map<string, ClassAttendee[]>();
-  for (const row of bookingRows ?? []) {
+  for (const row of bookingRows) {
     const record = asRecord(row);
     if (!record) continue;
-    if (!isPaid(readString(record, ["payment_status"]))) continue;
     const courseId = readString(record, ["course_id"]);
     const user = asRecord(record.users);
     if (!courseId || !user) continue;
@@ -126,25 +109,44 @@ export async function fetchUpcomingSessions(): Promise<FetchUpcomingSessionsResu
     attendeesByCourse.set(courseId, list);
   }
 
-  const sessions: UpcomingSession[] = (courses ?? []).map((course) => {
-    const attendees = attendeesByCourse.get(course.id) ?? [];
-    const startDate = dateByCourse.get(course.id) ?? "";
-    return {
-      id: course.id,
-      courseTitle: course.course_title,
+  const seenCourses = new Set<string>();
+  const sessions: UpcomingSession[] = [];
+
+  for (const row of validSessions) {
+    const course = asRecord(row.courses);
+    if (!course) continue;
+    const courseId = row.course_id;
+    if (seenCourses.has(courseId)) continue;
+    seenCourses.add(courseId);
+
+    const instructor = asRecord(row.instructors);
+    const instName = instructor
+      ? instructorName({
+          first_name: readString(instructor, ["first_name"]),
+          last_name: readString(instructor, ["last_name"]),
+          email: readString(instructor, ["email"]),
+        })
+      : "Unassigned";
+
+    const attendees = attendeesByCourse.get(courseId) ?? [];
+    const startDate = row.start_date ?? "";
+
+    sessions.push({
+      id: courseId,
+      courseTitle: readString(course, ["course_title"], "Untitled Course"),
       displayDate: startDate || "Upcoming",
       dateRaw: startDate || new Date().toISOString().slice(0, 10),
-      instructor: instructorByCourse.get(course.id) ?? "Unassigned",
+      instructor: instName,
       attendees,
       canDownload: true,
       downloadDisabledReason: attendees.length ? undefined : "No paid students on this course yet",
-    };
-  });
+    });
+  }
 
   return {
     sessions,
-    sourceTable: "courses",
-    error: errors.length ? errors.join(" · ") : null,
+    sourceTable: "course_sessions",
+    error: null,
   };
 }
 

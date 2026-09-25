@@ -6,6 +6,7 @@
   --sidebar:   #111110;
   --gold:      #C9A84C;
   --gold-soft: #F5EDD6;
+  --gold-text: #8B7330;
   --text-1:    #111110;
   --text-2:    #6B6A66;
   --text-3:    #A09F9A;
@@ -35,7 +36,7 @@
 .fp-wrap h1 { font-family: var(--font-display); font-size: 26px; font-weight: 300; color: var(--text-1); margin-bottom: 10px; }
 .fp-wrap .sub { font-size: 14px; color: var(--text-2); line-height: 1.6; margin-bottom: 24px; }
 .fp-banner { background: #F5EDD6; border: 1px solid var(--gold); color: #7A5E1A; border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.5; margin-bottom: 24px; }
-.fp-back { font-size: 13px; color: var(--gold); text-decoration: none; font-weight: 500; }
+.fp-back { font-size: 13px; color: var(--gold-text); text-decoration: none; font-weight: 500; }
 .fp-back:hover { text-decoration: underline; }
 
 /* ── Login Styles ── */
@@ -107,7 +108,7 @@
 }
 .lf-remember { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); cursor: pointer; }
 .lf-remember input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; }
-.lf-forgot { font-size: 13px; color: var(--gold); text-decoration: none; }
+.lf-forgot { font-size: 13px; color: var(--gold-text); text-decoration: none; }
 .lf-forgot:hover { text-decoration: underline; }
 
 .lf-error {
@@ -131,7 +132,7 @@
 .lf-submit:disabled { background: var(--text-3); cursor: not-allowed; }
 
 .lf-footer { text-align: center; font-size: 13px; color: var(--text-3); }
-.lf-footer a { color: var(--gold); text-decoration: none; margin-left: 4px; }
+.lf-footer a { color: var(--gold-text); text-decoration: none; margin-left: 4px; }
 .lf-footer a:hover { text-decoration: underline; }
 
 @media (max-width: 768px) {
@@ -200,7 +201,7 @@
 .rf-banner { background: #FEE9E9; border: 1px solid #F5C1C1; border-radius: 10px; padding: 11px 14px; font-size: 13px; color: #A12D2D; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
 
 .rf-footer { text-align: center; font-size: 13px; color: var(--text-3); margin-top: 18px; }
-.rf-footer a { color: var(--gold); text-decoration: none; margin-left: 4px; }
+.rf-footer a { color: var(--gold-text); text-decoration: none; margin-left: 4px; }
 .rf-footer a:hover { text-decoration: underline; }
 
 .step-wrap { animation: stepIn .2s ease; }

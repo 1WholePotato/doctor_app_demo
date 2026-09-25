@@ -5,6 +5,7 @@
     --sidebar:   #111110;
     --gold:      #C9A84C;
     --gold-soft: #F5EDD6;
+  --gold-text: #8B7330;
     --text-1:    #111110;
     --text-2:    #6B6A66;
     --text-3:    #A09F9A;
@@ -149,6 +150,7 @@
     --sidebar:   #111110;
     --gold:      #C9A84C;
     --gold-soft: #F5EDD6;
+  --gold-text: #8B7330;
     --text-1:    #111110;
     --text-2:    #6B6A66;
     --text-3:    #A09F9A;
@@ -267,6 +269,7 @@
     --sidebar:   #111110;
     --gold:      #C9A84C;
     --gold-soft: #F5EDD6;
+  --gold-text: #8B7330;
     --text-1:    #111110;
     --text-2:    #6B6A66;
     --text-3:    #A09F9A;
@@ -376,6 +379,7 @@
     --sidebar:   #111110;
     --gold:      #C9A84C;
     --gold-soft: #F5EDD6;
+  --gold-text: #8B7330;
     --text-1:    #111110;
     --text-2:    #6B6A66;
     --text-3:    #A09F9A;
@@ -425,7 +429,7 @@
   .badge-pending { background: #FEF4E4; color: #9A6500; }
   .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 
-  .btn-link { background: none; border: none; color: var(--gold); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; padding: 0; text-decoration: underline; }
+  .btn-link { background: none; border: none; color: var(--gold-text); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; padding: 0; text-decoration: underline; }
   .btn-link:disabled { color: var(--text-3); cursor: not-allowed; text-decoration: none; }
 
   .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; text-align: center; }
@@ -478,6 +482,7 @@
     --sidebar:   #111110;
     --gold:      #C9A84C;
     --gold-soft: #F5EDD6;
+  --gold-text: #8B7330;
     --text-1:    #111110;
     --text-2:    #6B6A66;
     --text-3:    #A09F9A;

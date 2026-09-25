@@ -21,6 +21,7 @@ import {
   CalendarDays, Clock,
   MapPin, User, ChevronLeft, Users,
 } from "lucide-react";
+import { Skeleton, TableRowSkeleton } from "../components/Skeleton";
 import {
   fetchStudentCourseDetail,
   type StudentCourseDetail,
@@ -101,9 +102,38 @@ export default function StudentCourseDetails() {
           <Link to="/courses" className="back-link"><ChevronLeft />Back to courses</Link>
 
           {loadError && <p className="scd-error">{loadError}</p>}
-          {loading && <p className="scd-loading">Loading course…</p>}
 
-          {displayCourse && (
+          {loading ? (
+            <>
+              <div className="hero">
+                <div className="hero-left" style={{ width: "100%" }}>
+                  <Skeleton width="100px" height={14} style={{ marginBottom: 10 }} />
+                  <Skeleton width="50%" height={32} style={{ marginBottom: 12 }} />
+                  <Skeleton width="80%" height={16} />
+                </div>
+              </div>
+              <div className="s-header">
+                <p className="s-title">Available sessions</p>
+              </div>
+              <div className="sessions-card">
+                <table className="sessions-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Location</th>
+                      <th>Instructor</th>
+                      <th>Spaces</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <TableRowSkeleton cols={5} />
+                    <TableRowSkeleton cols={5} />
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : displayCourse && (
           <>
           {/* Course hero */}
           <div className="hero">

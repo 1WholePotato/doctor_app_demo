@@ -11,6 +11,7 @@ import { supabase } from "../supabaseClient";
 import { instructorName, type Instructor } from "../lib/instructors";
 import { fetchInstructorsForCourse, grantInstructorCourse } from "../lib/instructorCourses";
 import { firstLocationId } from "../lib/locations";
+import { Skeleton, TableRowSkeleton } from "../components/Skeleton";
 
 interface CourseDetail {
   id: string;
@@ -214,11 +215,33 @@ export default function AdminCourseDetails() {
 
   if (loading) {
     return (
-      <>
-        <main className="acd-main">
-          <p className="acd-loading">Loading course…</p>
-        </main>
-      </>
+      <main className="acd-main">
+        <Link to="/admincourses" className="back-link"><ChevronLeft />Back to courses</Link>
+        <div className="course-hero">
+          <div className="hero-left" style={{ width: "100%" }}>
+            <Skeleton width="120px" height={14} style={{ marginBottom: 10 }} />
+            <Skeleton width="60%" height={32} style={{ marginBottom: 12 }} />
+            <Skeleton width="90%" height={16} />
+          </div>
+        </div>
+        <div className="section-header" style={{ marginTop: 28 }}>
+          <p className="section-title">Class sessions</p>
+        </div>
+        <div className="sessions-card">
+          <table className="sessions-table">
+            <thead>
+              <tr>
+                <th>Teacher</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <TableRowSkeleton cols={2} />
+              <TableRowSkeleton cols={2} />
+            </tbody>
+          </table>
+        </div>
+      </main>
     );
   }
 
