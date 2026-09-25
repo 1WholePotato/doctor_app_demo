@@ -19,6 +19,7 @@ function NavItem({
   label,
   active,
   onPrefetch,
+  onClick,
 }: {
   prefix: Prefix;
   to: string;
@@ -26,6 +27,7 @@ function NavItem({
   label: string;
   active: boolean;
   onPrefetch?: () => void;
+  onClick?: () => void;
 }) {
   return (
     <Link
@@ -33,6 +35,7 @@ function NavItem({
       className={`${prefix}-nav-item${active ? " active" : ""}`}
       onMouseEnter={onPrefetch}
       onFocus={onPrefetch}
+      onClick={onClick}
     >
       <Icon />
       {label}
@@ -40,7 +43,13 @@ function NavItem({
   );
 }
 
-export default function StudentSidebar({ prefix = "sl" }: { prefix?: Prefix }) {
+export default function StudentSidebar({
+  prefix = "sl",
+  onCloseMobile,
+}: {
+  prefix?: Prefix;
+  onCloseMobile?: () => void;
+}) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [user, setUser] = useState<AppUser | null>(null);
@@ -50,6 +59,7 @@ export default function StudentSidebar({ prefix = "sl" }: { prefix?: Prefix }) {
   }, []);
 
   const handleSignOut = async () => {
+    onCloseMobile?.();
     await signOut();
     navigate("/login");
   };
@@ -78,6 +88,7 @@ export default function StudentSidebar({ prefix = "sl" }: { prefix?: Prefix }) {
           label="Dashboard"
           active={pathname === "/studentlanding"}
           onPrefetch={() => void import("../pages/StudentLanding")}
+          onClick={onCloseMobile}
         />
         <NavItem
           prefix={prefix}
@@ -86,6 +97,7 @@ export default function StudentSidebar({ prefix = "sl" }: { prefix?: Prefix }) {
           label="My Courses"
           active={pathname.startsWith("/courses")}
           onPrefetch={() => void import("../pages/StudentCourses")}
+          onClick={onCloseMobile}
         />
         <NavItem
           prefix={prefix}
@@ -94,6 +106,7 @@ export default function StudentSidebar({ prefix = "sl" }: { prefix?: Prefix }) {
           label="Grades"
           active={pathname.startsWith("/grades")}
           onPrefetch={() => void import("../pages/StudentGrades")}
+          onClick={onCloseMobile}
         />
         <NavItem
           prefix={prefix}
@@ -102,6 +115,7 @@ export default function StudentSidebar({ prefix = "sl" }: { prefix?: Prefix }) {
           label="Notifications"
           active={pathname.startsWith("/notifications")}
           onPrefetch={() => void import("../pages/StudentNotifications")}
+          onClick={onCloseMobile}
         />
         <p className={`${prefix}-nav-label`}>Account</p>
         <NavItem
@@ -111,6 +125,7 @@ export default function StudentSidebar({ prefix = "sl" }: { prefix?: Prefix }) {
           label="Profile"
           active={pathname.startsWith("/profile")}
           onPrefetch={() => void import("../pages/StudentProfile")}
+          onClick={onCloseMobile}
         />
       </nav>
 

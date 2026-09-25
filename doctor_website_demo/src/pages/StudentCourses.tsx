@@ -6,6 +6,7 @@ import {
 import { getSessionUser } from "../lib/auth";
 import { fetchStudentCourses, type CourseStatus, type StudentCourseRow } from "../lib/studentCourses";
 import { supabase } from "../supabaseClient";
+import { CourseCardSkeleton } from "../components/Skeleton";
 
 interface CatalogCourse {
   id: string;
@@ -137,7 +138,12 @@ export default function StudentCourses() {
           {loadError && <p className="sc-error" role="alert">{loadError}</p>}
 
           {loading ? (
-            <p className="sc-loading">Loading courses…</p>
+            <div className="sc-grid">
+              <CourseCardSkeleton />
+              <CourseCardSkeleton />
+              <CourseCardSkeleton />
+              <CourseCardSkeleton />
+            </div>
           ) : activeTab === "enrolled" ? (
             filtered.length === 0 ? (
               <div className="sc-empty">

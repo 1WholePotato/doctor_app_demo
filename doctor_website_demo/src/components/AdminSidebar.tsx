@@ -15,12 +15,14 @@ function NavItem({
   label,
   active,
   onPrefetch,
+  onClick,
 }: {
   to: string;
   icon: ElementType;
   label: string;
   active: boolean;
   onPrefetch?: () => void;
+  onClick?: () => void;
 }) {
   return (
     <Link
@@ -28,6 +30,7 @@ function NavItem({
       className={`nav-item${active ? " active" : ""}`}
       onMouseEnter={onPrefetch}
       onFocus={onPrefetch}
+      onClick={onClick}
     >
       <Icon />
       {label}
@@ -35,11 +38,16 @@ function NavItem({
   );
 }
 
-export default function AdminSidebar() {
+export default function AdminSidebar({
+  onCloseMobile,
+}: {
+  onCloseMobile?: () => void;
+}) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
+    onCloseMobile?.();
     await signOut();
     navigate("/login");
   };
@@ -59,6 +67,7 @@ export default function AdminSidebar() {
           label="Dashboard"
           active={pathname === "/dashboard"}
           onPrefetch={() => void import("../pages/AdminLanding")}
+          onClick={onCloseMobile}
         />
         <NavItem
           to="/admincourses"
@@ -66,6 +75,7 @@ export default function AdminSidebar() {
           label="Courses"
           active={pathname.startsWith("/admincourses")}
           onPrefetch={() => void import("../pages/AdminCourse")}
+          onClick={onCloseMobile}
         />
         <NavItem
           to="/admin/users"
@@ -73,6 +83,7 @@ export default function AdminSidebar() {
           label="Users"
           active={pathname.startsWith("/admin/users")}
           onPrefetch={() => void import("../pages/AdminUsers")}
+          onClick={onCloseMobile}
         />
 
         <p className="nav-section-label">System</p>
@@ -82,6 +93,7 @@ export default function AdminSidebar() {
           label="Settings"
           active={pathname === "/settings"}
           onPrefetch={() => void import("../pages/AdminSettings")}
+          onClick={onCloseMobile}
         />
       </nav>
 

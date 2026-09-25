@@ -6,6 +6,7 @@ import { generateCertificatePdf, downloadCertificateFile } from "../lib/certific
 import { uploadCertificateToR2 } from "../lib/storage";
 import { getSessionUser } from "../lib/auth";
 import { fetchStudentCourses, type CourseStatus, type StudentCourseRow } from "../lib/studentCourses";
+import { CourseCardSkeleton, StatCardSkeleton } from "../components/Skeleton";
 
 function StatusBadge({ status }: { status: CourseStatus }) {
   const map = {
@@ -99,7 +100,18 @@ export default function StudentGrades() {
           {loadError && <p className="sg-error" role="alert">{loadError}</p>}
 
           {loading ? (
-            <p className="sg-loading">Loading grades…</p>
+            <>
+              <div className="sg-stats">
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+              </div>
+              <p className="s-title" style={{ marginTop: 24 }}>All courses</p>
+              <div className="sg-grid">
+                <CourseCardSkeleton />
+                <CourseCardSkeleton />
+              </div>
+            </>
           ) : (
             <>
               <div className="sg-stats">

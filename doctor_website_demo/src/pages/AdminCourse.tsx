@@ -5,6 +5,7 @@ import { supabase } from "../supabaseClient";
 import { fetchInstructors, instructorName, type Instructor } from "../lib/instructors";
 import { grantInstructorCourse } from "../lib/instructorCourses";
 import { firstLocationId } from "../lib/locations";
+import { CourseCardSkeleton } from "../components/Skeleton";
 
 // ─── Global styles (same token system as AdminLanding) ────────────────────────
 
@@ -141,6 +142,7 @@ export default function AdminCourses() {
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
   const loadCourses = async () => {
@@ -153,6 +155,7 @@ export default function AdminCourses() {
 
     if (error) {
       setLoadError(error.message);
+      setLoading(false);
       return;
     }
 
@@ -183,6 +186,7 @@ export default function AdminCourses() {
         instructorName: teacherByCourse.get(course.id) ?? "Unassigned",
       })),
     );
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -263,7 +267,14 @@ export default function AdminCourses() {
             <p className="load-error"><AlertCircle />{loadError}</p>
           )}
 
-          {courses.length === 0 ? (
+          {loading ? (
+            <div className="course-grid">
+              <CourseCardSkeleton />
+              <CourseCardSkeleton />
+              <CourseCardSkeleton />
+              <CourseCardSkeleton />
+            </div>
+          ) : courses.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon"><BookOpen /></div>
               <p className="empty-title">No courses yet</p>

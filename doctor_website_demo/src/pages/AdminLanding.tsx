@@ -42,6 +42,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
+import { StatCardSkeleton, TableRowSkeleton } from "../components/Skeleton";
 import {
   downloadClassListCsv,
   fetchUpcomingSessions,
@@ -107,6 +108,14 @@ function AdminLanding() {
 
           {/* Stat cards */}
           <div className="stats-grid">
+            {loading ? (
+              <>
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+              </>
+            ) : (
+              <>
             <div className="stat-card">
               <p className="stat-label">Total Students</p>
               <p className="stat-value">{stats.studentCount.toLocaleString()}</p>
@@ -122,6 +131,8 @@ function AdminLanding() {
               <p className="stat-value">R {stats.revenue.toLocaleString()}</p>
               <p className="stat-sub"><span className="up">Paid</span> course bookings</p>
             </div>
+              </>
+            )}
           </div>
 
           {/* Quick Actions */}
@@ -186,9 +197,11 @@ function AdminLanding() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr>
-                    <td colSpan={4} className="table-empty">Loading upcoming classes…</td>
-                  </tr>
+                  <>
+                    <TableRowSkeleton cols={4} />
+                    <TableRowSkeleton cols={4} />
+                    <TableRowSkeleton cols={4} />
+                  </>
                 ) : sessions.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="table-empty">No upcoming classes scheduled</td>
