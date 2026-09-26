@@ -1,5 +1,5 @@
 import { supabase } from "../supabaseClient";
-import { isAdminRole, loadRoles } from "./roles";
+import { isAdminRole, loadRoles, resolveStudentRoleId } from "./roles";
 
 export type AppUser = {
   id: string;
@@ -22,13 +22,46 @@ export async function getSessionUser(): Promise<AppUser | null> {
 
   await loadRoles();
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("users")
     .select(
       "id, email, role_id, first_name, last_name, birth_date, id_num, passport_num, cell_num, sanc_num, active",
     )
     .eq("id", authUser.id)
     .single();
+
+  // Self-heal: If user exists in Auth but public.users row is missing (e.g. email confirmation delay),
+  // recover profile from auth user_metadata
+  if ((error || !data) && authUser.user_metadata) {
+    const meta = authUser.user_metadata;
+    const studentRoleId = await resolveStudentRoleId();
+    const fallbackRoleId = (meta.role_id as string | undefined) || studentRoleId;
+
+    if (fallbackRoleId) {
+      const { data: inserted, error: insertError } = await supabase
+        .from("users")
+        .upsert({
+          id: authUser.id,
+          email: authUser.email ?? "",
+          role_id: fallbackRoleId,
+          first_name: (meta.first_name as string) ?? "",
+          last_name: (meta.last_name as string) ?? "",
+          birth_date: (meta.birth_date as string) ?? null,
+          id_num: (meta.id_num as string) ?? null,
+          passport_num: (meta.passport_num as string) ?? null,
+          cell_num: (meta.cell_num as string) ?? null,
+          sanc_num: (meta.sanc_num as string) ?? null,
+          active: true,
+        })
+        .select()
+        .single();
+
+      if (!insertError && inserted) {
+        data = inserted;
+        error = null;
+      }
+    }
+  }
 
   if (error || !data || !data.active) return null;
   return data as AppUser;

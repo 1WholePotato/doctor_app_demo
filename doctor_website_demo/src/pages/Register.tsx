@@ -102,8 +102,24 @@ export default function Register() {
       return;
     }
 
-    // 1. Create user in Supabase Auth
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    // 1. Create user in Supabase Auth with metadata preserved for confirmation flow
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          first_name: first_name.trim(),
+          last_name: last_name.trim(),
+          birth_date,
+          id_num: id_num.trim() || null,
+          passport_num: passport_num.trim() || null,
+          cell_num: cell_num.trim(),
+          sanc_num: sanc_num.trim() || null,
+          role_id: studentRoleId,
+        },
+      },
+    });
+
     if (error) {
       setBanner(error.message);
       setLoading(false);
@@ -117,26 +133,26 @@ export default function Register() {
       return;
     }
 
+    // 2. Attempt insert into public.users table immediately
+    const { error: insertError } = await supabase.from("users").upsert([{
+      id:           user.id,
+      role_id:      studentRoleId,
+      first_name:   first_name.trim(),
+      last_name:    last_name.trim(),
+      birth_date:   birth_date,
+      id_num:       id_num.trim() || null,
+      passport_num: passport_num.trim() || null,
+      cell_num:     cell_num.trim(),
+      email:        email.trim(),
+      sanc_num:     sanc_num.trim() || null,
+      active:       true,
+    }]);
+
     if (!data.session) {
-      setBanner("Account created. Please check your email to confirm before signing in.");
+      setBanner("Account created! Please check your email to confirm your account before signing in.");
       setLoading(false);
       return;
     }
-
-    // 2. Insert into users table
-    const { error: insertError } = await supabase.from("users").insert([{
-      id:           user.id,
-      role_id:      studentRoleId,
-      first_name: first_name,
-      last_name : last_name,
-      birth_date: birth_date,
-      id_num:       id_num || null,
-      passport_num: passport_num || null,
-      cell_num: cell_num,
-      email: email,
-      sanc_num: sanc_num,
-      active:       true,
-    }]);
 
     if (insertError) {
       setBanner(insertError.message);

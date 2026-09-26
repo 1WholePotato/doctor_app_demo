@@ -48,6 +48,7 @@ import {
   fetchUpcomingSessions,
   type UpcomingSession,
 } from "../lib/classLists";
+import { resolveStudentRoleId } from "../lib/roles";
 
 
 function AdminLanding() {
@@ -61,9 +62,14 @@ function AdminLanding() {
 
     async function load() {
       setLoading(true);
+      const studentRoleId = await resolveStudentRoleId();
+      const studentQuery = studentRoleId
+        ? supabase.from("users").select("id", { count: "exact", head: true }).eq("role_id", studentRoleId)
+        : supabase.from("users").select("id", { count: "exact", head: true });
+
       const [result, userRes, courseRes, bookingRes] = await Promise.all([
         fetchUpcomingSessions(),
-        supabase.from("users").select("id", { count: "exact", head: true }).eq("role", "student"),
+        studentQuery,
         supabase.from("courses").select("id", { count: "exact", head: true }).eq("active", true),
         supabase.from("bookings").select("payment_status, courses(course_price)").eq("payment_status", "paid").limit(1000),
       ]);

@@ -6,7 +6,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
-import { getSessionUser } from "../lib/auth";
+import { useAuth } from "../context/useAuth";
 import { TableRowSkeleton } from "../components/Skeleton";
 import { loadRoles, roleLabel, type RoleOption } from "../lib/roles";
 import {
@@ -289,13 +289,14 @@ function ChangeRoleModal({
 
 export default function AdminUsers() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [courses, setCourses] = useState<CourseOption[]>([]);
   const [coursesByEmail, setCoursesByEmail] = useState<Map<string, string[]>>(new Map());
-  const [currentUserId, setCurrentUserId] = useState("");
+  const currentUserId = user?.id ?? "";
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [selected, setSelected] = useState<UserRow | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -344,15 +345,6 @@ export default function AdminUsers() {
     let cancelled = false;
 
     async function init() {
-      const sessionUser = await getSessionUser();
-      if (cancelled) return;
-
-      if (!sessionUser) {
-        navigate("/login");
-        return;
-      }
-
-      setCurrentUserId(sessionUser.id);
       const loadedRoles = await loadRoles();
       if (cancelled) return;
 

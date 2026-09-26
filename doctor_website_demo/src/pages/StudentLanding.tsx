@@ -21,7 +21,7 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getSessionUser } from "../lib/auth";
+import { useAuth } from "../context/useAuth";
 import { fetchStudentCourses, type StudentCourseRow } from "../lib/studentCourses";
 import {
   BookOpen, CalendarDays, ChevronRight, Clock, Bell,
@@ -65,20 +65,15 @@ function NotifIcon({ type }: { type: string }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function StudentLanding() {
-  const [userName, setUserName] = useState("Student");
+  const { user } = useAuth();
+  const userName = user?.first_name || user?.email?.split("@")[0] || "Student";
   const [enrolledCourses, setEnrolledCourses] = useState<StudentCourseRow[]>([]);
 
   useEffect(() => {
     let cancelled = false;
+    if (!user) return;
     async function load() {
-      const user = await getSessionUser();
-      if (!user) {
-        return;
-        return;
-      }
-      if (!cancelled) {
-        setUserName(user.first_name || user.email?.split("@")[0] || "Student");
-      }
+      if (!user) return;
       const res = await fetchStudentCourses(user.id);
       if (!cancelled) {
         setEnrolledCourses(res.courses);
@@ -86,7 +81,7 @@ export default function StudentLanding() {
     }
     void load();
     return () => { cancelled = true; };
-  }, []);
+  }, [user]);
 
   return (
     <>

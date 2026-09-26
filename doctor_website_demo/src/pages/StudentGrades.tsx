@@ -4,7 +4,7 @@ import {
 } from "lucide-react";
 import { generateCertificatePdf, downloadCertificateFile } from "../lib/certificateGenerator";
 import { uploadCertificateToR2 } from "../lib/storage";
-import { getSessionUser } from "../lib/auth";
+import { useAuth } from "../context/useAuth";
 import { fetchStudentCourses, type CourseStatus, type StudentCourseRow } from "../lib/studentCourses";
 import { CourseCardSkeleton, StatCardSkeleton } from "../components/Skeleton";
 
@@ -24,26 +24,26 @@ function StatusBadge({ status }: { status: CourseStatus }) {
 }
 
 export default function StudentGrades() {
+  const { user, loading: authLoading } = useAuth();
   const [courses, setCourses] = useState<StudentCourseRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const loading = authLoading || (Boolean(user) && dataLoading);
+
+  const currentUser = user ? {
+    id: user.id,
+    name: `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim() || user.email,
+  } : null;
 
   useEffect(() => {
     let cancelled = false;
+    if (!user) return;
 
     async function load() {
-      const user = await getSessionUser();
-      if (!user) {
-        if (!cancelled) setLoading(false);
-        return;
-      }
-      if (!cancelled) {
-        const fullName = `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim();
-        setCurrentUser({ id: user.id, name: fullName });
-      }
-
+      if (!user) return;
+      setDataLoading(true);
       const result = await fetchStudentCourses(user.id);
       if (cancelled) return;
 
@@ -53,12 +53,12 @@ export default function StudentGrades() {
         setLoadError("");
         setCourses(result.courses);
       }
-      setLoading(false);
+      setDataLoading(false);
     }
 
     void load();
     return () => { cancelled = true; };
-  }, []);
+  }, [user]);
 
   const handleDownloadCertificate = async (row: StudentCourseRow) => {
     try {

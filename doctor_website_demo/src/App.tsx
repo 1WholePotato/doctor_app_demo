@@ -23,6 +23,7 @@ const StudentCourseDetails = lazy(() => import("./pages/StudentCourseDetails"));
 const StudentGrades = lazy(() => import("./pages/StudentGrades"));
 const StudentProfile = lazy(() => import("./pages/StudentProfile"));
 const StudentNotifications = lazy(() => import("./pages/StudentNotifications"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 function PageLoading() {
   return (
@@ -85,6 +86,9 @@ function App() {
               <Route path="/notifications" element={<StudentNotifications />} />
               <Route path="/profile" element={<StudentProfile />} />
             </Route>
+
+            {/* 404 Catch-All */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
       </AuthProvider>

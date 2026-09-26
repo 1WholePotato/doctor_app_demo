@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   BookOpen, Search, User, CheckCircle, XCircle, Clock,
 } from "lucide-react";
-import { getSessionUser } from "../lib/auth";
+import { useAuth } from "../context/useAuth";
 import { fetchStudentCourses, type CourseStatus, type StudentCourseRow } from "../lib/studentCourses";
 import { supabase } from "../supabaseClient";
 import { CourseCardSkeleton } from "../components/Skeleton";
@@ -32,23 +32,23 @@ function StatusBadge({ status }: { status: CourseStatus }) {
 
 export default function StudentCourses() {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<"enrolled" | "catalog">("enrolled");
   const [query, setQuery] = useState("");
   const [courses, setCourses] = useState<StudentCourseRow[]>([]);
   const [catalog, setCatalog] = useState<CatalogCourse[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+
+  const loading = authLoading || (Boolean(user) && dataLoading);
 
   useEffect(() => {
     let cancelled = false;
+    if (!user) return;
 
     async function load() {
-      const user = await getSessionUser();
-      if (!user) {
-        if (!cancelled) setLoading(false);
-        return;
-      }
-
+      if (!user) return;
+      setDataLoading(true);
       const [result, catalogRes] = await Promise.all([
         fetchStudentCourses(user.id),
         supabase.from("courses").select("id, course_title, course_description, course_price"),
@@ -64,12 +64,12 @@ export default function StudentCourses() {
       if (catalogRes.data) {
         setCatalog(catalogRes.data);
       }
-      setLoading(false);
+      setDataLoading(false);
     }
 
     void load();
     return () => { cancelled = true; };
-  }, []);
+  }, [user]);
 
   const filtered = courses.filter((c) =>
     c.title.toLowerCase().includes(query.toLowerCase()) ||

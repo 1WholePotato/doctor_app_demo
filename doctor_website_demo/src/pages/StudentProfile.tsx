@@ -2,11 +2,13 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { Skeleton } from "../components/Skeleton";
-import { getSessionUser, type AppUser } from "../lib/auth";
+import { type AppUser } from "../lib/auth";
+import { useAuth } from "../context/useAuth";
 import { loadRoles, roleLabel } from "../lib/roles";
 
 export default function StudentProfile() {
   const navigate = useNavigate();
+  const { user, loading: authLoading, refreshUser } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -29,16 +31,15 @@ export default function StudentProfile() {
   useEffect(() => {
     let cancelled = false;
 
+    if (!user) {
+      if (!authLoading) navigate("/login");
+      return;
+    }
+
     async function load() {
-      const user = await getSessionUser();
-      if (cancelled) return;
-
-      if (!user) {
-        navigate("/login");
-        return;
-      }
-
+      if (!user) return;
       const roles = await loadRoles();
+      if (cancelled) return;
       setProfile(user);
       setRoleName(roleLabel(user.role_id, roles));
       setOriginalEmail(user.email);
@@ -58,7 +59,7 @@ export default function StudentProfile() {
     return () => {
       cancelled = true;
     };
-  }, [navigate]);
+  }, [user, authLoading, navigate]);
 
   const clearErr = (key: string) =>
     setErrors((p) => {
@@ -120,6 +121,7 @@ export default function StudentProfile() {
       setOriginalEmail(email.trim());
     }
 
+    await refreshUser();
     setBanner({ type: "ok", text: "Profile updated successfully." });
     setSaving(false);
   };

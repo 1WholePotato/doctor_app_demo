@@ -1,4 +1,4 @@
-import { useEffect, useState, type ElementType } from "react";
+import { type ElementType } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
@@ -8,7 +8,8 @@ import {
   LogOut,
   Settings,
 } from "lucide-react";
-import { displayName, getSessionUser, initials, signOut, type AppUser } from "../lib/auth";
+import { displayName, initials, signOut } from "../lib/auth";
+import { useAuth } from "../context/useAuth";
 
 type Prefix = "sl" | "sp";
 
@@ -52,11 +53,7 @@ export default function StudentSidebar({
 }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const [user, setUser] = useState<AppUser | null>(null);
-
-  useEffect(() => {
-    void getSessionUser().then(setUser);
-  }, []);
+  const { user } = useAuth();
 
   const handleSignOut = async () => {
     onCloseMobile?.();
