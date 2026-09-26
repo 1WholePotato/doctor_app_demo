@@ -44,7 +44,6 @@ import {
 import { supabase } from "../supabaseClient";
 import { StatCardSkeleton, TableRowSkeleton } from "../components/Skeleton";
 import {
-  downloadClassListCsv,
   fetchUpcomingSessions,
   type UpcomingSession,
 } from "../lib/classLists";
@@ -55,40 +54,43 @@ function AdminLanding() {
   const [sessions, setSessions] = useState<UpcomingSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [queryError, setQueryError] = useState<string | null>(null);
-  const [stats, setStats] = useState({ studentCount: 0, courseCount: 0, revenue: 0 });
+  const [stats, setStats] = useState<{ studentCount: number | null; courseCount: number | null; revenue: number | null }>({ studentCount: null, courseCount: null, revenue: null });
+  const [metricErrors, setMetricErrors] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       setLoading(true);
-      const studentRoleId = await resolveStudentRoleId();
-      const studentQuery = studentRoleId
-        ? supabase.from("users").select("id", { count: "exact", head: true }).eq("role_id", studentRoleId)
-        : supabase.from("users").select("id", { count: "exact", head: true });
-
-      const [result, userRes, courseRes, bookingRes] = await Promise.all([
+      const [studentRoleId, result, courseRes, bookingRes] = await Promise.all([
+        resolveStudentRoleId(),
         fetchUpcomingSessions(),
-        studentQuery,
         supabase.from("courses").select("id", { count: "exact", head: true }).eq("active", true),
-        supabase.from("bookings").select("payment_status, courses(course_price)").eq("payment_status", "paid").limit(1000),
+        // RAD client query only. Report revenue only when every matching row was returned.
+        supabase.from("bookings").select("total_amount", { count: "exact" }).eq("payment_status", "paid"),
       ]);
+      const userRes = studentRoleId
+        ? await supabase.from("users").select("id", { count: "exact", head: true }).eq("role_id", studentRoleId)
+        : null;
       if (cancelled) return;
 
       setSessions(result.sessions);
       setQueryError(result.error);
-
-      const studentCount = userRes.count ?? 0;
-      const courseCount = courseRes.count ?? 0;
-      let revenue = 0;
-      if (bookingRes.data) {
-        for (const b of bookingRes.data) {
-          const c = Array.isArray(b.courses) ? b.courses[0] : b.courses;
-          if (c && typeof c.course_price === "number") {
-            revenue += c.course_price;
-          }
-        }
-      }
+      const errors = [
+        !studentRoleId ? "Student count unavailable: student role could not be resolved." : userRes?.error?.message,
+        courseRes.error?.message,
+        bookingRes.error?.message,
+        bookingRes.count != null && bookingRes.count !== (bookingRes.data?.length ?? 0)
+          ? "Revenue unavailable: the browser result omitted some paid bookings; use a server aggregate."
+          : null,
+        result.error,
+      ].filter((message): message is string => Boolean(message));
+      setMetricErrors(errors);
+      const studentCount = userRes?.error ? null : userRes?.count ?? null;
+      const courseCount = courseRes.error ? null : courseRes.count ?? null;
+      const revenue = bookingRes.error || (bookingRes.count != null && bookingRes.count !== (bookingRes.data?.length ?? 0))
+        ? null
+        : (bookingRes.data ?? []).reduce((sum, booking) => sum + (Number(booking.total_amount) || 0), 0);
       setStats({ studentCount, courseCount, revenue });
       setLoading(false);
     }
@@ -124,22 +126,23 @@ function AdminLanding() {
               <>
             <div className="stat-card">
               <p className="stat-label">Total Students</p>
-              <p className="stat-value">{stats.studentCount.toLocaleString()}</p>
+              <p className="stat-value">{stats.studentCount?.toLocaleString() ?? "—"}</p>
               <p className="stat-sub"><span className="up">Active</span> verified accounts</p>
             </div>
             <div className="stat-card">
               <p className="stat-label">Active Courses</p>
-              <p className="stat-value">{stats.courseCount}</p>
+              <p className="stat-value">{stats.courseCount ?? "—"}</p>
               <p className="stat-sub">Available curriculum</p>
             </div>
             <div className="stat-card">
               <p className="stat-label">Revenue (Gross)</p>
-              <p className="stat-value">R {stats.revenue.toLocaleString()}</p>
+              <p className="stat-value">{stats.revenue == null ? "—" : `R ${stats.revenue.toLocaleString()}`}</p>
               <p className="stat-sub"><span className="up">Paid</span> course bookings</p>
             </div>
               </>
             )}
           </div>
+          {metricErrors.length > 0 && <div className="query-error" role="alert">{metricErrors.join(" ")}</div>}
 
           {/* Quick Actions */}
           <div className="section-header">
@@ -222,13 +225,11 @@ function AdminLanding() {
                         <button
                           type="button"
                           className="btn-primary"
-                          onClick={() => downloadClassListCsv(session)}
+                          disabled
                         >
                           Download
                         </button>
-                        {session.downloadDisabledReason && (
-                          <span className="download-note">{session.downloadDisabledReason}</span>
-                        )}
+                        <span className="download-note">Attendee lists are unavailable until bookings identify a specific session.</span>
                       </td>
                     </tr>
                   ))

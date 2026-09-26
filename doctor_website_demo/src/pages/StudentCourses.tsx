@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  BookOpen, Search, User, CheckCircle, XCircle, Clock,
-} from "lucide-react";
+import { BookOpen, Search, User } from "lucide-react";
 import { useAuth } from "../context/useAuth";
-import { fetchStudentCourses, type CourseStatus, type StudentCourseRow } from "../lib/studentCourses";
+import { fetchStudentCourses, type StudentCourseRow } from "../lib/studentCourses";
 import { supabase } from "../supabaseClient";
 import { CourseCardSkeleton } from "../components/Skeleton";
 
@@ -15,21 +13,6 @@ interface CatalogCourse {
   course_price: number;
 }
 
-function StatusBadge({ status }: { status: CourseStatus }) {
-  const map = {
-    pending: { label: "Pending", cls: "status-pending", Icon: Clock },
-    passed: { label: "Passed", cls: "status-passed", Icon: CheckCircle },
-    failed: { label: "Failed", cls: "status-failed", Icon: XCircle },
-  };
-  const { label, cls, Icon } = map[status];
-  return (
-    <span className={`status-badge ${cls}`}>
-      <Icon aria-hidden="true" style={{ width: 12, height: 12 }} />
-      {label}
-    </span>
-  );
-}
-
 export default function StudentCourses() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -38,7 +21,8 @@ export default function StudentCourses() {
   const [courses, setCourses] = useState<StudentCourseRow[]>([]);
   const [catalog, setCatalog] = useState<CatalogCourse[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
+  const [enrolledError, setEnrolledError] = useState("");
+  const [catalogError, setCatalogError] = useState("");
 
   const loading = authLoading || (Boolean(user) && dataLoading);
 
@@ -49,22 +33,29 @@ export default function StudentCourses() {
     async function load() {
       if (!user) return;
       setDataLoading(true);
-      const [result, catalogRes] = await Promise.all([
-        fetchStudentCourses(user.id),
-        supabase.from("courses").select("id, course_title, course_description, course_price"),
-      ]);
-      if (cancelled) return;
+      try {
+        const [result, catalogRes] = await Promise.all([
+          fetchStudentCourses(user.id),
+          supabase
+            .from("courses")
+            .select("id, course_title, course_description, course_price")
+            .eq("active", true)
+            .order("course_title"),
+        ]);
+        if (cancelled) return;
 
-      if (result.error) {
-        setLoadError(result.error);
-      } else {
-        setLoadError("");
+        setEnrolledError(result.error ?? "");
         setCourses(result.courses);
+        setCatalogError(catalogRes.error?.message ?? "");
+        setCatalog(catalogRes.data ?? []);
+      } catch (err) {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : "Could not load courses.";
+        setEnrolledError(message);
+        setCatalogError(message);
+      } finally {
+        if (!cancelled) setDataLoading(false);
       }
-      if (catalogRes.data) {
-        setCatalog(catalogRes.data);
-      }
-      setDataLoading(false);
     }
 
     void load();
@@ -135,7 +126,8 @@ export default function StudentCourses() {
             </div>
           </div>
 
-          {loadError && <p className="sc-error" role="alert">{loadError}</p>}
+          {activeTab === "enrolled" && enrolledError && <p className="sc-error" role="alert">{enrolledError}</p>}
+          {activeTab === "catalog" && catalogError && <p className="sc-error" role="alert">{catalogError}</p>}
 
           {loading ? (
             <div className="sc-grid">
@@ -145,7 +137,7 @@ export default function StudentCourses() {
               <CourseCardSkeleton />
             </div>
           ) : activeTab === "enrolled" ? (
-            filtered.length === 0 ? (
+            enrolledError && courses.length === 0 ? null : filtered.length === 0 ? (
               <div className="sc-empty">
                 <div className="sc-empty-icon"><BookOpen /></div>
                 <p className="sc-empty-title">No courses found</p>
@@ -159,7 +151,7 @@ export default function StudentCourses() {
                   <div key={course.bookingId} className="sc-card">
                     <div className="sc-card-top">
                       <h2 className="sc-card-title">{course.title}</h2>
-                      <StatusBadge status={course.status} />
+                      <span className="status-badge status-pending">Result unavailable</span>
                     </div>
 
                     <p className="sc-card-desc">{course.description || "No description provided."}</p>
@@ -171,7 +163,7 @@ export default function StudentCourses() {
 
                     <div className="sc-card-footer">
                       <span style={{ fontSize: 11, color: "var(--s-text-3)", background: "var(--s-bg)", border: "1px solid var(--s-border)", padding: "2px 9px", borderRadius: 20, fontWeight: 500 }}>
-                        {course.paymentStatus}
+                        Payment status: {course.paymentStatus}
                       </span>
                       <button
                         className="sc-enrol-btn"
@@ -185,7 +177,7 @@ export default function StudentCourses() {
               </div>
             )
           ) : (
-            filteredCatalog.length === 0 ? (
+            catalogError && catalog.length === 0 ? null : filteredCatalog.length === 0 ? (
               <div className="sc-empty">
                 <div className="sc-empty-icon"><BookOpen /></div>
                 <p className="sc-empty-title">No catalog courses found</p>
@@ -202,7 +194,7 @@ export default function StudentCourses() {
                     <p className="sc-card-desc">{course.course_description || "No description provided."}</p>
 
                     <div className="sc-meta-row">
-                      <span className="sc-meta">R {course.course_price.toLocaleString()}</span>
+                      <span className="sc-meta">R {Number(course.course_price || 0).toLocaleString()}</span>
                     </div>
 
                     <div className="sc-card-footer">

@@ -1,44 +1,7 @@
-/**
- * Landing page components — Hero, AboutWebsite, AboutDoctor
- *
- * All three live in one file since they compose a single public landing page.
- *
- * DESIGN:
- * - Matches the admin gold/dark token system (same brand as Login & Register)
- * - Hero: full-screen dark navy with gold headline, animated scroll cue
- * - AboutWebsite: off-white section with 3 feature cards
- * - AboutDoctor: dark section with a doctor profile card + credential badges
- *
- * CHANGES FROM ORIGINALS:
- * 1. Replaced placeholder text with realistic medical platform copy.
- * 2. Hero CTA navigates to /register; secondary link to /login.
- * 3. Smooth scroll to #about and #doctor anchor sections.
- * 4. Animated stat counters (CSS only) in the hero.
- * 5. Feature cards in AboutWebsite with icons (no extra packages — Unicode symbols).
- * 6. Doctor credentials badges in AboutDoctor.
- * 7. No new npm packages needed. lucide-react used for icons.
- *
- * NPM: lucide-react (already installed)
- * Google Fonts: Fraunces + DM Sans (already in index.css)
- *
- * USAGE in Home.tsx:
- *   import Hero from "./Hero";
- *   import AboutWebsite from "./AboutWebsite";
- *   import AboutDoctor from "./AboutDoctor";
- *   export default function Home() {
- *     return <><Hero /><AboutWebsite /><AboutDoctor /></>;
- *   }
- */
-
 import { Link } from "react-router-dom";
 import { BookOpen, CalendarDays, GraduationCap, Award, MapPin, Clock } from "lucide-react";
 
-
 import "../styles/landing.css";
-// ─── Navbar (shared across all three sections) ────────────────────────────────
-
-
-
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
 export function Hero() {
@@ -216,17 +179,5 @@ export function AboutDoctor() {
 
       </div>
     </section>
-  );
-}
-
-// ─── Default export: full landing page ───────────────────────────────────────
-
-export default function Home() {
-  return (
-    <>
-      <Hero />
-      <AboutWebsite />
-      <AboutDoctor />
-    </>
   );
 }

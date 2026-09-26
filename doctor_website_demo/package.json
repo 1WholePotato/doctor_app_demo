@@ -12,7 +12,6 @@
     "seed": "node scripts/seed-demo.mjs"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1140.0",
     "@supabase/supabase-js": "^2.102.1",
     "@tailwindcss/vite": "^4.1.18",
     "lucide-react": "^1.14.0",

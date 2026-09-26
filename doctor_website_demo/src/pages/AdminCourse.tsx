@@ -4,7 +4,7 @@ import { BookOpen, Plus, X, AlertCircle } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import { fetchInstructors, instructorName, type Instructor } from "../lib/instructors";
 import { grantInstructorCourse } from "../lib/instructorCourses";
-import { firstLocationId } from "../lib/locations";
+import { fetchLocations, type LocationRow } from "../lib/locations";
 import { CourseCardSkeleton } from "../components/Skeleton";
 
 // ─── Global styles (same token system as AdminLanding) ────────────────────────
@@ -22,51 +22,93 @@ type NewCourse = {
   description: string;
   price: number;
   instructorId: string;
+  locationId: string;
+  startDate: string;
+  endDate: string;
+  startTime: string;
+  endTime: string;
+  maxStudents: number;
 };
 
 function AddCourseModal({
   onClose,
+  canClose,
   onAdd,
   instructors,
+  locations,
 }: {
   onClose: () => void;
-  onAdd: (c: NewCourse) => void;
+  canClose: boolean;
+  onAdd: (c: NewCourse) => Promise<string | null>;
   instructors: Instructor[];
+  locations: LocationRow[];
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [instructorId, setInstructorId] = useState(instructors[0]?.id ?? "");
   const [price, setPrice] = useState("");
+  const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("12:00");
+  const [maxStudents, setMaxStudents] = useState("20");
   const [errors, setErrors] = useState<{ title?: string; price?: string; instructorId?: string }>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const newErrors: typeof errors = {};
     if (!title.trim()) newErrors.title = "Course title is required";
     if (!price || isNaN(Number(price)) || Number(price) <= 0)
       newErrors.price = "Enter a valid price";
     if (!instructorId) newErrors.instructorId = "Assign a teacher";
+    if (!locationId) newErrors.instructorId = "Choose a location before creating a course";
+    if (!startDate || !endDate || endDate < startDate) newErrors.title = "Choose a valid session date range";
+    if (!startTime || !endTime || endTime <= startTime) newErrors.price = "Choose a valid session time range";
+    if (!Number.isInteger(Number(maxStudents)) || Number(maxStudents) < 1) newErrors.price = "Enter a valid class capacity";
     if (Object.keys(newErrors).length) { setErrors(newErrors); return; }
 
-    onAdd({
-      title: title.trim(),
-      description: description.trim(),
-      price: Number(price),
-      instructorId,
-    });
+    setSubmitting(true);
+    setSubmitError(null);
+    let error: string | null;
+    try {
+      error = await onAdd({
+        title: title.trim(),
+        description: description.trim(),
+        price: Number(price),
+        instructorId,
+        locationId,
+        startDate,
+        endDate,
+        startTime,
+        endTime,
+        maxStudents: Number(maxStudents),
+      });
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : "Could not finish course setup. Retry to resume without creating duplicates.";
+    } finally {
+      setSubmitting(false);
+    }
+    if (error) {
+      setSubmitError(error);
+      return;
+    }
     onClose();
   };
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) onClose();
+    if (e.target === e.currentTarget && canClose && !submitting && !submitError) onClose();
   };
 
   return (
     <div className="modal-overlay" onClick={handleOverlayClick}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <button className="modal-close" onClick={onClose} aria-label="Close"><X /></button>
+        <button className="modal-close" onClick={onClose} aria-label="Close" disabled={!canClose || submitting || Boolean(submitError)}><X /></button>
 
         <p className="modal-eyebrow">New course</p>
         <h2 id="modal-title">Add a course</h2>
+        {!canClose && <p className="modal-eyebrow">A course draft is saved. Finish setup here to prevent losing the entered details.</p>}
 
         <div className="field">
           <label htmlFor="course-title">Course title</label>
@@ -75,6 +117,7 @@ function AddCourseModal({
             type="text"
             placeholder="e.g. Advanced Human Anatomy"
             value={title}
+            disabled={!canClose || submitting || Boolean(submitError)}
             onChange={(e) => { setTitle(e.target.value); setErrors((p) => ({ ...p, title: undefined })); }}
           />
           {errors.title && (
@@ -88,6 +131,7 @@ function AddCourseModal({
             id="course-desc"
             placeholder="What will students learn in this course?"
             value={description}
+            disabled={!canClose || submitting || Boolean(submitError)}
             onChange={(e) => setDescription(e.target.value)}
           />
         </div>
@@ -98,6 +142,7 @@ function AddCourseModal({
             <select
               id="course-teacher"
               value={instructorId}
+              disabled={!canClose || submitting || Boolean(submitError)}
               onChange={(e) => { setInstructorId(e.target.value); setErrors((p) => ({ ...p, instructorId: undefined })); }}
             >
               {instructors.length === 0 && <option value="">No teachers in database</option>}
@@ -120,6 +165,7 @@ function AddCourseModal({
               placeholder="e.g. 1499"
               min="0"
               value={price}
+              disabled={!canClose || submitting || Boolean(submitError)}
               onChange={(e) => { setPrice(e.target.value); setErrors((p) => ({ ...p, price: undefined })); }}
             />
             {errors.price && (
@@ -128,8 +174,45 @@ function AddCourseModal({
           </div>
         </div>
 
-        <button className="btn-submit" onClick={handleSubmit}>
-          Create course
+        <p className="modal-eyebrow">First session</p>
+        <div className="field-row">
+          <div className="field">
+            <label htmlFor="session-location">Location</label>
+            <select id="session-location" value={locationId} disabled={!canClose || submitting || Boolean(submitError)} onChange={(e) => setLocationId(e.target.value)}>
+              {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="session-capacity">Class capacity</label>
+            <input id="session-capacity" type="number" min="1" value={maxStudents} disabled={!canClose || submitting || Boolean(submitError)} onChange={(e) => setMaxStudents(e.target.value)} />
+          </div>
+        </div>
+        <div className="field-row">
+          <div className="field">
+            <label htmlFor="session-start-date">Start date</label>
+            <input id="session-start-date" type="date" value={startDate} disabled={!canClose || submitting || Boolean(submitError)} onChange={(e) => setStartDate(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="session-end-date">End date</label>
+            <input id="session-end-date" type="date" value={endDate} disabled={!canClose || submitting || Boolean(submitError)} onChange={(e) => setEndDate(e.target.value)} />
+          </div>
+        </div>
+        <div className="field-row">
+          <div className="field">
+            <label htmlFor="session-start-time">Start time</label>
+            <input id="session-start-time" type="time" value={startTime} disabled={!canClose || submitting || Boolean(submitError)} onChange={(e) => setStartTime(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="session-end-time">End time</label>
+            <input id="session-end-time" type="time" value={endTime} disabled={!canClose || submitting || Boolean(submitError)} onChange={(e) => setEndTime(e.target.value)} />
+          </div>
+        </div>
+
+        {submitError && (
+          <p className="load-error" role="alert"><AlertCircle />{submitError}</p>
+        )}
+        <button className="btn-submit" onClick={handleSubmit} disabled={submitting}>
+          {submitting ? "Saving course…" : "Create course"}
         </button>
       </div>
     </div>
@@ -140,18 +223,24 @@ export default function AdminCourses() {
   const navigate = useNavigate();
   const [courses, setCourses] = useState<Course[]>([]);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
+  const [locations, setLocations] = useState<LocationRow[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  // Keep partial setup state across retries while the modal is open. A retry
+  // resumes this draft instead of creating another course or first session.
+  const setupRef = React.useRef<{ courseId?: string; sessionId?: string; course?: NewCourse }>({});
 
   const loadCourses = async () => {
-    const [{ data, error }, instructorResult] = await Promise.all([
+    const [{ data, error }, instructorResult, locationResult] = await Promise.all([
       supabase.from("courses").select("id, course_title, course_description, course_price").order("course_title"),
       fetchInstructors(),
+      fetchLocations(),
     ]);
 
     setInstructors(instructorResult.instructors);
+    setLocations(locationResult.locations);
 
     if (error) {
       setLoadError(error.message);
@@ -161,12 +250,14 @@ export default function AdminCourses() {
 
     const courseIds = (data ?? []).map((c) => c.id);
     let sessionRows: { course_id: string; instructors: unknown }[] = [];
+    let sessionError: string | null = null;
     if (courseIds.length > 0) {
-      const { data: rows } = await supabase
+      const { data: rows, error: sessionsQueryError } = await supabase
         .from("course_sessions")
         .select("course_id, instructors ( first_name, last_name, email )")
         .in("course_id", courseIds)
         .eq("active", true);
+      sessionError = sessionsQueryError?.message ?? null;
       if (rows) sessionRows = rows as { course_id: string; instructors: unknown }[];
     }
 
@@ -177,8 +268,8 @@ export default function AdminCourses() {
       teacherByCourse.set(row.course_id, instructorName(instructor));
     }
 
-    if (instructorResult.error) {
-      setLoadError(instructorResult.error);
+    if (instructorResult.error || locationResult.error || sessionError) {
+      setLoadError([instructorResult.error, locationResult.error, sessionError].filter(Boolean).join(" "));
     } else {
       setLoadError("");
     }
@@ -207,49 +298,119 @@ export default function AdminCourses() {
     };
   }, []);
 
-  const handleAdd = async (course: NewCourse) => {
-    const { data, error } = await supabase
+  const handleAdd = async (course: NewCourse): Promise<string | null> => {
+    const fail = async (message: string) => {
+      setActionError(message);
+      await loadCourses();
+      return message;
+    };
+
+    setupRef.current.course ??= course;
+    course = setupRef.current.course;
+    // Reuse a client-generated id if an insert committed but its response was
+    // lost. This makes retries idempotent even before the server returns a row.
+    setupRef.current.courseId ??= crypto.randomUUID();
+    const courseId = setupRef.current.courseId;
+    const { data: existingCourse, error: lookupCourseError } = await supabase
       .from("courses")
-      .insert({
-        course_title: course.title,
-        course_description: course.description,
-        course_price: course.price,
-        active: true,
-      })
       .select("id")
-      .single();
-
-    if (error || !data) {
-      setActionError(error?.message ?? "Could not create course");
-      return;
+      .eq("id", courseId)
+      .maybeSingle();
+    if (lookupCourseError) {
+      return fail(`Could not check the saved course draft: ${lookupCourseError.message}. Retry to resume setup.`);
+    }
+    if (!existingCourse) {
+      const { error: courseError } = await supabase
+        .from("courses")
+        .insert({
+          id: courseId,
+          course_title: course.title,
+          course_description: course.description,
+          course_price: course.price,
+          active: false,
+        });
+      if (courseError) {
+        const { data: insertedCourse, error: confirmError } = await supabase
+          .from("courses")
+          .select("id")
+          .eq("id", courseId)
+          .maybeSingle();
+        if (confirmError || !insertedCourse) {
+          return fail(`Could not save course draft ${courseId}: ${courseError.message}${confirmError ? ` (confirmation failed: ${confirmError.message})` : ""}. Retry to resume without creating a duplicate.`);
+        }
+      }
     }
 
-    const locationId = await firstLocationId();
-    if (!locationId) {
-      setActionError("Add a location in the database before assigning a teacher.");
-      return;
-    }
-
-    const { error: sessionError } = await supabase.from("course_sessions").insert({
-      course_id: data.id,
+    const sessionValues = {
+      course_id: courseId,
       instructor_id: course.instructorId,
-      location_id: locationId,
-      start_date: new Date().toISOString().slice(0, 10),
-      end_date: new Date().toISOString().slice(0, 10),
-      start_time: "09:00:00",
-      end_time: "12:00:00",
-      max_students: 20,
-      active: true,
-    });
+      location_id: course.locationId,
+      start_date: course.startDate,
+      end_date: course.endDate,
+      start_time: `${course.startTime}:00`,
+      end_time: `${course.endTime}:00`,
+      max_students: course.maxStudents,
+    };
 
-    if (sessionError) {
-      setActionError(`Course created, but teacher assignment failed: ${sessionError.message}`);
-    } else {
-      const grantError = await grantInstructorCourse(course.instructorId, data.id);
-      if (grantError) setActionError(grantError);
+    if (!setupRef.current.sessionId) {
+      // A previous request may have committed while its response was lost.
+      // Look for that exact first-session draft before attempting another insert.
+      const { data: existing, error: lookupError } = await supabase
+        .from("course_sessions")
+        .select("id")
+        .eq("course_id", courseId)
+        .eq("instructor_id", course.instructorId)
+        .eq("location_id", course.locationId)
+        .eq("start_date", course.startDate)
+        .eq("end_date", course.endDate)
+        .eq("start_time", sessionValues.start_time)
+        .eq("end_time", sessionValues.end_time)
+        .eq("max_students", course.maxStudents)
+        .maybeSingle();
+      if (lookupError) {
+        return fail(`Course draft ${courseId} is saved, but its first session could not be checked: ${lookupError.message}. Retry to resume setup.`);
+      }
+      setupRef.current.sessionId = existing?.id;
+
+      if (!setupRef.current.sessionId) {
+        const { data: session, error: sessionError } = await supabase
+          .from("course_sessions")
+          .insert({ ...sessionValues, active: false })
+          .select("id")
+          .single();
+        if (sessionError || !session) {
+          return fail(`Course draft ${courseId} is saved, but its first session was not confirmed: ${sessionError?.message ?? "No session record was returned"}. Retry to resume setup.`);
+        }
+        setupRef.current.sessionId = session.id;
+      }
     }
 
+    const sessionId = setupRef.current.sessionId;
+    const grantError = await grantInstructorCourse(course.instructorId, courseId);
+    if (grantError) {
+      return fail(`Course draft ${courseId} and its first session are saved but remain inactive because instructor assignment failed: ${grantError}. Retry to resume setup.`);
+    }
+
+    const { error: sessionActivationError } = await supabase
+      .from("course_sessions")
+      .update({ active: true })
+      .eq("id", sessionId);
+    if (sessionActivationError) {
+      return fail(`Course draft ${courseId} is saved and instructor assigned, but the first session could not be activated: ${sessionActivationError.message}. Retry to resume setup.`);
+    }
+
+    const { error: courseActivationError } = await supabase
+      .from("courses")
+      .update({ active: true })
+      .eq("id", courseId);
+    if (courseActivationError) {
+      return fail(`First session and instructor assignment are ready, but course draft ${courseId} could not be activated: ${courseActivationError.message}. Retry to resume setup.`);
+    }
+
+    setupRef.current = {};
+    setActionError(null);
     await loadCourses();
+    return null;
   };
 
   return (
@@ -320,10 +481,12 @@ export default function AdminCourses() {
         </main>
 
       {showModal && (
-        <AddCourseModal
+          <AddCourseModal
           onClose={() => setShowModal(false)}
+          canClose={!setupRef.current.courseId}
           onAdd={handleAdd}
           instructors={instructors}
+          locations={locations}
         />
       )}
     </>

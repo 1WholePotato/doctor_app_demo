@@ -5,6 +5,7 @@ import { Skeleton } from "../components/Skeleton";
 import { type AppUser } from "../lib/auth";
 import { useAuth } from "../context/useAuth";
 import { loadRoles, roleLabel } from "../lib/roles";
+import { authErrorMessage } from "../lib/auth";
 
 export default function StudentProfile() {
   const navigate = useNavigate();
@@ -87,43 +88,54 @@ export default function StudentProfile() {
     if (!profile || !validate()) return;
 
     setSaving(true);
+    try {
+      const requestedEmail = email.trim();
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({
+          first_name: first_name.trim(),
+          last_name: last_name.trim(),
+          birth_date,
+          id_num: isCiti ? id_num.trim() || null : null,
+          passport_num: !isCiti ? passport_num.trim() || null : null,
+          cell_num: cell_num.trim(),
+          sanc_num: sanc_num.trim() || null,
+        })
+        .eq("id", profile.id);
 
-    const { error: updateError } = await supabase
-      .from("users")
-      .update({
-        first_name: first_name.trim(),
-        last_name: last_name.trim(),
-        email: email.trim(),
-        birth_date,
-        id_num: isCiti ? id_num.trim() || null : null,
-        passport_num: !isCiti ? passport_num.trim() || null : null,
-        cell_num: cell_num.trim(),
-        sanc_num: sanc_num.trim() || null,
-      })
-      .eq("id", profile.id);
+      if (updateError) throw updateError;
 
-    if (updateError) {
-      setBanner({ type: "err", text: updateError.message });
-      setSaving(false);
-      return;
-    }
+      if (requestedEmail !== originalEmail) {
+        const { data, error: authError } = await supabase.auth.updateUser({ email: requestedEmail });
+        if (authError) {
+          setBanner({ type: "err", text: `Profile details saved, but the email was not changed: ${authErrorMessage(authError)}` });
+          return;
+        }
 
-    if (email.trim() !== originalEmail) {
-      const { error: authError } = await supabase.auth.updateUser({ email: email.trim() });
-      if (authError) {
-        setBanner({
-          type: "err",
-          text: `Profile saved but email update failed: ${authError.message}`,
-        });
-        setSaving(false);
-        return;
+        if (data.user?.email?.toLowerCase() !== requestedEmail.toLowerCase()) {
+          setBanner({ type: "ok", text: "Profile details saved. Confirm the email change using the link sent to your new address; the current email remains active until then." });
+          return;
+        }
+
+        const { error: emailError } = await supabase.from("users").update({ email: requestedEmail }).eq("id", profile.id);
+        if (emailError) {
+          const { error: rollbackError } = await supabase.auth.updateUser({ email: originalEmail });
+          setBanner({
+            type: "err",
+            text: `Profile details saved, but the email sync failed: ${authErrorMessage(emailError)}${rollbackError ? " The Auth email rollback also failed; contact support." : " The Auth email change was reverted."}`,
+          });
+          return;
+        }
+        setOriginalEmail(requestedEmail);
       }
-      setOriginalEmail(email.trim());
-    }
 
-    await refreshUser();
-    setBanner({ type: "ok", text: "Profile updated successfully." });
-    setSaving(false);
+      await refreshUser();
+      setBanner({ type: "ok", text: "Profile updated successfully." });
+    } catch (err) {
+      setBanner({ type: "err", text: authErrorMessage(err instanceof Error ? err : {}) });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {

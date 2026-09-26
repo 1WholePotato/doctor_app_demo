@@ -1,5 +1,7 @@
 # Implementation guide — `vaperizer2`
 
+> Historical guide for an earlier branch and app state. For current setup and behavior, use [doctor_website_demo/README.md](doctor_website_demo/README.md); for open work, use the [V1 implementation plan](doctor_website_demo/V1_IMPLEMENTATION_PLAN.md).
+
 Use this file outside Cursor. Work on branch `vaperizer2`. When you want a review, come back with the files you changed.
 
 **Repo root (this worktree):** `/home/vaper/Work/Worktrees/doctor_app_demo`

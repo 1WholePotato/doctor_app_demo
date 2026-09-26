@@ -1,7 +1,7 @@
 import { supabase } from "../supabaseClient";
 import { instructorName } from "./instructors";
 
-export type CourseStatus = "passed" | "failed" | "pending";
+export type CourseStatus = "passed" | "failed" | "unavailable";
 
 export type StudentCourseRow = {
   bookingId: string;
@@ -28,24 +28,13 @@ function readString(record: Record<string, unknown>, keys: string[], fallback = 
   return fallback;
 }
 
-function statusFromPayment(paymentStatus: string): CourseStatus {
-  const normalized = paymentStatus.toLowerCase();
-  if (normalized === "passed" || normalized === "complete" || normalized === "completed") {
-    return "passed";
-  }
-  if (normalized === "failed" || normalized === "fail") {
-    return "failed";
-  }
-  return "pending";
-}
-
 export async function fetchStudentCourses(userId: string): Promise<{
   courses: StudentCourseRow[];
   error: string | null;
 }> {
   const { data, error } = await supabase
     .from("bookings")
-    .select("id, course_id, payment_status, courses ( id, course_title, course_description, course_price )")
+    .select("id, course_session_id, payment_status, courses ( id, course_title, course_description, course_price )")
     .eq("user_id", userId);
 
   if (error) {
@@ -53,14 +42,14 @@ export async function fetchStudentCourses(userId: string): Promise<{
   }
 
   const courseIds = Array.from(
-    new Set((data ?? []).map((row) => row.course_id).filter((id): id is string => Boolean(id)))
+    new Set((data ?? []).map((row) => row.course_session_id).filter((id): id is string => Boolean(id)))
   );
 
   if (courseIds.length === 0) {
     return { courses: [], error: null };
   }
 
-  const { data: sessions } = await supabase
+  const { data: sessions, error: sessionsError } = await supabase
     .from("course_sessions")
     .select("course_id, instructors ( first_name, last_name, email )")
     .in("course_id", courseIds)
@@ -84,7 +73,7 @@ export async function fetchStudentCourses(userId: string): Promise<{
       const course = asRecord(record.courses);
       if (!course) return null;
       const paymentStatus = readString(record, ["payment_status"], "pending");
-      const courseId = readString(course, ["id"]) || readString(record, ["course_id"]);
+      const courseId = readString(course, ["id"]) || readString(record, ["course_session_id"]);
       const priceValue = course.course_price;
       return {
         bookingId: readString(record, ["id"]),
@@ -93,13 +82,14 @@ export async function fetchStudentCourses(userId: string): Promise<{
         description: readString(course, ["course_description"]),
         price: typeof priceValue === "number" ? priceValue : Number(priceValue) || 0,
         paymentStatus,
-        status: statusFromPayment(paymentStatus),
+        // This booking has no authoritative grade record, so its result is unavailable.
+        status: "unavailable" as CourseStatus,
         instructor: instructorByCourse.get(courseId) ?? "TBD",
       } satisfies StudentCourseRow;
     })
     .filter((row): row is StudentCourseRow => row !== null);
 
-  return { courses, error: null };
+  return { courses, error: sessionsError?.message ?? null };
 }
 
 export type StudentSessionRow = {
@@ -108,8 +98,6 @@ export type StudentSessionRow = {
   location: string;
   instructor: string;
   duration: string;
-  seatsLeft: number;
-  totalSeats: number;
 };
 
 export type StudentCourseDetail = {
@@ -118,7 +106,6 @@ export type StudentCourseDetail = {
   description: string;
   category: string;
   duration: string;
-  totalSeats: number;
 };
 
 function formatSessionDate(startDate: string): string {
@@ -167,10 +154,11 @@ export async function fetchStudentCourseDetail(courseId: string): Promise<{
   const { data: sessionRows, error: sessionsError } = await supabase
     .from("course_sessions")
     .select(
-      "id, start_date, start_time, end_time, max_students, active, instructors ( first_name, last_name, email ), locations ( name, address )",
+      "id, start_date, start_time, end_time, active, instructors ( first_name, last_name, email ), locations ( name, address )",
     )
     .eq("course_id", courseId)
     .eq("active", true)
+    .gte("start_date", new Date().toISOString().slice(0, 10))
     .order("start_date");
 
   if (sessionsError) {
@@ -181,10 +169,10 @@ export async function fetchStudentCourseDetail(courseId: string): Promise<{
     .map((row) => {
       const record = asRecord(row);
       if (!record) return null;
-      const instructor = asRecord(record.instructors);
-      const maxStudents = typeof record.max_students === "number"
-        ? record.max_students
-        : Number(record.max_students) || 0;
+      const instructorValue = record.instructors;
+      const instructor = Array.isArray(instructorValue)
+        ? asRecord(instructorValue[0])
+        : asRecord(instructorValue);
       return {
         id: readString(record, ["id"]),
         date: formatSessionDate(readString(record, ["start_date"], "Upcoming")),
@@ -200,9 +188,6 @@ export async function fetchStudentCourseDetail(courseId: string): Promise<{
           typeof record.start_time === "string" ? record.start_time : null,
           typeof record.end_time === "string" ? record.end_time : null,
         ),
-        // ponytail: per-session seat counts need bookings.session_id FK (issue #4)
-        seatsLeft: maxStudents,
-        totalSeats: maxStudents,
       } satisfies StudentSessionRow;
     })
     .filter((row): row is StudentSessionRow => row !== null && Boolean(row.id));
@@ -215,7 +200,6 @@ export async function fetchStudentCourseDetail(courseId: string): Promise<{
       description: readString(courseRow as Record<string, unknown>, ["course_description"]),
       category: "Course",
       duration: firstSession?.duration ?? "—",
-      totalSeats: firstSession?.totalSeats ?? 0,
     },
     sessions,
     error: null,

@@ -7,7 +7,7 @@ export interface CertificateDetails {
 }
 
 /**
- * Generates an authoritative 1-page completion certificate in A4 Landscape
+ * Generates a demo-only 1-page certificate preview in A4 Landscape
  * using pdf-lib (zero DOM/canvas dependency, runs cleanly in browser & node).
  * Dynamically imports pdf-lib to keep ~400kB out of initial bundle.
  */
@@ -50,7 +50,7 @@ export async function generateCertificatePdf(details: CertificateDetails): Promi
   });
 
   // Header Title
-  const headerText = "CERTIFICATE OF COMPLETION";
+  const headerText = "COMPLETION CERTIFICATE PREVIEW";
   const headerFontSize = 26;
   const headerWidth = fontTitle.widthOfTextAtSize(headerText, headerFontSize);
   page.drawText(headerText, {
@@ -62,7 +62,7 @@ export async function generateCertificatePdf(details: CertificateDetails): Promi
   });
 
   // Eyebrow / Subheading
-  const subText = "THIS IS PROUDLY PRESENTED TO";
+  const subText = "DEMO PREVIEW — NOT AN OFFICIAL CERTIFICATE";
   const subFontSize = 11;
   const subWidth = fontBody.widthOfTextAtSize(subText, subFontSize);
   page.drawText(subText, {
@@ -94,7 +94,7 @@ export async function generateCertificatePdf(details: CertificateDetails): Promi
   });
 
   // Body Context
-  const bodyText = "for successfully completing all accredited clinical requirements and academic coursework for";
+  const bodyText = "Sample layout only. This document does not verify course completion or accreditation.";
   const bodyFontSize = 12;
   const bodyWidth = fontBody.widthOfTextAtSize(bodyText, bodyFontSize);
   page.drawText(bodyText, {
@@ -121,7 +121,7 @@ export async function generateCertificatePdf(details: CertificateDetails): Promi
   const sigY = 120;
 
   // Left Signature: Instructor
-  const instructorText = details.instructorName ?? "Dr. A. MedLearn, MBChB";
+  const instructorText = details.instructorName ?? "Sample instructor";
   page.drawText(instructorText, {
     x: 100,
     y: sigY + 24,
@@ -135,7 +135,7 @@ export async function generateCertificatePdf(details: CertificateDetails): Promi
     thickness: 1,
     color: muted,
   });
-  page.drawText("Authorized Instructor / SANC Accredited", {
+  page.drawText("Sample layout only — no approval implied", {
     x: 100,
     y: sigY,
     size: 10,
@@ -144,7 +144,7 @@ export async function generateCertificatePdf(details: CertificateDetails): Promi
   });
 
   // Right Signature: Date & Verification
-  page.drawText(`Issued: ${details.completionDate || new Date().toISOString().slice(0, 10)}`, {
+  page.drawText(`Preview date: ${details.completionDate || new Date().toISOString().slice(0, 10)}`, {
     x: width - 280,
     y: sigY + 24,
     size: 11,
@@ -157,7 +157,7 @@ export async function generateCertificatePdf(details: CertificateDetails): Promi
     thickness: 1,
     color: muted,
   });
-  page.drawText(`Certificate ID: ${details.certificateId.slice(0, 18)}`, {
+  page.drawText(`Demo reference: ${details.certificateId.slice(0, 18)}`, {
     x: width - 280,
     y: sigY,
     size: 9,

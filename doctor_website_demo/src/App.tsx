@@ -53,7 +53,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset" element={<Navigate to="/forgot-password" replace />} />
+            <Route path="/reset" element={<ForgotPassword resetMode />} />
 
             {/* Admin layout routes */}
             <Route

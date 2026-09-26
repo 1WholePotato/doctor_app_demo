@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import { getSessionUser, homeForRole } from "../lib/auth";
+import { authErrorMessage, getSessionUser, homeForRole, signOut } from "../lib/auth";
 
 import "../styles/auth.css";
 
@@ -21,22 +21,26 @@ export default function Login() {
     setError("");
     setLoading(true);
 
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
-    if (authError) {
-      setError(authError.message);
-      setLoading(false);
-      return;
-    }
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (authError) {
+        setError(authErrorMessage(authError));
+        return;
+      }
 
-    const profile = await getSessionUser();
-    if (!profile) {
-      setError("Could not fetch user profile");
-      setLoading(false);
-      return;
-    }
+      const profile = await getSessionUser();
+      if (!profile) {
+        await signOut();
+        setError("Your account is signed in, but its profile could not be loaded. Contact support for help.");
+        return;
+      }
 
-    navigate(homeForRole(profile.role_id));
-    setLoading(false);
+      navigate(homeForRole(profile.role_id));
+    } catch (err) {
+      setError(authErrorMessage(err instanceof Error ? err : {}));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

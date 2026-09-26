@@ -79,13 +79,20 @@ function ChangeRoleModal({
     let cancelled = false;
 
     async function loadAssigned() {
-      const instructorId = await findInstructorIdByEmail(user.email);
-      if (!instructorId) {
+      const instructor = await findInstructorIdByEmail(user.email);
+      if (instructor.error) {
+        if (!cancelled) {
+          setError(instructor.error);
+          setLoadingCourses(false);
+        }
+        return;
+      }
+      if (!instructor.id) {
         if (!cancelled) setLoadingCourses(false);
         return;
       }
 
-      const result = await fetchAllowedCourseIds(instructorId);
+      const result = await fetchAllowedCourseIds(instructor.id);
       if (cancelled) return;
 
       setTableMissing(result.tableMissing);
@@ -116,6 +123,7 @@ function ChangeRoleModal({
   };
 
   const toggleCourse = (courseId: string) => {
+    setError("");
     setCourseIds((current) =>
       current.includes(courseId)
         ? current.filter((id) => id !== courseId)
@@ -134,17 +142,7 @@ function ChangeRoleModal({
 
     setSaving(true);
 
-    const { error: updateError } = await supabase
-      .from("users")
-      .update({ role_id: roleId })
-      .eq("id", user.id);
-
-    if (updateError) {
-      setSaving(false);
-      setError(updateError.message);
-      return;
-    }
-
+    let instructorId: string | null = null;
     if (assigningInstructor) {
       const instructor = await ensureInstructorRecord(user);
       if (instructor.error) {
@@ -152,8 +150,9 @@ function ChangeRoleModal({
         setError(instructor.error);
         return;
       }
+      instructorId = instructor.instructorId;
 
-      const assigned = await setInstructorCourses(instructor.instructorId, courseIds);
+      const assigned = await setInstructorCourses(instructorId, courseIds);
       if (assigned.error) {
         setSaving(false);
         setTableMissing(assigned.tableMissing);
@@ -165,7 +164,13 @@ function ChangeRoleModal({
         return;
       }
     } else {
-      const instructorId = await findInstructorIdByEmail(user.email);
+      const instructor = await findInstructorIdByEmail(user.email);
+      if (instructor.error) {
+        setSaving(false);
+        setError(instructor.error);
+        return;
+      }
+      instructorId = instructor.id;
       if (instructorId) {
         const cleared = await setInstructorCourses(instructorId, []);
         if (cleared.error && !cleared.tableMissing) {
@@ -174,6 +179,22 @@ function ChangeRoleModal({
           return;
         }
       }
+    }
+
+    // RAD-only client workflow: this compensation is best-effort, not a transaction or security boundary.
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({ role_id: roleId })
+      .eq("id", user.id);
+    if (updateError) {
+      const restore = instructorId
+        ? await setInstructorCourses(instructorId, initialCourseIds)
+        : null;
+      setSaving(false);
+      setError(restore?.error
+        ? `${updateError.message}. Course assignments could not be restored: ${restore.error}`
+        : updateError.message);
+      return;
     }
 
     setSaving(false);
@@ -218,7 +239,10 @@ function ChangeRoleModal({
               <select
                 id="role-select"
                 value={roleId}
-                onChange={(e) => setRoleId(e.target.value)}
+                onChange={(e) => {
+                  setError("");
+                  setRoleId(e.target.value);
+                }}
               >
                 {roles.map((r) => (
                   <option key={r.id} value={r.id}>
@@ -277,7 +301,7 @@ function ChangeRoleModal({
         <button
           type="button"
           className="btn-submit"
-          disabled={isSelf || saving || unchanged || tableMissing}
+          disabled={isSelf || saving || loadingCourses || unchanged}
           onClick={() => void handleSubmit()}
         >
           {saving ? "Saving…" : assigningInstructor ? "Save role and courses" : "Save role"}
@@ -338,7 +362,7 @@ export default function AdminUsers() {
       instructorsResult.error?.message,
     ].filter((message): message is string => Boolean(message));
 
-    setLoadError(messages[0] ?? "");
+    setLoadError(messages.join(" "));
   }, []);
 
   useEffect(() => {
@@ -377,6 +401,8 @@ export default function AdminUsers() {
             <p className="eyebrow">People</p>
             <h1>Users</h1>
           </header>
+
+          <p className="readonly-sub">RAD demo: role and instructor changes run in the browser and are not a security boundary.</p>
 
           <div className="filter-pills">
             {(["all", "active", "inactive"] as const).map((f) => (

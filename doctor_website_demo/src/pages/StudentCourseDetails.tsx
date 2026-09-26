@@ -1,25 +1,8 @@
-/**
- * StudentCourseDetails.tsx — Production-grade Student Course Detail Page
- *
- * CHANGES FROM ORIGINAL:
- * 1. Full shell — same navy/teal sidebar as StudentLanding & StudentCourses.
- * 2. Course hero — title, description, category, duration pulled from
- *    location.state (passed from StudentCourses) with a fallback.
- * 3. Sessions table — date, location, instructor, seats with colour-coded badge.
- *    Each row has a "Book now" button that disables after booking.
- * 4. Booking confirmation modal — redesigned with a teal success icon,
- *    summary of what was booked, and a clean close button.
- * 5. Back link → /courses
- * 6. Same CSS token system — no new packages.
- *
- * NPM: lucide-react (already installed)
- */
-
 import { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import {
   CalendarDays, Clock,
-  MapPin, User, ChevronLeft, Users,
+  MapPin, User, ChevronLeft,
 } from "lucide-react";
 import { Skeleton, TableRowSkeleton } from "../components/Skeleton";
 import {
@@ -28,12 +11,6 @@ import {
   type StudentSessionRow,
 } from "../lib/studentCourses";
 
-
-function SeatsBadge({ seats }: { seats: number }) {
-  const cls   = seats <= 1 ? "seats-full" : seats <= 3 ? "seats-low" : "seats-ok";
-  const label = seats === 0 ? "Full" : seats === 1 ? "1 seat left" : `${seats} seats left`;
-  return <span className={`seats-badge ${cls}`}><span className="seats-dot" />{label}</span>;
-}
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -81,7 +58,6 @@ export default function StudentCourseDetails() {
     description: passedCourse.description ?? "",
     category: "Course",
     duration: "—",
-    totalSeats: 0,
   } satisfies StudentCourseDetail : null);
 
   if (!id) {
@@ -122,7 +98,7 @@ export default function StudentCourseDetails() {
                       <th>Date</th>
                       <th>Location</th>
                       <th>Instructor</th>
-                      <th>Spaces</th>
+                      <th>Availability</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -145,9 +121,6 @@ export default function StudentCourseDetails() {
             <div className="hero-right">
               <span className="hero-cat">{displayCourse.category}</span>
               <span className="hero-meta"><Clock />Duration: {displayCourse.duration}</span>
-              {displayCourse.totalSeats > 0 && (
-                <span className="hero-meta"><Users />{displayCourse.totalSeats} seats per session</span>
-              )}
             </div>
           </div>
 
@@ -166,7 +139,7 @@ export default function StudentCourseDetails() {
                   <th>Date</th>
                   <th>Location</th>
                   <th>Instructor</th>
-                  <th>Spaces</th>
+                  <th>Availability</th>
                   <th></th>
                 </tr>
               </thead>
@@ -182,7 +155,9 @@ export default function StudentCourseDetails() {
                       <td className="muted">
                         <div className="cell-icon"><User />{session.instructor}</div>
                       </td>
-                      <td><SeatsBadge seats={session.seatsLeft} /></td>
+                      <td className="muted" title="Bookings are not linked to a session, so remaining capacity cannot be calculated.">
+                        Unavailable
+                      </td>
                       <td style={{ textAlign: "right" }}>
                         <button
                           className="book-btn"

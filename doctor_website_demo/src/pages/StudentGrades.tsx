@@ -1,18 +1,17 @@
 import { useEffect, useState } from "react";
 import {
-  BookOpen, CheckCircle, XCircle, Clock, User, Download,
+  BookOpen, CheckCircle, XCircle, Info, User, Download,
 } from "lucide-react";
 import { generateCertificatePdf, downloadCertificateFile } from "../lib/certificateGenerator";
-import { uploadCertificateToR2 } from "../lib/storage";
 import { useAuth } from "../context/useAuth";
 import { fetchStudentCourses, type CourseStatus, type StudentCourseRow } from "../lib/studentCourses";
 import { CourseCardSkeleton, StatCardSkeleton } from "../components/Skeleton";
 
 function StatusBadge({ status }: { status: CourseStatus }) {
   const map = {
-    pending: { label: "Pending", cls: "status-pending", Icon: Clock },
     passed: { label: "Passed", cls: "status-passed", Icon: CheckCircle },
     failed: { label: "Failed", cls: "status-failed", Icon: XCircle },
+    unavailable: { label: "Result unavailable", cls: "status-pending", Icon: Info },
   };
   const { label, cls, Icon } = map[status];
   return (
@@ -72,11 +71,7 @@ export default function StudentGrades() {
         certificateId: row.bookingId,
       });
 
-      // Background upload to Cloudflare R2
-      void uploadCertificateToR2(`certificates/${row.bookingId}.pdf`, certBytes);
-
-      // Trigger immediate browser download
-      downloadCertificateFile(certBytes, `Certificate-${row.title.replace(/\s+/g, "_")}.pdf`);
+      downloadCertificateFile(certBytes, `Demo-Preview-${row.title.replace(/\s+/g, "_")}.pdf`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Could not generate certificate";
       setLoadError(msg);
@@ -85,9 +80,9 @@ export default function StudentGrades() {
     }
   };
 
-    const passed = courses.filter((e) => e.status === "passed").length;
-  const pending = courses.filter((e) => e.status === "pending").length;
+  const passed = courses.filter((e) => e.status === "passed").length;
   const failed = courses.filter((e) => e.status === "failed").length;
+  const unavailable = courses.filter((e) => e.status === "unavailable").length;
 
   return (
     <>
@@ -95,6 +90,7 @@ export default function StudentGrades() {
           <div className="sg-header">
             <p className="eyebrow">Academic record</p>
             <h1>My grades</h1>
+            <p role="note">Demo data only. Completion status and certificate previews are not verified records.</p>
           </div>
 
           {loadError && <p className="sg-error" role="alert">{loadError}</p>}
@@ -120,8 +116,8 @@ export default function StudentGrades() {
                   <p className="sg-stat-val">{passed}</p>
                 </div>
                 <div className="sg-stat">
-                  <p className="sg-stat-label">Pending</p>
-                  <p className="sg-stat-val">{pending}</p>
+                  <p className="sg-stat-label">Unavailable</p>
+                  <p className="sg-stat-val">{unavailable}</p>
                 </div>
                 <div className="sg-stat">
                   <p className="sg-stat-label">Failed</p>
@@ -179,10 +175,10 @@ export default function StudentGrades() {
                                 fontWeight: 600,
                                 cursor: downloadingId === e.bookingId ? "wait" : "pointer",
                               }}
-                              title="Download 1-page completion certificate"
+                              title="Download a demo certificate preview; not proof of completion"
                             >
                               <Download style={{ width: 12, height: 12 }} />
-                              {downloadingId === e.bookingId ? "Preparing..." : "Certificate"}
+                              {downloadingId === e.bookingId ? "Preparing..." : "Demo preview"}
                             </button>
                           </div>
                         )}

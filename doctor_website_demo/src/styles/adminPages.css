@@ -48,7 +48,7 @@
   .sidebar-footer { margin-top: auto; padding-top: 20px; border-top: 1px solid #222221; }
 
   /* Main content */
-  .main-content { margin-left: 228px; flex: 1; padding: 40px 44px; max-width: 1000px; }
+  .main-content { margin-left: 0; flex: 1; padding: 40px 44px; max-width: 1000px; }
 
   /* Header */
   .page-header { margin-bottom: 36px; }
@@ -103,9 +103,9 @@
   /* Table */
   .table-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    overflow: hidden; opacity: 0; animation: fadeUp 0.4s ease 0.42s forwards;
+    overflow-x: auto; -webkit-overflow-scrolling: touch; opacity: 0; animation: fadeUp 0.4s ease 0.42s forwards;
   }
-  .table-inner { width: 100%; border-collapse: collapse; }
+  .table-inner { width: 100%; min-width: 680px; border-collapse: collapse; }
   .table-inner thead th {
     padding: 14px 20px; font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
     text-transform: uppercase; color: var(--text-3);
@@ -176,7 +176,7 @@
   .sidebar-footer { margin-top: auto; padding-top: 20px; border-top: 1px solid #222221; }
 
   /* ── Main ── */
-  .ac-main { margin-left: 228px; flex: 1; padding: 40px 44px; }
+  .ac-main { margin-left: 0; flex: 1; padding: 40px 44px; }
 
   /* ── Page header ── */
   .ac-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 32px; }
@@ -293,7 +293,7 @@
   .nav-section-label { font-size: 10px; font-weight: 500; letter-spacing: .1em; color: #444443; text-transform: uppercase; padding: 0 12px; margin: 20px 0 6px; }
   .sidebar-footer { margin-top: auto; padding-top: 20px; border-top: 1px solid #222221; }
 
-  .acd-main { margin-left: 228px; flex: 1; padding: 40px 44px; max-width: 1000px; }
+  .acd-main { margin-left: 0; flex: 1; padding: 40px 44px; max-width: 1000px; }
 
   .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-3); text-decoration: none; margin-bottom: 24px; transition: color .15s; }
   .back-link:hover { color: var(--text-1); }
@@ -322,10 +322,10 @@
 
   .sessions-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    overflow: hidden;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
     opacity: 0; animation: fadeUp .35s ease .15s forwards;
   }
-  .sessions-table { width: 100%; border-collapse: collapse; }
+  .sessions-table { width: 100%; min-width: 620px; border-collapse: collapse; }
   .sessions-table thead th { padding: 13px 20px; font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); border-bottom: 1px solid var(--border); text-align: left; background: #FAFAF8; }
   .sessions-table tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
   .sessions-table tbody tr:last-child { border-bottom: none; }
@@ -403,7 +403,7 @@
   .nav-section-label { font-size: 10px; font-weight: 500; letter-spacing: .1em; color: #444443; text-transform: uppercase; padding: 0 12px; margin: 20px 0 6px; }
   .sidebar-footer { margin-top: auto; padding-top: 20px; border-top: 1px solid #222221; }
 
-  .au-main { margin-left: 228px; flex: 1; padding: 40px 44px; }
+  .au-main { margin-left: 0; flex: 1; padding: 40px 44px; }
   .au-header { margin-bottom: 28px; }
   .au-header .eyebrow { font-size: 12px; font-weight: 500; color: var(--text-3); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
   .au-header h1 { font-family: var(--font-display); font-size: 32px; font-weight: 300; color: var(--text-1); letter-spacing: -.01em; }
@@ -413,8 +413,8 @@
   .filter-pill:hover { border-color: var(--gold); color: var(--text-1); }
   .filter-pill.active { background: var(--gold-soft); border-color: var(--gold); color: #7A5E1A; }
 
-  .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-  .table-inner { width: 100%; border-collapse: collapse; }
+  .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-inner { width: 100%; min-width: 680px; border-collapse: collapse; }
   .table-inner thead th { padding: 14px 20px; font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); border-bottom: 1px solid var(--border); text-align: left; background: #FAFAF8; }
   .table-inner tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
   .table-inner tbody tr:last-child { border-bottom: none; }
@@ -422,7 +422,7 @@
   .table-inner tbody td { padding: 16px 20px; font-size: 14px; color: var(--text-1); }
   .table-inner tbody td.muted { color: var(--text-2); }
 
-  .table-inner tbody td.courses-cell { max-width: 240px; min-width: 0; vertical-align: top; }
+  .table-inner tbody td.courses-cell { width: 220px; max-width: 220px; min-width: 180px; vertical-align: top; }
 
   .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
   .badge-paid { background: #EAF5EE; color: #2E7D52; }
@@ -466,8 +466,8 @@
   .course-list { display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: #FAFAF8; }
   .course-option { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--text-1); cursor: pointer; line-height: 1.4; }
   .course-option input { margin-top: 2px; accent-color: var(--gold); flex-shrink: 0; width: 16px; height: 16px; }
-  .course-pills { display: flex; flex-wrap: wrap; gap: 6px; }
-  .course-pill { font-size: 11px; font-weight: 500; color: #7A5E1A; background: var(--gold-soft); border: 1px solid #E6D7A8; padding: 3px 8px; border-radius: 20px; }
+  .course-pills { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+  .course-pill { display: block; width: 100%; max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 500; color: #7A5E1A; background: var(--gold-soft); border: 1px solid #E6D7A8; padding: 3px 8px; border-radius: 6px; }
   .muted-dash { color: var(--text-3); }
 
   .au-loading { font-size: 14px; color: var(--text-3); padding: 40px 0; }
@@ -504,8 +504,14 @@
   .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
   .nav-section-label { font-size: 10px; font-weight: 500; letter-spacing: .1em; color: #444443; text-transform: uppercase; padding: 0 12px; margin: 20px 0 6px; }
   .sidebar-footer { margin-top: auto; padding-top: 20px; border-top: 1px solid #222221; }
-  .as-main { margin-left: 228px; flex: 1; padding: 40px 44px; }
+  .as-main { margin-left: 0; flex: 1; padding: 40px 44px; }
   .eyebrow { font-size: 12px; font-weight: 500; color: var(--text-3); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
   .as-main h1 { font-family: var(--font-display); font-size: 32px; font-weight: 300; color: var(--text-1); margin-bottom: 24px; }
   .as-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; max-width: 560px; }
   .as-card p { font-size: 14px; color: var(--text-2); line-height: 1.7; }
+
+  @media (max-width: 640px) {
+    .main-content, .ac-main, .acd-main, .au-main, .as-main { padding: 24px 16px; }
+    .stats-grid, .actions-grid, .course-grid { grid-template-columns: 1fr; }
+    .au-main .table-inner { min-width: 820px; }
+  }

@@ -22,6 +22,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import { useNavigate, Link } from "react-router-dom";
 import { resolveStudentRoleId } from "../lib/roles";
+import { authErrorMessage } from "../lib/auth";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -92,76 +93,67 @@ export default function Register() {
     if (!cell_num.trim()) { setErr("cell_num", "Required"); return; }
 
     setLoading(true);
+    try {
+      const studentRoleId = await resolveStudentRoleId();
+      if (!studentRoleId) {
+        setBanner("Student role is not configured. Add a student role in the database before accepting registrations.");
+        return;
+      }
 
-    const studentRoleId = await resolveStudentRoleId();
-    if (!studentRoleId) {
-      setBanner(
-        "Student role is not configured. Set VITE_STUDENT_ROLE_ID or add a student role in the database."
-      );
-      setLoading(false);
-      return;
-    }
-
-    // 1. Create user in Supabase Auth with metadata preserved for confirmation flow
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          first_name: first_name.trim(),
-          last_name: last_name.trim(),
-          birth_date,
-          id_num: id_num.trim() || null,
-          passport_num: passport_num.trim() || null,
-          cell_num: cell_num.trim(),
-          sanc_num: sanc_num.trim() || null,
-          role_id: studentRoleId,
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            first_name: first_name.trim(),
+            last_name: last_name.trim(),
+            birth_date,
+            id_num: id_num.trim() || null,
+            passport_num: passport_num.trim() || null,
+            cell_num: cell_num.trim(),
+            sanc_num: sanc_num.trim() || null,
+          },
         },
-      },
-    });
+      });
 
-    if (error) {
-      setBanner(error.message);
+      if (error) {
+        setBanner(authErrorMessage(error));
+        return;
+      }
+      if (!data.user) {
+        setBanner("The account service did not return a new user. Please try again.");
+        return;
+      }
+
+      const { error: insertError } = await supabase.from("users").upsert({
+        id: data.user.id,
+        role_id: studentRoleId,
+        first_name: first_name.trim(),
+        last_name: last_name.trim(),
+        birth_date,
+        id_num: id_num.trim() || null,
+        passport_num: passport_num.trim() || null,
+        cell_num: cell_num.trim(),
+        email: data.user.email ?? email.trim(),
+        sanc_num: sanc_num.trim() || null,
+        active: true,
+      });
+
+      if (insertError) {
+        setBanner(`Your account was created, but its student profile could not be saved: ${authErrorMessage(insertError)} Please contact support before signing in.`);
+        return;
+      }
+
+      if (!data.session) {
+        setBanner("Account created. Check your email to confirm it before signing in.");
+        return;
+      }
+      navigate("/login", { state: { registered: true } });
+    } catch (error) {
+      setBanner(authErrorMessage(error instanceof Error ? error : {}));
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const user = data.user;
-    if (!user) {
-      setBanner("User not created");
-      setLoading(false);
-      return;
-    }
-
-    // 2. Attempt insert into public.users table immediately
-    const { error: insertError } = await supabase.from("users").upsert([{
-      id:           user.id,
-      role_id:      studentRoleId,
-      first_name:   first_name.trim(),
-      last_name:    last_name.trim(),
-      birth_date:   birth_date,
-      id_num:       id_num.trim() || null,
-      passport_num: passport_num.trim() || null,
-      cell_num:     cell_num.trim(),
-      email:        email.trim(),
-      sanc_num:     sanc_num.trim() || null,
-      active:       true,
-    }]);
-
-    if (!data.session) {
-      setBanner("Account created! Please check your email to confirm your account before signing in.");
-      setLoading(false);
-      return;
-    }
-
-    if (insertError) {
-      setBanner(insertError.message);
-      setLoading(false);
-      return;
-    }
-
-    // 3. Success
-    navigate("/login", { state: { registered: true } });
   };
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -226,31 +218,31 @@ export default function Register() {
                 <div className="step-wrap">
                   <div className="rf-row">
                     <div className="rf-field">
-                      <label>First name</label>
-                      <input type="text" value={first_name} placeholder="Jane"
+                      <label htmlFor="reg-first-name">First name</label>
+                      <input id="reg-first-name" type="text" value={first_name} placeholder="Jane"
                         className={errors.first_name ? "err" : ""}
                         onChange={(e) => { setFirstname(e.target.value); clearErr("first_name"); }} />
                       {errors.first_name && <span className="rf-error" role="alert">⚠ {errors.first_name}</span>}
                     </div>
                     <div className="rf-field">
-                      <label>Last name</label>
-                      <input type="text" value={last_name} placeholder="Smith"
+                      <label htmlFor="reg-last-name">Last name</label>
+                      <input id="reg-last-name" type="text" value={last_name} placeholder="Smith"
                         className={errors.last_name ? "err" : ""}
                         onChange={(e) => { setLastname(e.target.value); clearErr("last_name"); }} />
                       {errors.last_name && <span className="rf-error" role="alert">⚠ {errors.last_name}</span>}
                     </div>
                   </div>
                   <div className="rf-field">
-                    <label>Email</label>
-                    <input type="email" value={email} placeholder="you@example.com"
+                    <label htmlFor="reg-email">Email</label>
+                    <input id="reg-email" type="email" value={email} placeholder="you@example.com"
                       className={errors.email ? "err" : ""}
                       onChange={(e) => { setEmail(e.target.value); clearErr("email"); }} />
                     {errors.email && <span className="rf-error" role="alert">⚠ {errors.email}</span>}
                   </div>
                   <div className="rf-field">
-                    <label>Password</label>
+                    <label htmlFor="reg-password">Password</label>
                     <div style={{ position: "relative" }}>
-                      <input type={showPassword ? "text" : "password"} value={password} placeholder="Min. 6 characters"
+                      <input id="reg-password" type={showPassword ? "text" : "password"} value={password} placeholder="Min. 6 characters"
                         className={errors.password ? "err" : ""}
                         style={{ paddingRight: "40px", width: "100%" }}
                         onChange={(e) => { setPassword(e.target.value); clearErr("password"); }} />
@@ -278,8 +270,8 @@ export default function Register() {
                     {errors.password && <span className="rf-error" role="alert">⚠ {errors.password}</span>}
                   </div>
                   <div className="rf-field">
-                    <label>Date of birth</label>
-                    <input type="date" value={birth_date}
+                    <label htmlFor="reg-birth-date">Date of birth</label>
+                    <input id="reg-birth-date" type="date" value={birth_date}
                       className={errors.birth_date ? "err" : ""}
                       onChange={(e) => { setBirthdate(e.target.value); clearErr("birth_date"); }} />
                     {errors.birth_date && <span className="rf-error" role="alert">⚠ {errors.birth_date}</span>}
@@ -307,16 +299,16 @@ export default function Register() {
 
                   {isCiti ? (
                     <div className="rf-field">
-                      <label>SA ID number</label>
-                      <input type="text" value={id_num} placeholder="13-digit ID number"
+                      <label htmlFor="reg-id-number">SA ID number</label>
+                      <input id="reg-id-number" type="text" value={id_num} placeholder="13-digit ID number"
                         className={errors.id_num ? "err" : ""}
                         onChange={(e) => { setIdnum(e.target.value); clearErr("id_num"); }} />
                       {errors.id_num && <span className="rf-error" role="alert">⚠ {errors.id_num}</span>}
                     </div>
                   ) : (
                     <div className="rf-field">
-                      <label>Passport number</label>
-                      <input type="text" value={passport_num} placeholder="e.g. A12345678"
+                      <label htmlFor="reg-passport-number">Passport number</label>
+                      <input id="reg-passport-number" type="text" value={passport_num} placeholder="e.g. A12345678"
                         className={errors.passport_num ? "err" : ""}
                         onChange={(e) => { setpassportNum(e.target.value); clearErr("passport_num"); }} />
                       {errors.passport_num && <span className="rf-error" role="alert">⚠ {errors.passport_num}</span>}
@@ -334,15 +326,15 @@ export default function Register() {
               {step === 3 && (
                 <div className="step-wrap">
                   <div className="rf-field">
-                    <label>Cell number</label>
-                    <input type="tel" value={cell_num} placeholder="+27 82 000 0000"
+                    <label htmlFor="reg-cell-number">Cell number</label>
+                    <input id="reg-cell-number" type="tel" value={cell_num} placeholder="+27 82 000 0000"
                       className={errors.cell_num ? "err" : ""}
                       onChange={(e) => { setCellNum(e.target.value); clearErr("cell_num"); }} />
                     {errors.cell_num && <span className="rf-error" role="alert">⚠ {errors.cell_num}</span>}
                   </div>
                   <div className="rf-field">
-                    <label>HPCSA/SANC Number <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(optional)</span></label>
-                    <input type="text" value={sanc_num} placeholder="e.g. 12345678"
+                    <label htmlFor="reg-sanc-number">HPCSA/SANC Number <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(optional)</span></label>
+                    <input id="reg-sanc-number" type="text" value={sanc_num} placeholder="e.g. 12345678"
                       onChange={(e) => setSancNum(e.target.value)} />
                   </div>
 

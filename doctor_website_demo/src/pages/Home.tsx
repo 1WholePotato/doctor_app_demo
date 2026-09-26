@@ -1,4 +1,4 @@
-import Hero, { AboutWebsite, AboutDoctor } from "../components/Hero";
+import { Hero, AboutWebsite, AboutDoctor } from "../components/Hero";
 
 function Home() {
   return (
