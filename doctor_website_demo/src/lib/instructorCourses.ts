@@ -42,15 +42,15 @@ export async function fetchCourseOptions(): Promise<{ courses: CourseOption[]; e
   };
 }
 
-export async function findInstructorIdByEmail(email: string): Promise<string | null> {
+export async function findInstructorIdByEmail(email: string): Promise<{ id: string | null; error: string | null }> {
   const { data, error } = await supabase
     .from("instructors")
     .select("id")
     .eq("email", email)
     .maybeSingle();
 
-  if (error || !data) return null;
-  return data.id;
+  if (error) return { id: null, error: error.message };
+  return { id: data?.id ?? null, error: null };
 }
 
 export async function ensureInstructorRecord(user: {
@@ -59,7 +59,9 @@ export async function ensureInstructorRecord(user: {
   email: string;
   cell_num: string | null;
 }): Promise<{ instructorId: string; error: string | null }> {
-  const existingId = await findInstructorIdByEmail(user.email);
+  const existing = await findInstructorIdByEmail(user.email);
+  if (existing.error) return { instructorId: "", error: existing.error };
+  const existingId = existing.id;
   if (existingId) {
     const { error } = await supabase
       .from("instructors")
@@ -148,6 +150,9 @@ export async function setInstructorCourses(
   instructorId: string,
   courseIds: string[],
 ): Promise<{ error: string | null; tableMissing: boolean }> {
+  const previous = await fetchAllowedCourseIds(instructorId);
+  if (previous.error) return { error: previous.error, tableMissing: previous.tableMissing };
+
   const { error: deleteError } = await supabase
     .from("instructor_courses")
     .delete()
@@ -170,8 +175,13 @@ export async function setInstructorCourses(
   );
 
   if (insertError) {
+    const { error: restoreError } = await supabase
+      .from("instructor_courses")
+      .insert(previous.courseIds.map((courseId) => ({ instructor_id: instructorId, course_id: courseId })));
     return {
-      error: insertError.message,
+      error: restoreError
+        ? `${insertError.message}. Previous assignments could not be restored: ${restoreError.message}`
+        : insertError.message,
       tableMissing: isMissingInstructorCoursesTable(insertError.message),
     };
   }
@@ -191,8 +201,9 @@ export async function grantInstructorCourse(
     .maybeSingle();
 
   if (lookupError) {
-    if (isMissingInstructorCoursesTable(lookupError.message)) return null;
-    return lookupError.message;
+    return isMissingInstructorCoursesTable(lookupError.message)
+      ? "Instructor course assignments are unavailable: instructor_courses table is missing."
+      : lookupError.message;
   }
 
   if (data) return null;
@@ -202,8 +213,9 @@ export async function grantInstructorCourse(
     .insert({ instructor_id: instructorId, course_id: courseId });
 
   if (error) {
-    if (isMissingInstructorCoursesTable(error.message)) return null;
-    return error.message;
+    return isMissingInstructorCoursesTable(error.message)
+      ? "Instructor course assignments are unavailable: instructor_courses table is missing."
+      : error.message;
   }
 
   return null;

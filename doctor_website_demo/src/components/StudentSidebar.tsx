@@ -1,4 +1,4 @@
-import { useEffect, useState, type ElementType } from "react";
+import { type ElementType } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
@@ -8,7 +8,8 @@ import {
   LogOut,
   Settings,
 } from "lucide-react";
-import { displayName, getSessionUser, initials, signOut, type AppUser } from "../lib/auth";
+import { displayName, initials, signOut } from "../lib/auth";
+import { useAuth } from "../context/useAuth";
 
 type Prefix = "sl" | "sp";
 
@@ -18,31 +19,44 @@ function NavItem({
   icon: Icon,
   label,
   active,
+  onPrefetch,
+  onClick,
 }: {
   prefix: Prefix;
   to: string;
   icon: ElementType;
   label: string;
   active: boolean;
+  onPrefetch?: () => void;
+  onClick?: () => void;
 }) {
   return (
-    <Link to={to} className={`${prefix}-nav-item${active ? " active" : ""}`}>
+    <Link
+      to={to}
+      className={`${prefix}-nav-item${active ? " active" : ""}`}
+      onMouseEnter={onPrefetch}
+      onFocus={onPrefetch}
+      onClick={onClick}
+    >
       <Icon />
       {label}
     </Link>
   );
 }
 
-export default function StudentSidebar({ prefix = "sl" }: { prefix?: Prefix }) {
+export default function StudentSidebar({
+  prefix = "sl",
+  onCloseMobile,
+}: {
+  prefix?: Prefix;
+  onCloseMobile?: () => void;
+}) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const [user, setUser] = useState<AppUser | null>(null);
-
-  useEffect(() => {
-    void getSessionUser().then(setUser);
-  }, []);
+  const { user } = useAuth();
 
   const handleSignOut = async () => {
+    onCloseMobile?.();
     await signOut();
     navigate("/login");
   };
@@ -70,6 +84,8 @@ export default function StudentSidebar({ prefix = "sl" }: { prefix?: Prefix }) {
           icon={LayoutDashboard}
           label="Dashboard"
           active={pathname === "/studentlanding"}
+          onPrefetch={() => void import("../pages/StudentLanding")}
+          onClick={onCloseMobile}
         />
         <NavItem
           prefix={prefix}
@@ -77,6 +93,8 @@ export default function StudentSidebar({ prefix = "sl" }: { prefix?: Prefix }) {
           icon={BookOpen}
           label="My Courses"
           active={pathname.startsWith("/courses")}
+          onPrefetch={() => void import("../pages/StudentCourses")}
+          onClick={onCloseMobile}
         />
         <NavItem
           prefix={prefix}
@@ -84,6 +102,8 @@ export default function StudentSidebar({ prefix = "sl" }: { prefix?: Prefix }) {
           icon={GraduationCap}
           label="Grades"
           active={pathname.startsWith("/grades")}
+          onPrefetch={() => void import("../pages/StudentGrades")}
+          onClick={onCloseMobile}
         />
         <NavItem
           prefix={prefix}
@@ -91,6 +111,8 @@ export default function StudentSidebar({ prefix = "sl" }: { prefix?: Prefix }) {
           icon={Bell}
           label="Notifications"
           active={pathname.startsWith("/notifications")}
+          onPrefetch={() => void import("../pages/StudentNotifications")}
+          onClick={onCloseMobile}
         />
         <p className={`${prefix}-nav-label`}>Account</p>
         <NavItem
@@ -99,6 +121,8 @@ export default function StudentSidebar({ prefix = "sl" }: { prefix?: Prefix }) {
           icon={Settings}
           label="Profile"
           active={pathname.startsWith("/profile")}
+          onPrefetch={() => void import("../pages/StudentProfile")}
+          onClick={onCloseMobile}
         />
       </nav>
 

@@ -1,8 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
-import { getSessionUser, homeForRole, type AppUser } from "../lib/auth";
-import { isAdminRole } from "../lib/roles";
-import { supabase } from "../supabaseClient";
+import { useAuth } from "../context/useAuth";
+import { homeForRole } from "../lib/auth";
 
 type RequireAuthProps = {
   children: ReactNode;
@@ -10,39 +9,31 @@ type RequireAuthProps = {
 };
 
 export default function RequireAuth({ children, role }: RequireAuthProps) {
-  const [user, setUser] = useState<AppUser | null | undefined>(undefined);
+  const { user, isAdmin, loading, authError, refreshUser } = useAuth();
 
-  useEffect(() => {
-    let cancelled = false;
+  if (loading) {
+    return <main aria-live="polite" style={{ padding: 32 }}>Checking your account…</main>;
+  }
 
-    const refresh = () => {
-      void getSessionUser().then((next) => {
-        if (!cancelled) setUser(next);
-      });
-    };
-
-    refresh();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(refresh);
-
-    return () => {
-      cancelled = true;
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  if (user === undefined) {
-    return null;
+  if (authError) {
+    return (
+      <main role="alert" style={{ maxWidth: 480, margin: "12vh auto", padding: 24, textAlign: "center" }}>
+        <p>{authError}</p>
+        <button type="button" onClick={() => void refreshUser()}>Try again</button>
+      </main>
+    );
   }
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  if (role === "admin" && !isAdminRole(user.role_id)) {
+  // RAD client routing is for navigation only; database authorization must enforce access.
+  if (role === "admin" && !isAdmin) {
     return <Navigate to={homeForRole(user.role_id)} replace />;
   }
 
-  if (role === "student" && isAdminRole(user.role_id)) {
+  if (role === "student" && isAdmin) {
     return <Navigate to={homeForRole(user.role_id)} replace />;
   }
 

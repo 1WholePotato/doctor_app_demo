@@ -1,3 +1,8 @@
+/**
+ * STUB COMPONENT: AboutWebsite
+ * NOTE: This is a placeholder stub tracked under the frontend ticket (Issue #5).
+ * Do not delete until official frontend replacements/assets are merged.
+ */
 function AboutWebsite(){
     return(
         <section id="aboutwebsite" className="py-24 bg-white h-screen">

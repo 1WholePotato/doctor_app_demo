@@ -1,81 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import StudentSidebar from "../components/StudentSidebar";
 import { supabase } from "../supabaseClient";
-import { getSessionUser, type AppUser } from "../lib/auth";
+import { Skeleton } from "../components/Skeleton";
+import { type AppUser } from "../lib/auth";
+import { useAuth } from "../context/useAuth";
 import { loadRoles, roleLabel } from "../lib/roles";
-
-const styles = `
-  :root {
-    --s-bg:       #F4F7FB;
-    --s-surface:  #FFFFFF;
-    --s-navy:     #0F1E35;
-    --s-teal:     #2BBFAA;
-    --s-teal-soft:#E6F7F5;
-    --s-teal-mid: #1A9E8C;
-    --s-text-1:   #0F1E35;
-    --s-text-2:   #4A5568;
-    --s-text-3:   #94A3B8;
-    --s-border:   #E2E8F0;
-    --s-radius:   12px;
-    --s-font:     'Plus Jakarta Sans', system-ui, sans-serif;
-  }
-
-  .sp-shell * { box-sizing: border-box; margin: 0; padding: 0; }
-  .sp-shell { font-family: var(--s-font); background: var(--s-bg); min-height: 100vh; display: flex; }
-
-  .sp-sidebar { width: 224px; min-height: 100vh; background: var(--s-navy); display: flex; flex-direction: column; padding: 26px 14px; position: fixed; top: 0; left: 0; bottom: 0; z-index: 10; }
-  .sp-logo { display: flex; align-items: center; gap: 10px; padding: 0 8px; margin-bottom: 32px; }
-  .sp-logo-mark { width: 30px; height: 30px; border-radius: 8px; background: var(--s-teal); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .sp-logo-mark svg { width: 16px; height: 16px; color: #fff; }
-  .sp-logo-text { font-size: 14px; font-weight: 600; color: #fff; letter-spacing: -.01em; line-height: 1.2; }
-  .sp-logo-text span { display: block; font-size: 11px; font-weight: 400; color: #64748B; }
-  .sp-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
-  .sp-nav-label { font-size: 10px; font-weight: 600; letter-spacing: .08em; color: #2D3F58; text-transform: uppercase; padding: 0 10px; margin: 18px 0 5px; }
-  .sp-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 9px; color: #64748B; font-size: 13px; font-weight: 400; text-decoration: none; transition: background .15s, color .15s; cursor: pointer; border: none; background: none; width: 100%; text-align: left; }
-  .sp-nav-item:hover { background: rgba(255,255,255,.06); color: #CBD5E1; }
-  .sp-nav-item.active { background: rgba(43,191,170,.15); color: var(--s-teal); font-weight: 500; }
-  .sp-nav-item svg { width: 17px; height: 17px; flex-shrink: 0; }
-  .sp-footer { margin-top: auto; padding-top: 18px; border-top: 1px solid #1E3050; }
-  .sp-avatar-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; margin-bottom: 10px; }
-  .sp-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--s-teal); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: #fff; flex-shrink: 0; }
-  .sp-avatar-name { font-size: 13px; font-weight: 500; color: #CBD5E1; }
-  .sp-avatar-role { font-size: 11px; color: #4A6080; }
-
-  .sp-main { margin-left: 224px; flex: 1; padding: 32px 40px; max-width: 720px; }
-  .sp-header { margin-bottom: 24px; }
-  .sp-header .eyebrow { font-size: 11px; font-weight: 600; color: var(--s-text-3); letter-spacing: .07em; text-transform: uppercase; margin-bottom: 5px; }
-  .sp-header h1 { font-size: 28px; font-weight: 600; color: var(--s-text-1); letter-spacing: -.02em; }
-
-  .sp-card { background: var(--s-surface); border: 1px solid var(--s-border); border-radius: var(--s-radius); padding: 28px; }
-  .sp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .sp-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
-  .sp-field label { font-size: 12px; font-weight: 500; color: var(--s-text-2); letter-spacing: .04em; text-transform: uppercase; }
-  .sp-field input { width: 100%; border: 1px solid var(--s-border); border-radius: 8px; padding: 11px 14px; font-family: var(--s-font); font-size: 14px; color: var(--s-text-1); background: var(--s-surface); outline: none; transition: border-color .15s; }
-  .sp-field input:focus { border-color: var(--s-teal); }
-  .sp-field input.err { border-color: #C0392B; }
-  .sp-field input:disabled { background: #F8FAFC; color: var(--s-text-3); cursor: not-allowed; }
-  .sp-error { font-size: 12px; color: #C0392B; }
-  .sp-readonly { font-size: 14px; color: var(--s-text-1); padding: 11px 0; }
-  .sp-readonly-label { font-size: 12px; font-weight: 500; color: var(--s-text-2); letter-spacing: .04em; text-transform: uppercase; margin-bottom: 4px; }
-
-  .citi-toggle { display: flex; background: var(--s-surface); border: 1px solid var(--s-border); border-radius: 8px; padding: 4px; margin-bottom: 16px; }
-  .citi-opt { flex: 1; padding: 9px; text-align: center; font-size: 13px; font-weight: 500; border-radius: 6px; cursor: pointer; border: none; background: none; font-family: var(--s-font); color: var(--s-text-3); transition: background .15s, color .15s; }
-  .citi-opt.active { background: var(--s-navy); color: #fff; }
-
-  .sp-banner { border-radius: 8px; padding: 11px 14px; font-size: 13px; margin-bottom: 16px; }
-  .sp-banner.err { background: #FEE9E9; border: 1px solid #F5C1C1; color: #A12D2D; }
-  .sp-banner.ok { background: var(--s-teal-soft); border: 1px solid #A7E8DE; color: var(--s-teal-mid); }
-
-  .sp-btn { background: var(--s-teal); color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-family: var(--s-font); font-size: 14px; font-weight: 500; cursor: pointer; transition: background .15s; margin-top: 8px; }
-  .sp-btn:hover { background: var(--s-teal-mid); }
-  .sp-btn:disabled { background: var(--s-text-3); cursor: not-allowed; }
-
-  .sp-loading { font-size: 14px; color: var(--s-text-3); padding: 40px 0; }
-`;
+import { authErrorMessage } from "../lib/auth";
 
 export default function StudentProfile() {
   const navigate = useNavigate();
+  const { user, loading: authLoading, refreshUser } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -98,16 +32,15 @@ export default function StudentProfile() {
   useEffect(() => {
     let cancelled = false;
 
+    if (!user) {
+      if (!authLoading) navigate("/login");
+      return;
+    }
+
     async function load() {
-      const user = await getSessionUser();
-      if (cancelled) return;
-
-      if (!user) {
-        navigate("/login");
-        return;
-      }
-
+      if (!user) return;
       const roles = await loadRoles();
+      if (cancelled) return;
       setProfile(user);
       setRoleName(roleLabel(user.role_id, roles));
       setOriginalEmail(user.email);
@@ -127,7 +60,7 @@ export default function StudentProfile() {
     return () => {
       cancelled = true;
     };
-  }, [navigate]);
+  }, [user, authLoading, navigate]);
 
   const clearErr = (key: string) =>
     setErrors((p) => {
@@ -155,63 +88,79 @@ export default function StudentProfile() {
     if (!profile || !validate()) return;
 
     setSaving(true);
+    try {
+      const requestedEmail = email.trim();
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({
+          first_name: first_name.trim(),
+          last_name: last_name.trim(),
+          birth_date,
+          id_num: isCiti ? id_num.trim() || null : null,
+          passport_num: !isCiti ? passport_num.trim() || null : null,
+          cell_num: cell_num.trim(),
+          sanc_num: sanc_num.trim() || null,
+        })
+        .eq("id", profile.id);
 
-    const { error: updateError } = await supabase
-      .from("users")
-      .update({
-        first_name: first_name.trim(),
-        last_name: last_name.trim(),
-        email: email.trim(),
-        birth_date,
-        id_num: isCiti ? id_num.trim() || null : null,
-        passport_num: !isCiti ? passport_num.trim() || null : null,
-        cell_num: cell_num.trim(),
-        sanc_num: sanc_num.trim() || null,
-      })
-      .eq("id", profile.id);
+      if (updateError) throw updateError;
 
-    if (updateError) {
-      setBanner({ type: "err", text: updateError.message });
-      setSaving(false);
-      return;
-    }
+      if (requestedEmail !== originalEmail) {
+        const { data, error: authError } = await supabase.auth.updateUser({ email: requestedEmail });
+        if (authError) {
+          setBanner({ type: "err", text: `Profile details saved, but the email was not changed: ${authErrorMessage(authError)}` });
+          return;
+        }
 
-    if (email.trim() !== originalEmail) {
-      const { error: authError } = await supabase.auth.updateUser({ email: email.trim() });
-      if (authError) {
-        setBanner({
-          type: "err",
-          text: `Profile saved but email update failed: ${authError.message}`,
-        });
-        setSaving(false);
-        return;
+        if (data.user?.email?.toLowerCase() !== requestedEmail.toLowerCase()) {
+          setBanner({ type: "ok", text: "Profile details saved. Confirm the email change using the link sent to your new address; the current email remains active until then." });
+          return;
+        }
+
+        const { error: emailError } = await supabase.from("users").update({ email: requestedEmail }).eq("id", profile.id);
+        if (emailError) {
+          const { error: rollbackError } = await supabase.auth.updateUser({ email: originalEmail });
+          setBanner({
+            type: "err",
+            text: `Profile details saved, but the email sync failed: ${authErrorMessage(emailError)}${rollbackError ? " The Auth email rollback also failed; contact support." : " The Auth email change was reverted."}`,
+          });
+          return;
+        }
+        setOriginalEmail(requestedEmail);
       }
-      setOriginalEmail(email.trim());
-    }
 
-    setBanner({ type: "ok", text: "Profile updated successfully." });
-    setSaving(false);
+      await refreshUser();
+      setBanner({ type: "ok", text: "Profile updated successfully." });
+    } catch (err) {
+      setBanner({ type: "err", text: authErrorMessage(err instanceof Error ? err : {}) });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
     return (
-      <>
-        <style>{styles}</style>
-        <div className="sp-shell">
-          <main className="sp-main" style={{ marginLeft: 0, maxWidth: "100%" }}>
-            <p className="sp-loading">Loading profile…</p>
-          </main>
+      <main className="sp-main">
+        <div className="sp-header">
+          <p className="eyebrow">Account</p>
+          <h1>My profile</h1>
         </div>
-      </>
+        <div className="sp-card" style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <div className="sp-row">
+            <Skeleton width="100%" height={44} borderRadius={10} />
+            <Skeleton width="100%" height={44} borderRadius={10} />
+          </div>
+          <Skeleton width="100%" height={44} borderRadius={10} />
+          <Skeleton width="100%" height={44} borderRadius={10} />
+          <Skeleton width="100%" height={44} borderRadius={10} />
+          <Skeleton width="140px" height={42} borderRadius={10} style={{ marginTop: 12 }} />
+        </div>
+      </main>
     );
   }
 
   return (
     <>
-      <style>{styles}</style>
-      <div className="sp-shell">
-        <StudentSidebar prefix="sp" />
-
         <main className="sp-main">
           <div className="sp-header">
             <p className="eyebrow">Account</p>
@@ -226,8 +175,9 @@ export default function StudentProfile() {
             <form onSubmit={handleSave}>
               <div className="sp-row">
                 <div className="sp-field">
-                  <label>First name</label>
+                  <label htmlFor="sp-first-name">First name</label>
                   <input
+                    id="sp-first-name"
                     type="text"
                     value={first_name}
                     className={errors.first_name ? "err" : ""}
@@ -237,12 +187,13 @@ export default function StudentProfile() {
                     }}
                   />
                   {errors.first_name && (
-                    <span className="sp-error">⚠ {errors.first_name}</span>
+                    <span className="sp-error" role="alert">⚠ {errors.first_name}</span>
                   )}
                 </div>
                 <div className="sp-field">
-                  <label>Last name</label>
+                  <label htmlFor="sp-last-name">Last name</label>
                   <input
+                    id="sp-last-name"
                     type="text"
                     value={last_name}
                     className={errors.last_name ? "err" : ""}
@@ -252,14 +203,15 @@ export default function StudentProfile() {
                     }}
                   />
                   {errors.last_name && (
-                    <span className="sp-error">⚠ {errors.last_name}</span>
+                    <span className="sp-error" role="alert">⚠ {errors.last_name}</span>
                   )}
                 </div>
               </div>
 
               <div className="sp-field">
-                <label>Email</label>
+                <label htmlFor="sp-email">Email</label>
                 <input
+                  id="sp-email"
                   type="email"
                   value={email}
                   className={errors.email ? "err" : ""}
@@ -268,12 +220,13 @@ export default function StudentProfile() {
                     clearErr("email");
                   }}
                 />
-                {errors.email && <span className="sp-error">⚠ {errors.email}</span>}
+                {errors.email && <span className="sp-error" role="alert">⚠ {errors.email}</span>}
               </div>
 
               <div className="sp-field">
-                <label>Date of birth</label>
+                <label htmlFor="sp-birth-date">Date of birth</label>
                 <input
+                  id="sp-birth-date"
                   type="date"
                   value={birth_date}
                   className={errors.birth_date ? "err" : ""}
@@ -283,7 +236,7 @@ export default function StudentProfile() {
                   }}
                 />
                 {errors.birth_date && (
-                  <span className="sp-error">⚠ {errors.birth_date}</span>
+                  <span className="sp-error" role="alert">⚠ {errors.birth_date}</span>
                 )}
               </div>
 
@@ -309,8 +262,9 @@ export default function StudentProfile() {
 
               {isCiti ? (
                 <div className="sp-field">
-                  <label>SA ID number</label>
+                  <label htmlFor="sp-id-num">SA ID number</label>
                   <input
+                    id="sp-id-num"
                     type="text"
                     value={id_num}
                     className={errors.id_num ? "err" : ""}
@@ -319,12 +273,13 @@ export default function StudentProfile() {
                       clearErr("id_num");
                     }}
                   />
-                  {errors.id_num && <span className="sp-error">⚠ {errors.id_num}</span>}
+                  {errors.id_num && <span className="sp-error" role="alert">⚠ {errors.id_num}</span>}
                 </div>
               ) : (
                 <div className="sp-field">
-                  <label>Passport number</label>
+                  <label htmlFor="sp-passport-num">Passport number</label>
                   <input
+                    id="sp-passport-num"
                     type="text"
                     value={passport_num}
                     className={errors.passport_num ? "err" : ""}
@@ -334,14 +289,15 @@ export default function StudentProfile() {
                     }}
                   />
                   {errors.passport_num && (
-                    <span className="sp-error">⚠ {errors.passport_num}</span>
+                    <span className="sp-error" role="alert">⚠ {errors.passport_num}</span>
                   )}
                 </div>
               )}
 
               <div className="sp-field">
-                <label>Cell number</label>
+                <label htmlFor="sp-cell-num">Cell number</label>
                 <input
+                  id="sp-cell-num"
                   type="tel"
                   value={cell_num}
                   className={errors.cell_num ? "err" : ""}
@@ -350,11 +306,11 @@ export default function StudentProfile() {
                     clearErr("cell_num");
                   }}
                 />
-                {errors.cell_num && <span className="sp-error">⚠ {errors.cell_num}</span>}
+                {errors.cell_num && <span className="sp-error" role="alert">⚠ {errors.cell_num}</span>}
               </div>
 
               <div className="sp-field">
-                <label>
+                <label htmlFor="sp-sanc-num">
                   HPCSA/SANC Number{" "}
                   <span
                     style={{
@@ -369,6 +325,7 @@ export default function StudentProfile() {
                   </span>
                 </label>
                 <input
+                  id="sp-sanc-num"
                   type="text"
                   value={sanc_num}
                   onChange={(ev) => setSancNum(ev.target.value)}
@@ -392,7 +349,6 @@ export default function StudentProfile() {
             </form>
           </div>
         </main>
-      </div>
     </>
   );
 }

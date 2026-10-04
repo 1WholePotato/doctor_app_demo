@@ -1,3 +1,8 @@
+/**
+ * STUB COMPONENT: AboutDoctor
+ * NOTE: This is a placeholder stub tracked under the frontend ticket (Issue #5).
+ * Do not delete until official frontend replacements/assets are merged.
+ */
 function AboutDoctor() {
     return(
         <section id="aboutdoctor" className="py-24 bg-gray-50 h-screen">

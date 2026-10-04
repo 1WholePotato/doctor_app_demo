@@ -14,25 +14,40 @@ function NavItem({
   icon: Icon,
   label,
   active,
+  onPrefetch,
+  onClick,
 }: {
   to: string;
   icon: ElementType;
   label: string;
   active: boolean;
+  onPrefetch?: () => void;
+  onClick?: () => void;
 }) {
   return (
-    <Link to={to} className={`nav-item${active ? " active" : ""}`}>
+    <Link
+      to={to}
+      className={`nav-item${active ? " active" : ""}`}
+      onMouseEnter={onPrefetch}
+      onFocus={onPrefetch}
+      onClick={onClick}
+    >
       <Icon />
       {label}
     </Link>
   );
 }
 
-export default function AdminSidebar() {
+export default function AdminSidebar({
+  onCloseMobile,
+}: {
+  onCloseMobile?: () => void;
+}) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
+    onCloseMobile?.();
     await signOut();
     navigate("/login");
   };
@@ -51,30 +66,43 @@ export default function AdminSidebar() {
           icon={LayoutDashboard}
           label="Dashboard"
           active={pathname === "/dashboard"}
+          onPrefetch={() => void import("../pages/AdminLanding")}
+          onClick={onCloseMobile}
         />
         <NavItem
           to="/admincourses"
           icon={BookOpen}
           label="Courses"
           active={pathname.startsWith("/admincourses")}
+          onPrefetch={() => void import("../pages/AdminCourse")}
+          onClick={onCloseMobile}
         />
         <NavItem
           to="/admin/users"
           icon={Users}
-          label="Students"
+          label="Users"
           active={pathname.startsWith("/admin/users")}
+          onPrefetch={() => void import("../pages/AdminUsers")}
+          onClick={onCloseMobile}
         />
-        <p className="nav-section-label">Account</p>
+
+        <p className="nav-section-label">System</p>
         <NavItem
           to="/settings"
           icon={Settings}
           label="Settings"
-          active={pathname.startsWith("/settings")}
+          active={pathname === "/settings"}
+          onPrefetch={() => void import("../pages/AdminSettings")}
+          onClick={onCloseMobile}
         />
       </nav>
 
       <div className="sidebar-footer">
-        <button className="nav-item" style={{ color: "#665F5C" }} onClick={() => void handleSignOut()}>
+        <button
+          className="nav-item"
+          style={{ color: "#666664" }}
+          onClick={() => void handleSignOut()}
+        >
           <LogOut />
           Sign out
         </button>

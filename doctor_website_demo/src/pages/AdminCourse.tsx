@@ -2,131 +2,12 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, Plus, X, AlertCircle } from "lucide-react";
 import { supabase } from "../supabaseClient";
-import AdminSidebar from "../components/AdminSidebar";
 import { fetchInstructors, instructorName, type Instructor } from "../lib/instructors";
 import { grantInstructorCourse } from "../lib/instructorCourses";
-import { firstLocationId } from "../lib/locations";
+import { fetchLocations, type LocationRow } from "../lib/locations";
+import { CourseCardSkeleton } from "../components/Skeleton";
 
 // ─── Global styles (same token system as AdminLanding) ────────────────────────
-
-const globalStyles = `
-  :root {
-    --bg:        #F7F6F3;
-    --surface:   #FFFFFF;
-    --sidebar:   #111110;
-    --gold:      #C9A84C;
-    --gold-soft: #F5EDD6;
-    --text-1:    #111110;
-    --text-2:    #6B6A66;
-    --text-3:    #A09F9A;
-    --border:    #E8E6E1;
-    --radius:    14px;
-    --font-display: 'Fraunces', Georgia, serif;
-    --font-body:    'DM Sans', system-ui, sans-serif;
-  }
-
-  .ac-shell * { box-sizing: border-box; margin: 0; padding: 0; }
-  .ac-shell { font-family: var(--font-body); background: var(--bg); min-height: 100vh; display: flex; }
-
-  /* ── Sidebar (identical to AdminLanding) ── */
-  .sidebar { width: 228px; min-height: 100vh; background: var(--sidebar); display: flex; flex-direction: column; padding: 28px 16px; position: fixed; top: 0; left: 0; bottom: 0; z-index: 10; }
-  .sidebar-logo { font-family: var(--font-display); font-size: 18px; font-weight: 300; color: #fff; letter-spacing: .02em; padding: 0 8px; margin-bottom: 36px; display: flex; align-items: center; gap: 10px; }
-  .sidebar-logo span { color: var(--gold); }
-  .sidebar-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
-  .nav-item { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 10px; color: #888887; font-size: 14px; font-weight: 400; text-decoration: none; transition: background .15s, color .15s; cursor: pointer; border: none; background: none; width: 100%; text-align: left; }
-  .nav-item:hover { background: rgba(255,255,255,.07); color: #fff; }
-  .nav-item.active { background: rgba(201,168,76,.15); color: var(--gold); }
-  .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
-  .nav-section-label { font-size: 10px; font-weight: 500; letter-spacing: .1em; color: #444443; text-transform: uppercase; padding: 0 12px; margin: 20px 0 6px; }
-  .sidebar-footer { margin-top: auto; padding-top: 20px; border-top: 1px solid #222221; }
-
-  /* ── Main ── */
-  .ac-main { margin-left: 228px; flex: 1; padding: 40px 44px; }
-
-  /* ── Page header ── */
-  .ac-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 32px; }
-  .ac-header-left .eyebrow { font-size: 12px; font-weight: 500; color: var(--text-3); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
-  .ac-header-left h1 { font-family: var(--font-display); font-size: 32px; font-weight: 300; color: var(--text-1); letter-spacing: -.01em; }
-  .btn-primary { display: flex; align-items: center; gap: 7px; background: var(--text-1); color: #fff; border: none; padding: 11px 20px; border-radius: 10px; font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer; transition: background .15s, transform .1s; }
-  .btn-primary:hover { background: #2a2a28; transform: translateY(-1px); }
-  .btn-primary svg { width: 16px; height: 16px; }
-
-  /* ── Course grid ── */
-  .course-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
-
-  .course-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    border-left: 3px solid var(--gold); padding: 22px 22px 18px;
-    cursor: pointer; transition: transform .15s, box-shadow .15s;
-    display: flex; flex-direction: column; gap: 10px;
-    opacity: 0; animation: fadeUp .35s ease forwards;
-  }
-  .course-card:hover { transform: translateY(-3px); box-shadow: 0 10px 28px rgba(0,0,0,.08); }
-  .course-card:nth-child(1) { animation-delay: .04s }
-  .course-card:nth-child(2) { animation-delay: .1s }
-  .course-card:nth-child(3) { animation-delay: .16s }
-  .course-card:nth-child(4) { animation-delay: .22s }
-  .course-card:nth-child(5) { animation-delay: .28s }
-
-  .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-  .card-title { font-family: var(--font-display); font-size: 17px; font-weight: 300; color: var(--text-1); line-height: 1.35; }
-  .price-badge { background: var(--gold-soft); color: #7A5E1A; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 8px; white-space: nowrap; flex-shrink: 0; }
-  .card-desc { font-size: 13px; color: var(--text-2); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
-  .category-pill { font-size: 11px; font-weight: 500; color: var(--text-3); background: var(--bg); border: 1px solid var(--border); padding: 3px 10px; border-radius: 20px; }
-  .card-arrow { font-size: 12px; color: var(--text-3); }
-
-  /* ── Empty state ── */
-  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; text-align: center; }
-  .empty-icon { width: 60px; height: 60px; background: var(--gold-soft); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
-  .empty-icon svg { width: 28px; height: 28px; color: var(--gold); }
-  .empty-title { font-family: var(--font-display); font-size: 22px; font-weight: 300; color: var(--text-1); margin-bottom: 8px; }
-  .empty-sub { font-size: 14px; color: var(--text-3); max-width: 280px; line-height: 1.6; }
-
-  /* ── Modal overlay ── */
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(17,17,16,.45);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 100; padding: 20px;
-    animation: fadeIn .15s ease;
-  }
-  .modal {
-    background: var(--surface); border-radius: 18px; width: 100%; max-width: 480px;
-    padding: 32px; position: relative;
-    animation: slideUp .2s ease;
-  }
-  .modal-close { position: absolute; top: 20px; right: 20px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-2); transition: background .12s; }
-  .modal-close:hover { background: var(--border); }
-  .modal-close svg { width: 16px; height: 16px; }
-  .modal-eyebrow { font-size: 11px; font-weight: 500; color: var(--text-3); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
-  .modal h2 { font-family: var(--font-display); font-size: 24px; font-weight: 300; color: var(--text-1); margin-bottom: 28px; }
-
-  /* ── Form fields ── */
-  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
-  .field label { font-size: 12px; font-weight: 500; color: var(--text-2); letter-spacing: .04em; text-transform: uppercase; }
-  .field input, .field textarea, .field select {
-    width: 100%; border: 1px solid var(--border); border-radius: 10px;
-    padding: 11px 14px; font-family: var(--font-body); font-size: 14px; color: var(--text-1);
-    background: #FAFAF8; outline: none; transition: border-color .15s;
-    appearance: none;
-  }
-  .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--gold); background: #fff; }
-  .field textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
-  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .field-error { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #C0392B; }
-  .field-error svg { width: 13px; height: 13px; }
-
-  .btn-submit { width: 100%; background: var(--text-1); color: #fff; border: none; padding: 13px; border-radius: 10px; font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer; transition: background .15s; margin-top: 6px; }
-  .btn-submit:hover { background: #2a2a28; }
-
-  .load-error { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #C0392B; margin-bottom: 20px; }
-  .load-error svg { width: 14px; height: 14px; }
-
-  /* ── Animations ── */
-  @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-`;
 
 interface Course {
   id: string;
@@ -141,51 +22,93 @@ type NewCourse = {
   description: string;
   price: number;
   instructorId: string;
+  locationId: string;
+  startDate: string;
+  endDate: string;
+  startTime: string;
+  endTime: string;
+  maxStudents: number;
 };
 
 function AddCourseModal({
   onClose,
+  canClose,
   onAdd,
   instructors,
+  locations,
 }: {
   onClose: () => void;
-  onAdd: (c: NewCourse) => void;
+  canClose: boolean;
+  onAdd: (c: NewCourse) => Promise<string | null>;
   instructors: Instructor[];
+  locations: LocationRow[];
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [instructorId, setInstructorId] = useState(instructors[0]?.id ?? "");
   const [price, setPrice] = useState("");
+  const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("12:00");
+  const [maxStudents, setMaxStudents] = useState("20");
   const [errors, setErrors] = useState<{ title?: string; price?: string; instructorId?: string }>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const newErrors: typeof errors = {};
     if (!title.trim()) newErrors.title = "Course title is required";
     if (!price || isNaN(Number(price)) || Number(price) <= 0)
       newErrors.price = "Enter a valid price";
     if (!instructorId) newErrors.instructorId = "Assign a teacher";
+    if (!locationId) newErrors.instructorId = "Choose a location before creating a course";
+    if (!startDate || !endDate || endDate < startDate) newErrors.title = "Choose a valid session date range";
+    if (!startTime || !endTime || endTime <= startTime) newErrors.price = "Choose a valid session time range";
+    if (!Number.isInteger(Number(maxStudents)) || Number(maxStudents) < 1) newErrors.price = "Enter a valid class capacity";
     if (Object.keys(newErrors).length) { setErrors(newErrors); return; }
 
-    onAdd({
-      title: title.trim(),
-      description: description.trim(),
-      price: Number(price),
-      instructorId,
-    });
+    setSubmitting(true);
+    setSubmitError(null);
+    let error: string | null;
+    try {
+      error = await onAdd({
+        title: title.trim(),
+        description: description.trim(),
+        price: Number(price),
+        instructorId,
+        locationId,
+        startDate,
+        endDate,
+        startTime,
+        endTime,
+        maxStudents: Number(maxStudents),
+      });
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : "Could not finish course setup. Retry to resume without creating duplicates.";
+    } finally {
+      setSubmitting(false);
+    }
+    if (error) {
+      setSubmitError(error);
+      return;
+    }
     onClose();
   };
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) onClose();
+    if (e.target === e.currentTarget && canClose && !submitting && !submitError) onClose();
   };
 
   return (
     <div className="modal-overlay" onClick={handleOverlayClick}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <button className="modal-close" onClick={onClose} aria-label="Close"><X /></button>
+        <button className="modal-close" onClick={onClose} aria-label="Close" disabled={!canClose || submitting || Boolean(submitError)}><X /></button>
 
         <p className="modal-eyebrow">New course</p>
         <h2 id="modal-title">Add a course</h2>
+        {!canClose && <p className="modal-eyebrow">A course draft is saved. Finish setup here to prevent losing the entered details.</p>}
 
         <div className="field">
           <label htmlFor="course-title">Course title</label>
@@ -194,6 +117,7 @@ function AddCourseModal({
             type="text"
             placeholder="e.g. Advanced Human Anatomy"
             value={title}
+            disabled={!canClose || submitting || Boolean(submitError)}
             onChange={(e) => { setTitle(e.target.value); setErrors((p) => ({ ...p, title: undefined })); }}
           />
           {errors.title && (
@@ -207,6 +131,7 @@ function AddCourseModal({
             id="course-desc"
             placeholder="What will students learn in this course?"
             value={description}
+            disabled={!canClose || submitting || Boolean(submitError)}
             onChange={(e) => setDescription(e.target.value)}
           />
         </div>
@@ -217,6 +142,7 @@ function AddCourseModal({
             <select
               id="course-teacher"
               value={instructorId}
+              disabled={!canClose || submitting || Boolean(submitError)}
               onChange={(e) => { setInstructorId(e.target.value); setErrors((p) => ({ ...p, instructorId: undefined })); }}
             >
               {instructors.length === 0 && <option value="">No teachers in database</option>}
@@ -239,6 +165,7 @@ function AddCourseModal({
               placeholder="e.g. 1499"
               min="0"
               value={price}
+              disabled={!canClose || submitting || Boolean(submitError)}
               onChange={(e) => { setPrice(e.target.value); setErrors((p) => ({ ...p, price: undefined })); }}
             />
             {errors.price && (
@@ -247,8 +174,45 @@ function AddCourseModal({
           </div>
         </div>
 
-        <button className="btn-submit" onClick={handleSubmit}>
-          Create course
+        <p className="modal-eyebrow">First session</p>
+        <div className="field-row">
+          <div className="field">
+            <label htmlFor="session-location">Location</label>
+            <select id="session-location" value={locationId} disabled={!canClose || submitting || Boolean(submitError)} onChange={(e) => setLocationId(e.target.value)}>
+              {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="session-capacity">Class capacity</label>
+            <input id="session-capacity" type="number" min="1" value={maxStudents} disabled={!canClose || submitting || Boolean(submitError)} onChange={(e) => setMaxStudents(e.target.value)} />
+          </div>
+        </div>
+        <div className="field-row">
+          <div className="field">
+            <label htmlFor="session-start-date">Start date</label>
+            <input id="session-start-date" type="date" value={startDate} disabled={!canClose || submitting || Boolean(submitError)} onChange={(e) => setStartDate(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="session-end-date">End date</label>
+            <input id="session-end-date" type="date" value={endDate} disabled={!canClose || submitting || Boolean(submitError)} onChange={(e) => setEndDate(e.target.value)} />
+          </div>
+        </div>
+        <div className="field-row">
+          <div className="field">
+            <label htmlFor="session-start-time">Start time</label>
+            <input id="session-start-time" type="time" value={startTime} disabled={!canClose || submitting || Boolean(submitError)} onChange={(e) => setStartTime(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="session-end-time">End time</label>
+            <input id="session-end-time" type="time" value={endTime} disabled={!canClose || submitting || Boolean(submitError)} onChange={(e) => setEndTime(e.target.value)} />
+          </div>
+        </div>
+
+        {submitError && (
+          <p className="load-error" role="alert"><AlertCircle />{submitError}</p>
+        )}
+        <button className="btn-submit" onClick={handleSubmit} disabled={submitting}>
+          {submitting ? "Saving course…" : "Create course"}
         </button>
       </div>
     </div>
@@ -259,26 +223,43 @@ export default function AdminCourses() {
   const navigate = useNavigate();
   const [courses, setCourses] = useState<Course[]>([]);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
+  const [locations, setLocations] = useState<LocationRow[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  // Keep partial setup state across retries while the modal is open. A retry
+  // resumes this draft instead of creating another course or first session.
+  const setupRef = React.useRef<{ courseId?: string; sessionId?: string; course?: NewCourse }>({});
 
   const loadCourses = async () => {
-    const [{ data, error }, instructorResult] = await Promise.all([
+    const [{ data, error }, instructorResult, locationResult] = await Promise.all([
       supabase.from("courses").select("id, course_title, course_description, course_price").order("course_title"),
       fetchInstructors(),
+      fetchLocations(),
     ]);
 
     setInstructors(instructorResult.instructors);
+    setLocations(locationResult.locations);
 
     if (error) {
       setLoadError(error.message);
+      setLoading(false);
       return;
     }
 
-    const { data: sessionRows } = await supabase
-      .from("course_sessions")
-      .select("course_id, instructors ( first_name, last_name, email )")
-      .eq("active", true);
+    const courseIds = (data ?? []).map((c) => c.id);
+    let sessionRows: { course_id: string; instructors: unknown }[] = [];
+    let sessionError: string | null = null;
+    if (courseIds.length > 0) {
+      const { data: rows, error: sessionsQueryError } = await supabase
+        .from("course_sessions")
+        .select("course_id, instructors ( first_name, last_name, email )")
+        .in("course_id", courseIds)
+        .eq("active", true);
+      sessionError = sessionsQueryError?.message ?? null;
+      if (rows) sessionRows = rows as { course_id: string; instructors: unknown }[];
+    }
 
     const teacherByCourse = new Map<string, string>();
     for (const row of sessionRows ?? []) {
@@ -287,8 +268,8 @@ export default function AdminCourses() {
       teacherByCourse.set(row.course_id, instructorName(instructor));
     }
 
-    if (instructorResult.error) {
-      setLoadError(instructorResult.error);
+    if (instructorResult.error || locationResult.error || sessionError) {
+      setLoadError([instructorResult.error, locationResult.error, sessionError].filter(Boolean).join(" "));
     } else {
       setLoadError("");
     }
@@ -302,6 +283,7 @@ export default function AdminCourses() {
         instructorName: teacherByCourse.get(course.id) ?? "Unassigned",
       })),
     );
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -316,59 +298,125 @@ export default function AdminCourses() {
     };
   }, []);
 
-  const handleAdd = async (course: NewCourse) => {
-    const { data, error } = await supabase
+  const handleAdd = async (course: NewCourse): Promise<string | null> => {
+    const fail = async (message: string) => {
+      setActionError(message);
+      await loadCourses();
+      return message;
+    };
+
+    setupRef.current.course ??= course;
+    course = setupRef.current.course;
+    // Reuse a client-generated id if an insert committed but its response was
+    // lost. This makes retries idempotent even before the server returns a row.
+    setupRef.current.courseId ??= crypto.randomUUID();
+    const courseId = setupRef.current.courseId;
+    const { data: existingCourse, error: lookupCourseError } = await supabase
       .from("courses")
-      .insert({
-        course_title: course.title,
-        course_description: course.description,
-        course_price: course.price,
-        active: true,
-      })
       .select("id")
-      .single();
-
-    if (error || !data) {
-      alert(error?.message ?? "Could not create course");
-      return;
+      .eq("id", courseId)
+      .maybeSingle();
+    if (lookupCourseError) {
+      return fail(`Could not check the saved course draft: ${lookupCourseError.message}. Retry to resume setup.`);
+    }
+    if (!existingCourse) {
+      const { error: courseError } = await supabase
+        .from("courses")
+        .insert({
+          id: courseId,
+          course_title: course.title,
+          course_description: course.description,
+          course_price: course.price,
+          active: false,
+        });
+      if (courseError) {
+        const { data: insertedCourse, error: confirmError } = await supabase
+          .from("courses")
+          .select("id")
+          .eq("id", courseId)
+          .maybeSingle();
+        if (confirmError || !insertedCourse) {
+          return fail(`Could not save course draft ${courseId}: ${courseError.message}${confirmError ? ` (confirmation failed: ${confirmError.message})` : ""}. Retry to resume without creating a duplicate.`);
+        }
+      }
     }
 
-    const locationId = await firstLocationId();
-    if (!locationId) {
-      alert("Add a location in the database before assigning a teacher.");
-      return;
-    }
-
-    const { error: sessionError } = await supabase.from("course_sessions").insert({
-      course_id: data.id,
+    const sessionValues = {
+      course_id: courseId,
       instructor_id: course.instructorId,
-      location_id: locationId,
-      start_date: new Date().toISOString().slice(0, 10),
-      end_date: new Date().toISOString().slice(0, 10),
-      start_time: "09:00:00",
-      end_time: "12:00:00",
-      max_students: 20,
-      active: true,
-    });
+      location_id: course.locationId,
+      start_date: course.startDate,
+      end_date: course.endDate,
+      start_time: `${course.startTime}:00`,
+      end_time: `${course.endTime}:00`,
+      max_students: course.maxStudents,
+    };
 
-    if (sessionError) {
-      alert(`Course created, but teacher assignment failed: ${sessionError.message}`);
-    } else {
-      const grantError = await grantInstructorCourse(course.instructorId, data.id);
-      if (grantError) alert(grantError);
+    if (!setupRef.current.sessionId) {
+      // A previous request may have committed while its response was lost.
+      // Look for that exact first-session draft before attempting another insert.
+      const { data: existing, error: lookupError } = await supabase
+        .from("course_sessions")
+        .select("id")
+        .eq("course_id", courseId)
+        .eq("instructor_id", course.instructorId)
+        .eq("location_id", course.locationId)
+        .eq("start_date", course.startDate)
+        .eq("end_date", course.endDate)
+        .eq("start_time", sessionValues.start_time)
+        .eq("end_time", sessionValues.end_time)
+        .eq("max_students", course.maxStudents)
+        .maybeSingle();
+      if (lookupError) {
+        return fail(`Course draft ${courseId} is saved, but its first session could not be checked: ${lookupError.message}. Retry to resume setup.`);
+      }
+      setupRef.current.sessionId = existing?.id;
+
+      if (!setupRef.current.sessionId) {
+        const { data: session, error: sessionError } = await supabase
+          .from("course_sessions")
+          .insert({ ...sessionValues, active: false })
+          .select("id")
+          .single();
+        if (sessionError || !session) {
+          return fail(`Course draft ${courseId} is saved, but its first session was not confirmed: ${sessionError?.message ?? "No session record was returned"}. Retry to resume setup.`);
+        }
+        setupRef.current.sessionId = session.id;
+      }
     }
 
+    const sessionId = setupRef.current.sessionId;
+    const grantError = await grantInstructorCourse(course.instructorId, courseId);
+    if (grantError) {
+      return fail(`Course draft ${courseId} and its first session are saved but remain inactive because instructor assignment failed: ${grantError}. Retry to resume setup.`);
+    }
+
+    const { error: sessionActivationError } = await supabase
+      .from("course_sessions")
+      .update({ active: true })
+      .eq("id", sessionId);
+    if (sessionActivationError) {
+      return fail(`Course draft ${courseId} is saved and instructor assigned, but the first session could not be activated: ${sessionActivationError.message}. Retry to resume setup.`);
+    }
+
+    const { error: courseActivationError } = await supabase
+      .from("courses")
+      .update({ active: true })
+      .eq("id", courseId);
+    if (courseActivationError) {
+      return fail(`First session and instructor assignment are ready, but course draft ${courseId} could not be activated: ${courseActivationError.message}. Retry to resume setup.`);
+    }
+
+    setupRef.current = {};
+    setActionError(null);
     await loadCourses();
+    return null;
   };
 
   return (
     <>
-      <style>{globalStyles}</style>
 
-      <div className="ac-shell">
-        <AdminSidebar />
-
-        <main className="ac-main">
+      <main className="ac-main">
           <div className="ac-header">
             <div className="ac-header-left">
               <p className="eyebrow">Curriculum</p>
@@ -379,11 +427,21 @@ export default function AdminCourses() {
             </button>
           </div>
 
+                    {actionError && (
+            <p className="load-error" style={{ marginBottom: 20 }}><AlertCircle />{actionError}</p>
+          )}
           {loadError && (
             <p className="load-error"><AlertCircle />{loadError}</p>
           )}
 
-          {courses.length === 0 ? (
+          {loading ? (
+            <div className="course-grid">
+              <CourseCardSkeleton />
+              <CourseCardSkeleton />
+              <CourseCardSkeleton />
+              <CourseCardSkeleton />
+            </div>
+          ) : courses.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon"><BookOpen /></div>
               <p className="empty-title">No courses yet</p>
@@ -395,7 +453,15 @@ export default function AdminCourses() {
                 <div
                   key={course.id}
                   className="course-card"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => navigate(`/admincourses/${course.id}`, { state: { course } })}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      navigate(`/admincourses/${course.id}`, { state: { course } });
+                    }
+                  }}
                 >
                   <div className="card-top">
                     <h3 className="card-title">{course.title}</h3>
@@ -413,13 +479,14 @@ export default function AdminCourses() {
             </div>
           )}
         </main>
-      </div>
 
       {showModal && (
-        <AddCourseModal
+          <AddCourseModal
           onClose={() => setShowModal(false)}
+          canClose={!setupRef.current.courseId}
           onAdd={handleAdd}
           instructors={instructors}
+          locations={locations}
         />
       )}
     </>

@@ -18,104 +18,15 @@
  */
 
 import React, { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import { useNavigate, Link } from "react-router-dom";
 import { resolveStudentRoleId } from "../lib/roles";
+import { authErrorMessage } from "../lib/auth";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = `
-  :root {
-    --bg:        #F7F6F3;
-    --surface:   #FFFFFF;
-    --sidebar:   #111110;
-    --gold:      #C9A84C;
-    --gold-soft: #F5EDD6;
-    --text-1:    #111110;
-    --text-2:    #6B6A66;
-    --text-3:    #A09F9A;
-    --border:    #E8E6E1;
-    --font-display: 'Fraunces', Georgia, serif;
-    --font-body:    'DM Sans', system-ui, sans-serif;
-  }
-
-  .reg-shell { min-height: 100vh; display: flex; font-family: var(--font-body); }
-
-  /* ── Left branding panel ── */
-  .reg-left {
-    width: 380px; flex-shrink: 0; background: var(--sidebar);
-    display: flex; flex-direction: column; justify-content: space-between;
-    padding: 48px 44px;
-  }
-  .reg-logo { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-size: 18px; font-weight: 300; color: #fff; }
-  .reg-logo span { color: var(--gold); }
-  .reg-logo-dot { width: 28px; height: 28px; border-radius: 8px; background: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 15px; }
-  .reg-hero { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-  .reg-hero h2 { font-family: var(--font-display); font-size: 32px; font-weight: 300; color: #fff; line-height: 1.3; margin-bottom: 16px; letter-spacing: -.01em; }
-  .reg-hero h2 em { font-style: italic; color: var(--gold); }
-  .reg-hero p { font-size: 14px; color: #888887; line-height: 1.7; max-width: 260px; }
-  .reg-steps-preview { margin-top: 36px; display: flex; flex-direction: column; gap: 12px; }
-  .rsp-item { display: flex; align-items: center; gap: 12px; }
-  .rsp-num { width: 24px; height: 24px; border-radius: 50%; background: rgba(201,168,76,.2); color: var(--gold); font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .rsp-num.done { background: var(--gold); color: #111110; }
-  .rsp-label { font-size: 13px; color: #888887; }
-  .rsp-label.done { color: #fff; }
-  .reg-footer { font-size: 12px; color: #444443; }
-
-  /* ── Right form panel ── */
-  .reg-right { flex: 1; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 48px 40px; }
-  .reg-form-wrap { width: 100%; max-width: 400px; }
-  .reg-form-wrap .eyebrow { font-size: 11px; font-weight: 500; color: var(--text-3); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
-  .reg-form-wrap h1 { font-family: var(--font-display); font-size: 26px; font-weight: 300; color: var(--text-1); margin-bottom: 8px; }
-  .reg-form-wrap .sub { font-size: 13px; color: var(--text-3); margin-bottom: 24px; }
-
-  /* Progress bar */
-  .progress-track { display: flex; align-items: center; gap: 0; margin-bottom: 28px; }
-  .progress-step { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
-  .progress-circle { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; border: 2px solid var(--border); color: var(--text-3); background: var(--surface); transition: all .2s; }
-  .progress-circle.active { border-color: var(--text-1); background: var(--text-1); color: #fff; }
-  .progress-circle.complete { border-color: var(--gold); background: var(--gold); color: #fff; }
-  .progress-label { font-size: 10px; font-weight: 500; color: var(--text-3); text-align: center; letter-spacing: .03em; white-space: nowrap; }
-  .progress-label.active { color: var(--text-1); font-weight: 600; }
-  .progress-line { flex: 1; height: 2px; background: var(--border); margin-bottom: 20px; max-width: 40px; transition: background .2s; }
-  .progress-line.done { background: var(--gold); }
-
-  /* Fields */
-  .rf-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
-  .rf-field label { font-size: 12px; font-weight: 500; color: var(--text-2); letter-spacing: .04em; text-transform: uppercase; }
-  .rf-field input { width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; font-family: var(--font-body); font-size: 14px; color: var(--text-1); background: var(--surface); outline: none; transition: border-color .15s; }
-  .rf-field input:focus { border-color: var(--gold); }
-  .rf-field input.err { border-color: #C0392B; }
-  .rf-error { font-size: 12px; color: #C0392B; display: flex; align-items: center; gap: 4px; }
-  .rf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-
-  /* Citizenship toggle */
-  .citi-toggle { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px; margin-bottom: 16px; }
-  .citi-opt { flex: 1; padding: 9px; text-align: center; font-size: 13px; font-weight: 500; border-radius: 7px; cursor: pointer; border: none; background: none; font-family: var(--font-body); color: var(--text-3); transition: background .15s, color .15s; }
-  .citi-opt.active { background: var(--text-1); color: #fff; }
-
-  /* Nav buttons */
-  .rf-nav { display: flex; gap: 10px; margin-top: 4px; }
-  .rf-back { flex: 1; background: var(--surface); color: var(--text-2); border: 1px solid var(--border); padding: 12px; border-radius: 10px; font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer; transition: background .15s; }
-  .rf-back:hover { background: var(--border); }
-  .rf-next { flex: 2; background: var(--text-1); color: #fff; border: none; padding: 12px; border-radius: 10px; font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer; transition: background .15s; }
-  .rf-next:hover { background: #2a2a28; }
-  .rf-next:disabled { background: var(--text-3); cursor: not-allowed; }
-
-  /* Error banner */
-  .rf-banner { background: #FEE9E9; border: 1px solid #F5C1C1; border-radius: 10px; padding: 11px 14px; font-size: 13px; color: #A12D2D; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-
-  /* Footer */
-  .rf-footer { text-align: center; font-size: 13px; color: var(--text-3); margin-top: 18px; }
-  .rf-footer a { color: var(--gold); text-decoration: none; margin-left: 4px; }
-  .rf-footer a:hover { text-decoration: underline; }
-
-  /* Step fade */
-  .step-wrap { animation: stepIn .2s ease; }
-  @keyframes stepIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
-
-  @media (max-width: 768px) { .reg-left { display: none; } .reg-right { background: var(--surface); } }
-`;
+import "../styles/auth.css";
 
 const STEP_LABELS = ["Personal", "Identity", "Contact"];
 
@@ -130,6 +41,7 @@ export default function Register() {
   const [last_name,     setLastname]    = useState("");
   const [email,         setEmail]       = useState("");
   const [password,      setPassword]    = useState("");
+  const [showPassword,  setShowPassword] = useState(false);
   const [birth_date,    setBirthdate]   = useState("");
   const [id_num,        setIdnum]       = useState("");
   const [passport_num,  setpassportNum] = useState("");
@@ -181,68 +93,73 @@ export default function Register() {
     if (!cell_num.trim()) { setErr("cell_num", "Required"); return; }
 
     setLoading(true);
+    try {
+      const studentRoleId = await resolveStudentRoleId();
+      if (!studentRoleId) {
+        setBanner("Student role is not configured. Add a student role in the database before accepting registrations.");
+        return;
+      }
 
-    const studentRoleId = await resolveStudentRoleId();
-    if (!studentRoleId) {
-      setBanner(
-        "Student role is not configured. Set VITE_STUDENT_ROLE_ID or add a student role in the database."
-      );
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            first_name: first_name.trim(),
+            last_name: last_name.trim(),
+            birth_date,
+            id_num: id_num.trim() || null,
+            passport_num: passport_num.trim() || null,
+            cell_num: cell_num.trim(),
+            sanc_num: sanc_num.trim() || null,
+          },
+        },
+      });
+
+      if (error) {
+        setBanner(authErrorMessage(error));
+        return;
+      }
+      if (!data.user) {
+        setBanner("The account service did not return a new user. Please try again.");
+        return;
+      }
+
+      const { error: insertError } = await supabase.from("users").upsert({
+        id: data.user.id,
+        role_id: studentRoleId,
+        first_name: first_name.trim(),
+        last_name: last_name.trim(),
+        birth_date,
+        id_num: id_num.trim() || null,
+        passport_num: passport_num.trim() || null,
+        cell_num: cell_num.trim(),
+        email: data.user.email ?? email.trim(),
+        sanc_num: sanc_num.trim() || null,
+        active: true,
+      });
+
+      if (insertError) {
+        setBanner(`Your account was created, but its student profile could not be saved: ${authErrorMessage(insertError)} Please contact support before signing in.`);
+        return;
+      }
+
+      if (!data.session) {
+        setBanner("Account created. Check your email to confirm it before signing in.");
+        return;
+      }
+      navigate("/login", { state: { registered: true } });
+    } catch (error) {
+      setBanner(authErrorMessage(error instanceof Error ? error : {}));
+    } finally {
       setLoading(false);
-      return;
     }
-
-    // 1. Create user in Supabase Auth
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) {
-      setBanner(error.message);
-      setLoading(false);
-      return;
-    }
-
-    const user = data.user;
-    if (!user) {
-      setBanner("User not created");
-      setLoading(false);
-      return;
-    }
-
-    if (!data.session) {
-      setBanner("Account created. Please check your email to confirm before signing in.");
-      setLoading(false);
-      return;
-    }
-
-    // 2. Insert into users table
-    const { error: insertError } = await supabase.from("users").insert([{
-      id:           user.id,
-      role_id:      studentRoleId,
-      first_name: first_name,
-      last_name : last_name,
-      birth_date: birth_date,
-      id_num:       id_num || null,
-      passport_num: passport_num || null,
-      cell_num: cell_num,
-      email: email,
-      sanc_num: sanc_num,
-      active:       true,
-    }]);
-
-    if (insertError) {
-      setBanner(insertError.message);
-      setLoading(false);
-      return;
-    }
-
-    // 3. Success
-    navigate("/login", { state: { registered: true } });
   };
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <>
-      <style>{styles}</style>
-      <div className="reg-shell">
+    <div className="reg-shell">
 
         {/* ── Left branding panel ── */}
         <div className="reg-left">
@@ -301,37 +218,60 @@ export default function Register() {
                 <div className="step-wrap">
                   <div className="rf-row">
                     <div className="rf-field">
-                      <label>First name</label>
-                      <input type="text" value={first_name} placeholder="Jane"
+                      <label htmlFor="reg-first-name">First name</label>
+                      <input id="reg-first-name" type="text" value={first_name} placeholder="Jane"
                         className={errors.first_name ? "err" : ""}
                         onChange={(e) => { setFirstname(e.target.value); clearErr("first_name"); }} />
                       {errors.first_name && <span className="rf-error" role="alert">⚠ {errors.first_name}</span>}
                     </div>
                     <div className="rf-field">
-                      <label>Last name</label>
-                      <input type="text" value={last_name} placeholder="Smith"
+                      <label htmlFor="reg-last-name">Last name</label>
+                      <input id="reg-last-name" type="text" value={last_name} placeholder="Smith"
                         className={errors.last_name ? "err" : ""}
                         onChange={(e) => { setLastname(e.target.value); clearErr("last_name"); }} />
                       {errors.last_name && <span className="rf-error" role="alert">⚠ {errors.last_name}</span>}
                     </div>
                   </div>
                   <div className="rf-field">
-                    <label>Email</label>
-                    <input type="email" value={email} placeholder="you@example.com"
+                    <label htmlFor="reg-email">Email</label>
+                    <input id="reg-email" type="email" value={email} placeholder="you@example.com"
                       className={errors.email ? "err" : ""}
                       onChange={(e) => { setEmail(e.target.value); clearErr("email"); }} />
                     {errors.email && <span className="rf-error" role="alert">⚠ {errors.email}</span>}
                   </div>
                   <div className="rf-field">
-                    <label>Password</label>
-                    <input type="password" value={password} placeholder="Min. 6 characters"
-                      className={errors.password ? "err" : ""}
-                      onChange={(e) => { setPassword(e.target.value); clearErr("password"); }} />
+                    <label htmlFor="reg-password">Password</label>
+                    <div style={{ position: "relative" }}>
+                      <input id="reg-password" type={showPassword ? "text" : "password"} value={password} placeholder="Min. 6 characters"
+                        className={errors.password ? "err" : ""}
+                        style={{ paddingRight: "40px", width: "100%" }}
+                        onChange={(e) => { setPassword(e.target.value); clearErr("password"); }} />
+                      <button
+                        type="button"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        onClick={() => setShowPassword(!showPassword)}
+                        style={{
+                          position: "absolute",
+                          right: "12px",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "var(--text-3)",
+                          display: "flex",
+                          alignItems: "center",
+                          padding: 0,
+                        }}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
                     {errors.password && <span className="rf-error" role="alert">⚠ {errors.password}</span>}
                   </div>
                   <div className="rf-field">
-                    <label>Date of birth</label>
-                    <input type="date" value={birth_date}
+                    <label htmlFor="reg-birth-date">Date of birth</label>
+                    <input id="reg-birth-date" type="date" value={birth_date}
                       className={errors.birth_date ? "err" : ""}
                       onChange={(e) => { setBirthdate(e.target.value); clearErr("birth_date"); }} />
                     {errors.birth_date && <span className="rf-error" role="alert">⚠ {errors.birth_date}</span>}
@@ -359,16 +299,16 @@ export default function Register() {
 
                   {isCiti ? (
                     <div className="rf-field">
-                      <label>SA ID number</label>
-                      <input type="text" value={id_num} placeholder="13-digit ID number"
+                      <label htmlFor="reg-id-number">SA ID number</label>
+                      <input id="reg-id-number" type="text" value={id_num} placeholder="13-digit ID number"
                         className={errors.id_num ? "err" : ""}
                         onChange={(e) => { setIdnum(e.target.value); clearErr("id_num"); }} />
                       {errors.id_num && <span className="rf-error" role="alert">⚠ {errors.id_num}</span>}
                     </div>
                   ) : (
                     <div className="rf-field">
-                      <label>Passport number</label>
-                      <input type="text" value={passport_num} placeholder="e.g. A12345678"
+                      <label htmlFor="reg-passport-number">Passport number</label>
+                      <input id="reg-passport-number" type="text" value={passport_num} placeholder="e.g. A12345678"
                         className={errors.passport_num ? "err" : ""}
                         onChange={(e) => { setpassportNum(e.target.value); clearErr("passport_num"); }} />
                       {errors.passport_num && <span className="rf-error" role="alert">⚠ {errors.passport_num}</span>}
@@ -386,15 +326,15 @@ export default function Register() {
               {step === 3 && (
                 <div className="step-wrap">
                   <div className="rf-field">
-                    <label>Cell number</label>
-                    <input type="tel" value={cell_num} placeholder="+27 82 000 0000"
+                    <label htmlFor="reg-cell-number">Cell number</label>
+                    <input id="reg-cell-number" type="tel" value={cell_num} placeholder="+27 82 000 0000"
                       className={errors.cell_num ? "err" : ""}
                       onChange={(e) => { setCellNum(e.target.value); clearErr("cell_num"); }} />
                     {errors.cell_num && <span className="rf-error" role="alert">⚠ {errors.cell_num}</span>}
                   </div>
                   <div className="rf-field">
-                    <label>HPCSA/SANC Number <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(optional)</span></label>
-                    <input type="text" value={sanc_num} placeholder="e.g. 12345678"
+                    <label htmlFor="reg-sanc-number">HPCSA/SANC Number <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(optional)</span></label>
+                    <input id="reg-sanc-number" type="text" value={sanc_num} placeholder="e.g. 12345678"
                       onChange={(e) => setSancNum(e.target.value)} />
                   </div>
 
@@ -417,6 +357,5 @@ export default function Register() {
         </div>
 
       </div>
-    </>
   );
 }
