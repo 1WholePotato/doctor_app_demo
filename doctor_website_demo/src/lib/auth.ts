@@ -43,19 +43,28 @@ export type AppUser = {
 };
 
 export async function getSessionUser(): Promise<AppUser | null> {
-  const { data: sessionData } = await supabase.auth.getUser();
+  const { data: sessionData, error: sessionError } = await supabase.auth.getUser();
+  if (sessionError) {
+    if (sessionError.name === "AuthSessionMissingError"
+      || (sessionError.status && sessionError.status >= 400 && sessionError.status < 500
+        && sessionError.status !== 408 && sessionError.status !== 429)) return null;
+    throw sessionError;
+  }
   const authUser = sessionData.user;
   if (!authUser) return null;
 
   await loadRoles();
 
-  let { data, error } = await supabase
+  const profile = await supabase
     .from("users")
     .select(
       "id, email, role_id, first_name, last_name, birth_date, id_num, passport_num, cell_num, sanc_num, active",
     )
     .eq("id", authUser.id)
     .single();
+  let { data, error } = profile;
+  if (profile.status === 401 || profile.status === 403) return null;
+  if (error && error.code !== "PGRST116") throw error;
 
   // Repair missing profiles with the configured student role; editable metadata is never authoritative.
   if (!data && (!error || error.code === "PGRST116") && authUser.user_metadata) {

@@ -7,6 +7,7 @@ export interface AuthContextType {
   loading: boolean;
   authError: string | null;
   refreshUser: () => Promise<void>;
+  passwordRecovery: boolean;
 }
 
 export const AuthContext = createContext<AuthContextType>({
@@ -14,5 +15,6 @@ export const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   loading: true,
   authError: null,
+  passwordRecovery: false,
   refreshUser: async () => {},
 });

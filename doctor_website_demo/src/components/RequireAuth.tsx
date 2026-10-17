@@ -15,11 +15,11 @@ export default function RequireAuth({ children, role }: RequireAuthProps) {
     return <main aria-live="polite" style={{ padding: 32 }}>Checking your account…</main>;
   }
 
-  if (authError) {
+  if (authError && !user) {
     return (
       <main role="alert" style={{ maxWidth: 480, margin: "12vh auto", padding: 24, textAlign: "center" }}>
         <p>{authError}</p>
-        <button type="button" onClick={() => void refreshUser()}>Try again</button>
+        <button type="button" onClick={() => void refreshUser().catch(() => {})}>Try again</button>
       </main>
     );
   }
