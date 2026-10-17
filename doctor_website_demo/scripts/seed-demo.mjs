@@ -4,7 +4,7 @@
  * Reads .env.local from doctor_website_demo (never prints secrets).
  */
 import { readFileSync, existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 
@@ -12,8 +12,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 const envPath = join(root, ".env.local");
 
-const ADMIN_ROLE_ID = "ef387d99-bdbd-4304-b6ab-946b58475aa1";
-const STUDENT_ROLE_ID = "4fd9e72e-f94b-4222-b5c1-95b447088d4d";
 const DEMO_PASSWORD = "DemoPass1234";
 const ADMIN_EMAIL = "doctor.demo.admin@gmail.com";
 const STUDENT_EMAIL = "doctor.demo.student@gmail.com";
@@ -21,8 +19,7 @@ const INSTRUCTOR_EMAIL = "doctor.demo.instructor@gmail.com";
 
 function loadEnvFile(path) {
   if (!existsSync(path)) {
-    console.error(`Missing ${path}`);
-    process.exit(1);
+    return {};
   }
   const env = {};
   for (const line of readFileSync(path, "utf8").split("\n")) {
@@ -232,7 +229,7 @@ async function ensureLocation(supabase) {
   return data.id;
 }
 
-async function ensureSession(supabase, courseId, instructorId, locationId) {
+async function ensureSession(supabase, courseId, instructorId, locationId, sessionDate) {
   const { data: existing, error: fetchError } = await supabase
     .from("course_sessions")
     .select("id")
@@ -242,7 +239,12 @@ async function ensureSession(supabase, courseId, instructorId, locationId) {
 
   if (fetchError) throw new Error(`Session lookup failed: ${fetchError.message}`);
   if (existing) {
-    logOk(`Session exists for course ${courseId}`);
+    const { error } = await supabase
+      .from("course_sessions")
+      .update({ start_date: sessionDate, end_date: sessionDate })
+      .eq("id", existing.id);
+    if (error) throw new Error(`Session update failed: ${error.message}`);
+    logOk(`Updated session date for course ${courseId}`);
     return existing.id;
   }
 
@@ -252,8 +254,8 @@ async function ensureSession(supabase, courseId, instructorId, locationId) {
       course_id: courseId,
       instructor_id: instructorId,
       location_id: locationId,
-      start_date: "2026-10-14",
-      end_date: "2026-10-14",
+      start_date: sessionDate,
+      end_date: sessionDate,
       start_time: "09:00:00",
       end_time: "12:00:00",
       max_students: 20,
@@ -272,7 +274,7 @@ async function ensureBooking(supabase, userId, courseId, paymentStatus, totalAmo
     .from("bookings")
     .select("id, payment_status")
     .eq("user_id", userId)
-    .eq("course_id", courseId)
+    .eq("course_session_id", courseId)
     .maybeSingle();
 
   if (fetchError) throw new Error(`Booking lookup failed: ${fetchError.message}`);
@@ -295,7 +297,7 @@ async function ensureBooking(supabase, userId, courseId, paymentStatus, totalAmo
     .from("bookings")
     .insert({
       user_id: userId,
-      course_id: courseId,
+      course_session_id: courseId,
       payment_status: paymentStatus,
       material_fee: 0,
       total_amount: totalAmount,
@@ -340,7 +342,7 @@ async function ensurePayment(supabase, bookingId, amount) {
   return data.id;
 }
 
-async function seedCatalog(supabase, studentId) {
+async function seedCatalog(supabase, studentId, sessionDate) {
   const instructorDefs = [
     { first_name: "Pietie", last_name: "van Wyk", email: "pietie.demo@medlearn.test", cell_num: "0823000001" },
     { first_name: "Sielie", last_name: "Botha", email: "sielie.demo@medlearn.test", cell_num: "0823000002" },
@@ -379,7 +381,7 @@ async function seedCatalog(supabase, studentId) {
   for (let i = 0; i < courseDefs.length; i++) {
     const courseId = await ensureCourse(supabase, courseDefs[i]);
     courseIds.push(courseId);
-    await ensureSession(supabase, courseId, instructorIds[i % instructorIds.length], locationId);
+    await ensureSession(supabase, courseId, instructorIds[i % instructorIds.length], locationId, sessionDate);
   }
 
   if (!studentId) {
@@ -394,7 +396,7 @@ async function seedCatalog(supabase, studentId) {
   return { courseIds, instructorIds };
 }
 
-async function seedUsers(supabase, instructorRoleId) {
+async function seedUsers(supabase, roleIds) {
   const adminAuth = await ensureAuthUser(supabase, ADMIN_EMAIL, DEMO_PASSWORD, {
     first_name: "Demo",
     last_name: "Admin",
@@ -402,7 +404,7 @@ async function seedUsers(supabase, instructorRoleId) {
 
   await upsertProfile(supabase, adminAuth.id, {
     email: ADMIN_EMAIL,
-    role_id: ADMIN_ROLE_ID,
+    role_id: roleIds.admin,
     first_name: "Demo",
     last_name: "Admin",
     birth_date: "1985-01-15",
@@ -413,14 +415,6 @@ async function seedUsers(supabase, instructorRoleId) {
     active: true,
   });
 
-  const { error: adminRolePatchError } = await supabase
-    .from("users")
-    .update({ role_id: ADMIN_ROLE_ID })
-    .eq("id", adminAuth.id);
-
-  if (adminRolePatchError) logWarn(`Admin role_id patch: ${adminRolePatchError.message}`);
-  else logOk("Patched admin role_id");
-
   const studentAuth = await ensureAuthUser(supabase, STUDENT_EMAIL, DEMO_PASSWORD, {
     first_name: "Demo",
     last_name: "Student",
@@ -428,7 +422,7 @@ async function seedUsers(supabase, instructorRoleId) {
 
   await upsertProfile(supabase, studentAuth.id, {
     email: STUDENT_EMAIL,
-    role_id: STUDENT_ROLE_ID,
+    role_id: roleIds.student,
     first_name: "Demo",
     last_name: "Student",
     birth_date: "2000-06-20",
@@ -446,7 +440,7 @@ async function seedUsers(supabase, instructorRoleId) {
 
   await upsertProfile(supabase, instructorAuth.id, {
     email: INSTRUCTOR_EMAIL,
-    role_id: instructorRoleId,
+    role_id: roleIds.instructor,
     first_name: "Demo",
     last_name: "Instructor",
     birth_date: "1988-03-12",
@@ -467,48 +461,65 @@ async function seedUsers(supabase, instructorRoleId) {
   return { studentId: studentAuth.id, demoTeacherId };
 }
 
-async function main() {
-  const env = loadEnvFile(envPath);
+export async function seedDemo({ env, now = new Date(), fetch = globalThis.fetch }) {
   const url = env.VITE_SUPABASE_URL;
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url) {
-    logFail("VITE_SUPABASE_URL is required in .env.local");
-    process.exit(1);
+    throw new Error("VITE_SUPABASE_URL is required.");
+  }
+
+  if (env.SEED_CONFIRM_URL !== url) {
+    throw new Error("Set SEED_CONFIRM_URL to exactly match VITE_SUPABASE_URL for the disposable seed target.");
   }
 
   if (!serviceRoleKey) {
-    logFail("Add SUPABASE_SERVICE_ROLE_KEY to .env.local (not VITE_*).");
-    logFail("Dashboard → Project Settings → API → service_role. This key stays local; seed uses it to force-confirm users without turning Confirm email off.");
-    process.exit(1);
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required (not VITE_*).");
+  }
+
+  const today = now.toISOString().slice(0, 10);
+  const sessionDate = env.SEED_SESSION_DATE ?? new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10);
+  const parsedDate = new Date(`${sessionDate}T00:00:00.000Z`);
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(sessionDate) ||
+    Number.isNaN(parsedDate.getTime()) ||
+    parsedDate.toISOString().slice(0, 10) !== sessionDate ||
+    sessionDate <= today
+  ) {
+    throw new Error("SEED_SESSION_DATE must be a valid future UTC date in YYYY-MM-DD format.");
   }
 
   const supabase = createClient(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
+    global: { fetch },
   });
 
-  try {
-    const instructorRoleId = await ensureRole(supabase, "instructor");
-    const { studentId, demoTeacherId } = await seedUsers(supabase, instructorRoleId);
-    const { courseIds, instructorIds } = await seedCatalog(supabase, studentId);
+  const roleIds = {
+    admin: await ensureRole(supabase, "admin"),
+    student: await ensureRole(supabase, "student"),
+    instructor: await ensureRole(supabase, "instructor"),
+  };
+  const { studentId, demoTeacherId } = await seedUsers(supabase, roleIds);
+  const { courseIds, instructorIds } = await seedCatalog(supabase, studentId, sessionDate);
 
-    if (await instructorCoursesTableReady(supabase)) {
-      await ensureInstructorCourse(supabase, instructorIds[0], courseIds[0]);
-      await ensureInstructorCourse(supabase, instructorIds[1], courseIds[1]);
-      await ensureInstructorCourse(supabase, instructorIds[2], courseIds[2]);
-      await ensureInstructorCourse(supabase, demoTeacherId, courseIds[0]);
-      await ensureInstructorCourse(supabase, demoTeacherId, courseIds[1]);
-    }
-
-    logOk("Demo seed finished. Confirm email can stay on.");
-    console.log("Demo accounts:");
-    console.log(`  Admin:      ${ADMIN_EMAIL} / ${DEMO_PASSWORD}`);
-    console.log(`  Student:    ${STUDENT_EMAIL} / ${DEMO_PASSWORD}`);
-    console.log(`  Instructor: ${INSTRUCTOR_EMAIL} / ${DEMO_PASSWORD}`);
-  } catch (err) {
-    logFail(err instanceof Error ? err.message : String(err));
-    process.exit(1);
+  if (await instructorCoursesTableReady(supabase)) {
+    await ensureInstructorCourse(supabase, instructorIds[0], courseIds[0]);
+    await ensureInstructorCourse(supabase, instructorIds[1], courseIds[1]);
+    await ensureInstructorCourse(supabase, instructorIds[2], courseIds[2]);
+    await ensureInstructorCourse(supabase, demoTeacherId, courseIds[0]);
+    await ensureInstructorCourse(supabase, demoTeacherId, courseIds[1]);
   }
+
+  logOk("Demo seed finished. Confirm email can stay on.");
+  console.log("Demo accounts:");
+  console.log(`  Admin:      ${ADMIN_EMAIL} / ${DEMO_PASSWORD}`);
+  console.log(`  Student:    ${STUDENT_EMAIL} / ${DEMO_PASSWORD}`);
+  console.log(`  Instructor: ${INSTRUCTOR_EMAIL} / ${DEMO_PASSWORD}`);
 }
 
-await main();
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  seedDemo({ env: { ...loadEnvFile(envPath), ...process.env } }).catch((err) => {
+    logFail(err instanceof Error ? err.message : String(err));
+    process.exitCode = 1;
+  });
+}
