@@ -4,6 +4,17 @@ Use this checklist to record evidence for a specific commit and target environme
 
 Leave a box unchecked until the owner records the result, date, commit, and environment. Label a skipped check with its reason. Store no credentials or personal data in the evidence.
 
+## Local cleanup verification — 17 October 2026
+
+Source candidate: `0501212ce471dd006f57bdfa65c43bf2e2ea32c6`, checked locally with Node `24.22.0` and npm `11.19.1`.
+
+- A clean `npm ci` completed for the refreshed lockfile. `npm run verify` passed ESLint, 31 Vitest tests, 4 offline seed tests, TypeScript checks, and the production build.
+- `npm audit` reported zero advisories for that lockfile on this date. This result does not establish application or database security.
+- Synthetic browser checks reproduced and verified the Auth callback lock fix, delayed recovery-page loading, password submission, profile saves, token refresh during a save, and background refresh during a pending email change. Eight admin session scenarios checked input preservation, retry, duplicate-submit prevention, and warnings after partial success.
+- Desktop and phone checks covered public pages, missing pages, and signed-out redirects. Recovery forms fit narrow screens after the mobile layout correction.
+
+These results cover local code and synthetic responses. Hosted email delivery, database constraints and policies, live seeding, deployment, and production approval remain unchecked below.
+
 ## Record the candidate and local checks
 
 - [ ] Record the candidate commit, reviewer, target environment, and Node/npm versions. Use a Node version supported by the [app setup guide](README.md).
