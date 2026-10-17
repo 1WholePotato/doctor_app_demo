@@ -15,7 +15,6 @@ export function createAuthSignals(auth: SupabaseClient["auth"]) {
     signal = session ? {
       kind: "signed-in",
       userId: session.user.id,
-      // Keep successful password-update feedback visible until this identity leaves.
       passwordRecovery: event === "PASSWORD_RECOVERY"
         || (previous.kind === "signed-in" && previous.userId === session.user.id && previous.passwordRecovery),
     } : { kind: "signed-out" };
