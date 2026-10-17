@@ -170,7 +170,7 @@ export default function Register() {
 
           <div className="reg-hero">
             <h2>Join the<br /><em>platform.</em></h2>
-            <p>Create your student account to browse courses, book sessions, and track your progress.</p>
+            <p>Create a demo student account to browse courses and session information. Online booking and payment are not available.</p>
 
             <div className="reg-steps-preview">
               {STEP_LABELS.map((label, i) => (

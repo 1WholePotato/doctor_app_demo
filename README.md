@@ -1,5 +1,42 @@
 # MedLearn CME demo
 
-This repository contains a React and Supabase demo for a continuing medical education platform. The app, setup instructions, and current feature status are in [doctor_website_demo/README.md](doctor_website_demo/README.md). The [V1 implementation plan](doctor_website_demo/V1_IMPLEMENTATION_PLAN.md) tracks deferred work and audit findings.
+This repository contains a React and Supabase continuing medical education demo. The runnable app and its only package manifest are in `doctor_website_demo/`.
 
-Older implementation and audit documents describe earlier snapshots and should be read as history.
+## Start the app
+
+Use Node.js 24. The root `.nvmrc` pins the verified version, 24.22.0. If you use nvm, run `nvm install` and `nvm use` from the repository root.
+
+From the repository root, run:
+
+```bash
+cd doctor_website_demo
+npm ci
+cp -n .env.example .env.local
+```
+
+Edit `.env.local` with your disposable Supabase project's public URL and anon key. Leave role IDs blank to load them from the project's `roles` table. Follow the [app setup guide](doctor_website_demo/README.md) for the database prerequisites and Auth redirects, then run:
+
+```bash
+npm run dev
+```
+
+Open the URL that Vite prints. The configured port is 5178.
+
+## Check the app
+
+Run these commands from `doctor_website_demo/`:
+
+```bash
+npm run verify
+npm run preview
+```
+
+`verify` runs lint, unit tests, offline seed tests, TypeScript checks, and the production build. Tests use synthetic configuration and do not require `.env.local` or a Supabase project. The build writes `doctor_website_demo/dist/`; `preview` serves that bundle locally.
+
+## Release status
+
+RLS is intentionally disabled for rapid application development. Browser route guards do not protect database access. Use synthetic data in a disposable project. Booking and payment, authoritative grades, official certificates, and production authorization remain incomplete.
+
+Use the [release checklist](doctor_website_demo/RELEASE_CHECKLIST.md) to record evidence before a deployment. Passing local checks does not establish that hosted Auth flows or production access controls work.
+
+The [V1 implementation plan](doctor_website_demo/V1_IMPLEMENTATION_PLAN.md) preserves implementation history and deferred work. Root [IMPLEMENTATION.md](IMPLEMENTATION.md) and older audit reports are historical. Their branch names, credentials, and setup examples do not define current setup or require a particular branch.

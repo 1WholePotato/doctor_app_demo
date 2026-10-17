@@ -1,11 +1,13 @@
 # Doctor App Demo — Master V1 Implementation Plan
-**Branch Target:** `feature/v1-readiness-sprint` (following GitFlow, preparing to PR into `dev`)  
+**Historical branch target:** `feature/v1-readiness-sprint`, originally planned for `dev`. Use the branch assigned for current work.
 **Architecture Methodology:** Modularized Workstreams for Parallel Agent Execution with 2-Phase Progress Gates  
-**Status:** RAD implementation wave complete; independent external audit pending
+**Status:** RAD implementation wave recorded as complete; final integrated verification and independent external audit remain pending.
+
+For current setup and release gates, use [README.md](README.md) and [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md). This plan preserves historical scope and findings. Checked implementation items do not establish verified hosted workflows or production readiness.
 **Explicit Out-of-Scope Items:**  
 - Supabase Row Level Security (RLS) — Disabled intentionally for Rapid Application Development (RAD); deferred to post-feature phase.
 - Ozow Payment Gateway — Handled under a separate ticket/workstream.
-- Stub Components Retained — `AboutDoctor.tsx`, `AboutWebsite.tsx`, `Navbar.tsx`, `SideNav.tsx`, and `AdminGrades.tsx` are documented and kept as explicit stubs until formal replacement assets arrive under frontend Issue #5.
+- Historical stub scope included `AboutDoctor.tsx`, `AboutWebsite.tsx`, `Navbar.tsx`, `SideNav.tsx`, and `AdminGrades.tsx`. `SideNav.tsx` and `AdminGrades.tsx` are absent from the current source tree. Approved doctor assets/content remain deferred under frontend Issue #5.
 
 ---
 
@@ -142,6 +144,9 @@ graph TD
 ## 3. Progress Gates & Testing Protocol
 
 ### Two-Pass Testing Gate
+
+This is the original target, not achieved coverage. The current tests exercise role/home-route helpers and local PDF generation. They do not verify hosted Auth, route components, booking, or R2 uploads.
+
 1. **Pass 1 — Coverage & Validation:**
    - Implement unit and integration tests covering certificate PDF generation, Cloudflare R2 uploads, route protection guards, and student course catalog filtering.
    - Verify all critical failure modes have corresponding tests.
@@ -158,7 +163,8 @@ graph TD
 2. **Two-Phase Dual Model Review Gate:**
    - Auditor A: Code quality, edge cases, and performance checks.
    - Auditor B: User workflow, R2 storage integrity, and responsive layout checks.
-3. **Pull Request Linking Protocol:**
+3. **Pull Request Linking Protocol (historical branch workflow):**
+   - The branch names below record the original plan. The integration owner selects the current source and target branches.
    - Push `feature/v1-readiness-sprint`.
    - Open Pull Request targeting `dev` via `gh pr create`.
    - Call `link_pull_request` MCP tool with the full PR URL immediately after creation.
@@ -205,7 +211,7 @@ This is the initial source-inspection baseline, not a statement that every findi
 - [x] **Complete responsive fixes from Module 4 (RAD handling implemented).** Routed page offsets, phone layouts, table overflow, and course tag wrapping were addressed in the listed workstream files.
 - [ ] **Finish accessible interaction details.** Ensure registration labels are programmatically associated with inputs; trap and restore focus in dialogs; provide keyboard-operable mobile navigation; and verify visible loading, empty, and error states across flows.
 - [ ] **Make checks/deployment match reality.** Keep migrations/policies versioned and repeatable, add CI checks for lint/typecheck/build and critical auth/booking flows, and verify the production build contains no private keys. The initial audit recorded limited role/certificate test coverage; recheck current coverage before treating that baseline as current.
-- [ ] **Resolve dependency advisories.** `npm audit` reported 17 advisories in the RAD dependency tree (2 low, 3 moderate, 12 high, 0 critical; npm reports fixes available). Review the affected dependency paths and compatibility, apply deliberate upgrades, then rerun audit and build. Do not apply an unreviewed bulk upgrade as part of this wave.
+- [ ] **Resolve dependency advisories.** The earlier RAD audit recorded unresolved advisories. Run a fresh `npm audit` against the current lockfile before making release decisions. Review affected paths and compatibility, apply deliberate upgrades, then rerun the audit and build. Historical counts are not a current result.
 - [ ] **Harden demo seeding and deployment.** Keep `scripts/seed-demo.mjs` local-only with a project/environment allowlist; validate role IDs and fail when role setup fails. Confirm the production host rewrites deep links to `index.html` and document deployment, environment variables, migrations, RLS, and secret rotation; no host fallback configuration is currently checked in.
 
 ### Initial audit context and deferred constraints
@@ -213,7 +219,7 @@ This is the initial source-inspection baseline, not a statement that every findi
 - `src/App.tsx` already has nested role layouts, lazy-loaded pages, and an error boundary; `AuthContext.tsx`, layout drawers, the certificate generator, and role/certificate tests also exist. Do not assign the corresponding “create/refactor” tasks in Modules 2, 4, or 5 as if these were absent; inspect and extend what is there.
 - The remaining responsive work is the routed page offset/grid/table behavior above. The shared layout itself already resets its offset on mobile.
 - `PRODUCT_AUDIT_REPORT.md` and `AUDIT_REPORT.md` contain stale claims (including the current booking schema, missing error boundary/tests, and registration profile creation). Reconcile those reports with the deployed schema and current source before treating them as implementation requirements.
-- Root `IMPLEMENTATION.md` instructs work on `vaperizer2`, while this plan targets `feature/v1-readiness-sprint`; the current branch is `feature/v1-readiness-sprint`. Reconcile branch/worktree guidance so future agents do not implement against the wrong branch.
+- Root `IMPLEMENTATION.md` is now marked historical. Its `vaperizer2` branch and this plan's `feature/v1-readiness-sprint` target describe earlier work. Neither branch is required for current setup. Use the branch and worktree assigned for the task.
 
 ### RAD parallel implementation wave (completed)
 
@@ -232,9 +238,9 @@ The T3 Code preview tools are `preview_open` (use `open: true` and `show: true`)
 - Responsive pages, landing duplication, active course catalog/error states, account recovery and signup/profile handling, admin metric/session/role workflows, and the local certificate-preview boundary have been implemented in the listed workstream files.
 - R2 browser credentials and the nonfunctional Wrangler config were removed. Trusted R2 upload and official certificate issuance remain deferred until a server-side upload path and authoritative completion records exist.
 - The deployed booking column mapping above is an input from the prior schema investigation, not a fresh live database inspection. Session-specific roster and seat counts remain unavailable until the booking schema includes a session FK.
-- Removed the unused `@aws-sdk/client-s3` dependency along with its browser upload module. `npm audit` still reports 17 advisories (12 high); dependency remediation remains on the external audit list.
+- Removed the unused `@aws-sdk/client-s3` dependency along with its browser upload module. The audit at that time still reported dependency advisories. Dependency remediation remains open pending a fresh audit of the current lockfile.
 - RLS remains disabled for RAD. The policy/privacy items above remain a post-RAD gate; no RLS SQL was run.
-- TypeScript and production build validation passed for the implementation wave. The T3 in-app preview showed the public landing/login at desktop and phone widths, but its automation host became unavailable before a complete final visual pass. Independent external audit has not yet occurred.
+- TypeScript and production build validation were reported as passing for that implementation wave. These historical results do not verify the final integrated candidate. The T3 in-app preview showed the public landing/login at desktop and phone widths, but its automation host became unavailable before a complete final visual pass. Independent external audit has not yet occurred.
 
 ### Latest audit findings status
 

@@ -1,14 +1,14 @@
-# Implementation guide — `vaperizer2`
+# Historical implementation guide
 
-> Historical guide for an earlier branch and app state. For current setup and behavior, use [doctor_website_demo/README.md](doctor_website_demo/README.md); for open work, use the [V1 implementation plan](doctor_website_demo/V1_IMPLEMENTATION_PLAN.md).
+> Archived instructions for an earlier branch and app state. The examples below are historical, not current requirements. For setup, use [README.md](README.md) and [doctor_website_demo/README.md](doctor_website_demo/README.md). For release gates, use [RELEASE_CHECKLIST.md](doctor_website_demo/RELEASE_CHECKLIST.md).
 
-Use this file outside Cursor. Work on branch `vaperizer2`. When you want a review, come back with the files you changed.
+This guide originally described work on `vaperizer2`. That branch is not required for current work. Use the branch and worktree assigned for your task. Paths, commands, issue ownership, and source examples below record the earlier snapshot.
 
-**Repo root (this worktree):** `/home/vaper/Work/Worktrees/doctor_app_demo`
+**Original repo root:** `/home/vaper/Work/Worktrees/doctor_app_demo`
 
-**App you actually edit:** `/home/vaper/Work/Worktrees/doctor_app_demo/doctor_website_demo`
+**Original app path:** `/home/vaper/Work/Worktrees/doctor_app_demo/doctor_website_demo`
 
-**Branch:** `vaperizer2` (created from `stefanDemo` at `65d0b06`)
+**Original branch:** `vaperizer2` (created from `stefanDemo` at `65d0b06`)
 
 ---
 
@@ -16,18 +16,13 @@ Use this file outside Cursor. Work on branch `vaperizer2`. When you want a revie
 
 ```bash
 cd /home/vaper/Work/Worktrees/doctor_app_demo
-git status                    # should say: On branch vaperizer2
+git status                    # historical example; use your assigned branch
 cd doctor_website_demo
 npm install                   # first time only
 npm run dev                   # Vite, usually http://localhost:5173
 ```
 
-Current login (until you replace it):
-
-| Role    | Email                    | Password |
-|---------|--------------------------|----------|
-| Admin   | `admin123@gmail.com`     | `1234`   |
-| Student | `student123@gmail.com`   | `1234`   |
+The old example login credentials have been omitted. Use accounts provisioned for your disposable demo project.
 
 Do **not** implement Stefan’s issues (#3 grades PDFs, #4 schema/RLS) unless you pair with him. Your issues: **#2 Users**, **#1 Testing/Security**, **#6 Class lists**, **#5 assets (blocked)**.
 
@@ -145,7 +140,7 @@ You will be adding routes. **Update the sidebar links on every page that has the
 **Create** `doctor_website_demo/.env.local` (already gitignored via `*.local`):
 
 ```
-VITE_SUPABASE_URL=https://fwgwgeehrronfqilkdha.supabase.co
+VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=<paste the anon key currently in src/supabaseClient.ts>
 ```
 
@@ -532,7 +527,7 @@ Do **not** need to touch: `AdminGrades.tsx` (dead CSS), `SideNav.tsx`, student g
 
 Come back with:
 
-1. Branch still `vaperizer2` (or say if you branched again)
+1. Record the branch assigned for the current task. The original `vaperizer2` requirement is obsolete.
 2. List of files you changed
 3. Which issues you consider done (#2 / #1 / #6)
 4. Anything that failed because of RLS or missing columns

@@ -50,7 +50,7 @@ function AddSessionModal({
   locations,
 }: {
   onClose: () => void;
-  onAdd: (session: NewSession) => void;
+  onAdd: (session: NewSession) => Promise<string | null>;
   instructors: Instructor[];
   locations: LocationRow[];
 }) {
@@ -62,16 +62,18 @@ function AddSessionModal({
   const [endTime, setEndTime] = useState("12:00");
   const [maxStudents, setMaxStudents] = useState("20");
   const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !pending) onClose();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [onClose, pending]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (pending) return;
     if (!instructorId) {
       setError("Select a teacher");
       return;
@@ -80,16 +82,25 @@ function AddSessionModal({
       setError("Enter a location, valid date and time range, and capacity of at least one.");
       return;
     }
-    onAdd({ instructorId, locationId, startDate, endDate, startTime, endTime, maxStudents: Number(maxStudents) });
-    onClose();
+    setPending(true);
+    setError("");
+    try {
+      const addError = await onAdd({ instructorId, locationId, startDate, endDate, startTime, endTime, maxStudents: Number(maxStudents) });
+      if (addError) setError(addError);
+      else onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not add session. Please try again.");
+    } finally {
+      setPending(false);
+    }
   };
 
   const stopProp = (e: React.MouseEvent) => e.stopPropagation();
 
   return (
-    <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget && !pending) onClose(); }}>
       <div className="modal" onClick={stopProp} role="dialog" aria-modal="true" aria-labelledby="session-modal-title">
-        <button className="modal-close" onClick={onClose} aria-label="Close"><X /></button>
+        <button className="modal-close" onClick={onClose} disabled={pending} aria-label="Close"><X /></button>
 
         <p className="modal-eyebrow">Schedule</p>
         <h2 id="session-modal-title">Add a class session</h2>
@@ -108,7 +119,7 @@ function AddSessionModal({
               </option>
             ))}
           </select>
-          {error && <span className="field-error"><AlertCircle />{error}</span>}
+          {error && <span className="field-error" role="alert"><AlertCircle />{error}</span>}
         </div>
 
         <div className="field">
@@ -130,7 +141,7 @@ function AddSessionModal({
           <input id="session-capacity" type="number" min="1" value={maxStudents} onChange={(e) => setMaxStudents(e.target.value)} />
         </div>
 
-        <button className="btn-submit" onClick={handleSubmit}>Add session</button>
+        <button className="btn-submit" onClick={handleSubmit} disabled={pending}>{pending ? "Adding session…" : "Add session"}</button>
       </div>
     </div>
   );
@@ -225,8 +236,9 @@ export default function AdminCourseDetails() {
     };
   }, [loadData]);
 
-  const handleAdd = async (session: NewSession) => {
-    if (!id) return;
+  const handleAdd = async (session: NewSession): Promise<string | null> => {
+    if (!id) return "Missing course id";
+    setActionError(null);
 
     const { error } = await supabase.from("course_sessions").insert({
       course_id: id,
@@ -240,15 +252,21 @@ export default function AdminCourseDetails() {
       active: true,
     });
 
-    if (error) {
-      setActionError(error.message);
-      return;
+    if (error) return error.message;
+
+    try {
+      const grantError = await grantInstructorCourse(session.instructorId, id);
+      if (grantError) setActionError(`Session was created, but instructor course assignment failed: ${grantError}`);
+    } catch (err) {
+      setActionError(`Session was created, but instructor course assignment failed: ${err instanceof Error ? err.message : "Request failed"}`);
     }
 
-    const grantError = await grantInstructorCourse(session.instructorId, id);
-    if (grantError) setActionError(`Session was created, but instructor course assignment failed: ${grantError}`);
-
-    await loadData();
+    try {
+      await loadData();
+    } catch (err) {
+      setActionError((previous) => [previous, `Session was created, but refreshing the session list failed: ${err instanceof Error ? err.message : "Request failed"}`].filter(Boolean).join(" "));
+    }
+    return null;
   };
 
   if (loading) {

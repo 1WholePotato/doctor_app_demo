@@ -136,6 +136,8 @@
 .lf-footer a:hover { text-decoration: underline; }
 
 @media (max-width: 768px) {
+  .fp-left { display: none; }
+  .fp-right { min-width: 0; padding: 32px 24px; }
   .login-left { display: none; }
   .login-right { background: var(--surface); }
 }

@@ -17,7 +17,7 @@ export function Hero() {
           <div className="lp-nav-links">
             <a href="#about" className="lp-nav-link">About</a>
             <a href="#doctor" className="lp-nav-link">Faculty</a>
-            <Link to="/login" className="lp-nav-link">Sign in</Link>
+            <Link to="/login" className="lp-nav-link lp-nav-signin">Sign in</Link>
             <Link to="/register" className="lp-nav-cta">Register</Link>
           </div>
         </nav>
@@ -26,7 +26,7 @@ export function Hero() {
         <section className="hero-section">
           <span className="hero-eyebrow">
             <span />
-            Continuing Medical Education Platform
+            Medical education platform demo
           </span>
 
           <h1 className="hero-h1">
@@ -35,34 +35,34 @@ export function Hero() {
           </h1>
 
           <p className="hero-sub">
-            Book sessions, earn CPD points, and advance your clinical skills — 
-            all managed in one place by Dr MedLearn.
+            Explore the course platform demo. Online booking, enrollment, and
+            payment are not available.
           </p>
 
           <div className="hero-actions">
-            <Link to="/register" className="hero-btn-primary">Make a booking</Link>
+            <Link to="/register" className="hero-btn-primary">Create account</Link>
             <a href="#about" className="hero-btn-ghost">Learn more</a>
           </div>
 
           <div className="hero-stats">
             <div className="hero-stat">
               <p className="hero-stat-val">1,<em>284</em></p>
-              <p className="hero-stat-label">Students enrolled</p>
+              <p className="hero-stat-label">Sample students</p>
             </div>
             <div className="hero-stat-divider" />
             <div className="hero-stat">
               <p className="hero-stat-val"><em>32</em></p>
-              <p className="hero-stat-label">Active courses</p>
+              <p className="hero-stat-label">Sample courses</p>
             </div>
             <div className="hero-stat-divider" />
             <div className="hero-stat">
               <p className="hero-stat-val"><em>4.9</em> ★</p>
-              <p className="hero-stat-label">Average rating</p>
+              <p className="hero-stat-label">Sample rating</p>
             </div>
             <div className="hero-stat-divider" />
             <div className="hero-stat">
               <p className="hero-stat-val"><em>CPD</em></p>
-              <p className="hero-stat-label">Points accredited</p>
+              <p className="hero-stat-label">Demo preview</p>
             </div>
           </div>
 
@@ -82,18 +82,18 @@ export function AboutWebsite() {
   const features = [
     {
       icon: BookOpen,
-      title: "Expert-curated courses",
-      desc: "All content is developed and reviewed by qualified medical professionals, ensuring clinical accuracy and real-world applicability.",
+      title: "Course catalog preview",
+      desc: "Explore course descriptions and session information in a demonstration learning platform.",
     },
     {
       icon: CalendarDays,
-      title: "Flexible session booking",
-      desc: "Choose from multiple dates and locations per course. Book your spot in seconds and receive instant confirmation.",
+      title: "Session information",
+      desc: "Preview dates and locations for course sessions. Online booking and payment are disabled, so no booking confirmations are issued.",
     },
     {
       icon: GraduationCap,
-      title: "CPD point accreditation",
-      desc: "Every course is accredited for Continuing Professional Development points, keeping your SANC registration up to date.",
+      title: "CPD information preview",
+      desc: "Sample CPD information illustrates the course layout. This demo does not award points or confirm accreditation.",
     },
   ];
 
@@ -103,8 +103,8 @@ export function AboutWebsite() {
         <p className="section-eyebrow">The platform</p>
         <h2 className="section-h2">Everything you need to<br />keep learning.</h2>
         <p className="section-sub">
-          A purpose-built platform for healthcare professionals who want structured,
-          accredited learning without the administrative overhead.
+          Explore course and instructor pages in this platform demo. Online
+          enrollment and payment are not available.
         </p>
 
         <div className="features-grid">
@@ -130,11 +130,11 @@ export function AboutDoctor() {
 
         {/* Left: copy */}
         <div className="doctor-left">
-          <p className="section-eyebrow">Your instructor</p>
+          <p className="section-eyebrow">Example instructor</p>
           <h2 className="section-h2">Meet the doctor<br />behind the courses.</h2>
           <p className="section-sub">
-            With over 20 years of clinical and teaching experience, Dr MedLearn has
-            trained hundreds of healthcare professionals across South Africa.
+            This example instructor profile illustrates how faculty experience
+            and qualifications appear on the platform.
           </p>
 
           <div className="doctor-credentials">
@@ -145,7 +145,7 @@ export function AboutDoctor() {
           </div>
 
           <Link to="/register" className="doctor-cta">
-            <BookOpen size={16} /> Enrol in a course
+            <BookOpen size={16} /> Create an account
           </Link>
         </div>
 
@@ -163,15 +163,15 @@ export function AboutDoctor() {
               </div>
               <div className="doctor-meta-row">
                 <Clock />
-                Courses run monthly across 3 cities
+                Example schedule across 3 cities
               </div>
               <div className="doctor-meta-row">
                 <GraduationCap />
-                1,284 students trained to date
+                Sample total of 1,284 students
               </div>
               <div className="doctor-meta-row">
                 <BookOpen />
-                32 active accredited courses
+                32 sample courses in this demo
               </div>
             </div>
           </div>

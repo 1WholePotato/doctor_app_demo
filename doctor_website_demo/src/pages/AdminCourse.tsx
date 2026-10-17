@@ -445,7 +445,7 @@ export default function AdminCourses() {
             <div className="empty-state">
               <div className="empty-icon"><BookOpen /></div>
               <p className="empty-title">No courses yet</p>
-              <p className="empty-sub">Add your first course and students will be able to enrol immediately.</p>
+              <p className="empty-sub">Add your first course to the student catalog. Online enrolment is not available in this demo.</p>
             </div>
           ) : (
             <div className="course-grid">

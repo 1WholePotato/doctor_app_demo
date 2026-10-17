@@ -1,31 +1,23 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import { useAuth } from "../context/useAuth";
 import { authErrorMessage } from "../lib/auth";
 import "../styles/auth.css";
 
 export default function ForgotPassword({ resetMode = false }: { resetMode?: boolean }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [ready, setReady] = useState(false);
+  const { passwordRecovery } = useAuth();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!resetMode) return;
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") setReady(true);
-    });
     const callback = new URLSearchParams(window.location.search).get("error_description")
       ?? new URLSearchParams(window.location.hash.slice(1)).get("error_description");
     if (callback) setError("This reset link is invalid or expired. Request a new one.");
-    if (window.location.search.includes("code=") || window.location.hash.includes("type=recovery")) {
-      void supabase.auth.getSession().then(({ data }) => {
-        if (data.session) setReady(true);
-      });
-    }
-    return () => subscription.unsubscribe();
   }, [resetMode]);
 
   const handleSubmit = async (event: FormEvent) => {
@@ -35,6 +27,10 @@ export default function ForgotPassword({ resetMode = false }: { resetMode?: bool
     setMessage("");
     try {
       if (resetMode) {
+        if (!passwordRecovery) {
+          setError("Open a valid password reset link before changing your password.");
+          return;
+        }
         if (password.length < 6) {
           setError("Password must be at least 6 characters.");
           return;
@@ -57,7 +53,7 @@ export default function ForgotPassword({ resetMode = false }: { resetMode?: bool
     }
   };
 
-  const canReset = ready || window.location.hash.includes("type=recovery");
+  const canReset = resetMode && passwordRecovery;
 
   return (
     <div className="fp-shell">
