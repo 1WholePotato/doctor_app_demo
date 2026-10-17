@@ -29,6 +29,7 @@
   .lp-nav-links { display: flex; align-items: center; gap: 32px; }
   .lp-nav-link { font-size: 14px; color: rgba(255,255,255,.6); text-decoration: none; transition: color .15s; }
   .lp-nav-link:hover { color: #fff; }
+  .lp-nav-signin:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
   .lp-nav-cta { background: var(--gold); color: #fff; padding: 9px 20px; border-radius: 9px; font-size: 14px; font-weight: 500; text-decoration: none; transition: opacity .15s; }
   .lp-nav-cta:hover { opacity: .85; }
 
@@ -163,8 +164,9 @@
   @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 
   @media (max-width: 768px) {
-    .lp-nav { padding: 16px 20px; }
-    .lp-nav-links { display: none; }
+    .lp-nav { padding: 8px 20px; }
+    .lp-nav-links > :not(.lp-nav-signin) { display: none; }
+    .lp-nav-signin { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; color: #fff; }
     .hero-stats { gap: 24px; }
     .hero-stat-divider { display: none; }
     .doctor-inner { grid-template-columns: 1fr; }
