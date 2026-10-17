@@ -38,7 +38,7 @@ Add the exact recovery return URL for each origin to the redirect allowlist:
 
 Use the port printed by Vite if a configured port is occupied. An origin using `127.0.0.1` differs from one using `localhost`. Add only the return URLs for origins you use.
 
-`ForgotPassword.tsx` requests `${window.location.origin}/reset`, and `App.tsx` handles `/reset`. Registration and profile email changes do not set an explicit email redirect URL. Check the project's Site URL, confirmation settings, and email templates for those flows. Use a reachable test mailbox and verify signup confirmation, password recovery, and email changes end to end. Source inspection and the current unit tests do not verify email delivery or callback behavior.
+`ForgotPassword.tsx` requests `${window.location.origin}/reset`, and `App.tsx` handles `/reset`. Registration and profile email changes do not set an explicit email redirect URL. Check the project's Site URL, confirmation settings, and email templates for those flows. Use a reachable test mailbox and verify signup confirmation, password recovery, and email changes end to end. Source inspection and the current unit tests do not verify email delivery or hosted callback behavior.
 
 ## Run and check
 
