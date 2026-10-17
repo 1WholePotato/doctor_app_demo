@@ -1,10 +1,10 @@
 # MedLearn CME demo
 
-This repository contains a React and Supabase continuing medical education demo. The runnable app is in `doctor_website_demo/`. The root `package.json` does not provide app commands.
+This repository contains a React and Supabase continuing medical education demo. The runnable app and its only package manifest are in `doctor_website_demo/`.
 
 ## Start the app
 
-Use Node.js 22.12 or later in the 22.x line, 24.x, or 26 and later. These ranges come from the app lockfile's Vitest requirement. Node.js 20 can satisfy Vite's engine range but cannot run this locked test suite.
+Use Node.js 24. The root `.nvmrc` pins the verified version, 24.22.0. If you use nvm, run `nvm install` and `nvm use` from the repository root.
 
 From the repository root, run:
 
@@ -14,7 +14,7 @@ npm ci
 cp -n .env.example .env.local
 ```
 
-Edit `.env.local` with your disposable Supabase project's public URL and anon key. Replace or remove the example role IDs. Follow the [app setup guide](doctor_website_demo/README.md) for the database prerequisites and Auth redirects, then run:
+Edit `.env.local` with your disposable Supabase project's public URL and anon key. Leave role IDs blank to load them from the project's `roles` table. Follow the [app setup guide](doctor_website_demo/README.md) for the database prerequisites and Auth redirects, then run:
 
 ```bash
 npm run dev
@@ -27,13 +27,11 @@ Open the URL that Vite prints. The configured port is 5178.
 Run these commands from `doctor_website_demo/`:
 
 ```bash
-npm run lint
-npm test
-npm run build
+npm run verify
 npm run preview
 ```
 
-`build` runs TypeScript checks and writes the static bundle to `doctor_website_demo/dist/`. `preview` serves that bundle locally.
+`verify` runs lint, unit tests, offline seed tests, TypeScript checks, and the production build. Tests use synthetic configuration and do not require `.env.local` or a Supabase project. The build writes `doctor_website_demo/dist/`; `preview` serves that bundle locally.
 
 ## Release status
 

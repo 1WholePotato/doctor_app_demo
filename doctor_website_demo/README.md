@@ -4,8 +4,8 @@ This React 19, TypeScript, Vite, React Router, and Supabase app is a rapid appli
 
 ## Install and configure
 
-1. From the repository root, enter the app directory with `cd doctor_website_demo`. The root package has no app scripts.
-2. Use Node.js 22.12 or later in the 22.x line, 24.x, or 26 and later. The locked `vitest` declares `^22.12.0 || ^24.0.0 || >=26.0.0`. The locked Vite and React plugin declare `^20.19.0 || >=22.12.0`. Choose a version that satisfies both.
+1. Use Node.js 24. The repository's `.nvmrc` pins 24.22.0. With nvm, run `nvm install` and `nvm use` from the repository root.
+2. Enter the app directory with `cd doctor_website_demo`. All npm commands run from this directory.
 3. Run `npm ci` to install the app's `package-lock.json`.
 4. Run `cp .env.example .env.local` on first setup. Keep your existing local configuration if the file already exists.
 5. Edit `.env.local` with the values for your demo project.
@@ -14,7 +14,7 @@ Configure the browser variables as follows:
 
 - `VITE_SUPABASE_URL` is the project's public Supabase URL.
 - `VITE_SUPABASE_ANON_KEY` is the project's public anon key. Never use a service role key here.
-- `VITE_STUDENT_ROLE_ID` and `VITE_ADMIN_ROLE_ID` are optional explicit role IDs for your project's `roles` rows. Replace or remove the copied example IDs. Student and admin role resolution prefers a configured ID. Without it, the app reads `roles.id` and `roles.name`. The role-list loader also uses these variables as fallbacks when it cannot load roles.
+- `VITE_STUDENT_ROLE_ID` and `VITE_ADMIN_ROLE_ID` are optional explicit role IDs for your project's `roles` rows. Leave them blank to read `roles.id` and `roles.name`. Student and admin role resolution prefers a configured ID. The role-list loader also uses these variables as fallbacks when it cannot load roles.
 
 Every `VITE_*` value is public browser configuration. Keep `.env.local` out of Git. Do not put service role keys, R2 credentials, or other private credentials in browser variables. Restart Vite after local changes. Rebuild the static bundle after changing hosted build variables.
 
@@ -51,13 +51,11 @@ npm run dev
 Open the URL Vite prints. The configured dev port is 5178. To check the app and serve its built bundle, run:
 
 ```bash
-npm run lint
-npm test
-npm run build
+npm run verify
 npm run preview
 ```
 
-`lint` runs ESLint. `test` runs Vitest. The existing tests cover role and home-route helpers and local certificate PDF generation. They import the Supabase client, so they need the URL and anon-key variables even though those tests do not exercise hosted Auth. `build` runs `tsc -b` and Vite, then writes `dist/`. `preview` serves that output locally, normally on port 4173.
+`verify` runs `lint`, `test`, `test:seed`, and `build` in sequence. `lint` runs ESLint, `test` runs Vitest, and `test:seed` checks seed requests against an offline fake backend. Vitest ignores local env files and supplies test-only values. No test needs a hosted project or service key. `build` runs `tsc -b` and Vite, then writes `dist/`. `preview` serves that output locally, normally on port 4173.
 
 ## Host the static bundle
 
@@ -80,6 +78,10 @@ Before sharing a hosted demo, open and refresh `/login`, `/reset`, `/admin/users
 
 `npm run seed` runs `scripts/seed-demo.mjs` and mutates the configured Supabase project. It creates or updates demo accounts, resets their passwords, confirms their emails, and writes catalog and booking data. It is not required to install, build, lint, or run tests.
 
-Run it only in a separately approved disposable project after reviewing its schema assumptions and hardcoded role IDs. The script reads `SUPABASE_SERVICE_ROLE_KEY` from `.env.local` without a `VITE_` prefix. Keep that key local and out of frontend builds. The script does not enforce a project allowlist. Do not run it against production. A seeded, already-confirmed account does not test the email-confirmation flow.
+Run it only against a disposable project after reviewing its schema assumptions. Add the seed-only settings from [scripts/.env.example](scripts/.env.example) to `.env.local` or your shell. Shell values override the file. Keep `SUPABASE_SERVICE_ROLE_KEY` local and never prefix it with `VITE_`.
+
+Set `SEED_CONFIRM_URL` to exactly match `VITE_SUPABASE_URL`. Missing or mismatched confirmation stops the seed before any request. This confirms your chosen target; it cannot determine whether that project is disposable. The seed resolves or creates admin, student, and instructor roles before account writes.
+
+Optionally set `SEED_SESSION_DATE` to a valid future UTC date in `YYYY-MM-DD` format. The default is seven days ahead. Rerunning updates matching demo session dates. The seed uses `bookings.course_session_id` with the course ID to match the current app contract. A seeded, already-confirmed account does not test email confirmation.
 
 Use the [release checklist](RELEASE_CHECKLIST.md) for remaining gates and evidence. The [V1 implementation plan](V1_IMPLEMENTATION_PLAN.md) preserves the RAD work and deferred findings. `PRELIMINARY_PLAN.md`, `AUDIT_REPORT.md`, and root `IMPLEMENTATION.md` describe earlier snapshots.

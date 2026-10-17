@@ -7,7 +7,7 @@ Leave a box unchecked until the owner records the result, date, commit, and envi
 ## Record the candidate and local checks
 
 - [ ] Record the candidate commit, reviewer, target environment, and Node/npm versions. Use a Node version supported by the [app setup guide](README.md).
-- [ ] From `doctor_website_demo/`, run `npm ci`, `npm run lint`, `npm test`, and `npm run build`. Record each result. The build includes TypeScript checks.
+- [ ] From `doctor_website_demo/`, run `npm ci` and `npm run verify`. Record each result. Verification includes lint, unit tests, offline seed tests, TypeScript checks, and the production build.
 - [ ] Review the lockfile's dependency advisories with a fresh `npm audit`. Assess the affected paths and record fixes or explicit decisions. Earlier audit counts are historical, not current results.
 - [ ] Confirm that environment files and private credentials are absent from tracked files and the built bundle. Resolve any previously exposed credentials through the credential owner's rotation process.
 
@@ -40,9 +40,18 @@ These are future production requirements. Keep RLS unchanged during the current 
 - [ ] Establish a booking FK to an individual session, migrate existing data, prevent duplicate bookings, and enforce capacity atomically. Verify session-specific seats, attendee lists, and exports against persisted records.
 - [ ] Implement the payment lifecycle in a trusted service. Verify provider callbacks and retries. Prevent browser clients from marking bookings paid. Reconcile dashboard amounts with provider records before treating them as revenue.
 - [ ] Persist authoritative grades/completion records before issuing official certificates. Authorize issuance and downloads on the server. Add private storage or scoped URLs and a trusted R2 upload path if durable certificates are required.
-- [ ] Add and run automated checks for critical Auth, authorization, booking, and payment behavior. The current helper/PDF tests do not establish these guarantees. Agree on required checks before merging future production changes.
+- [ ] Add and run automated checks for critical Auth, authorization, booking, and payment behavior. Offline regression tests do not establish hosted authorization, booking, or payment guarantees. Agree on required checks before merging future production changes.
 - [ ] Record deployed origin, build variables by name only, migration version, access-control evidence, monitoring, support ownership, and deployment rollback steps. Obtain the release owner's production approval against that evidence.
 
 ## Record verification limits
 
-The parent reported passing build, lint, and tests at baseline `3157be0`. That report is not final verification of the integrated release candidate. This documentation pass does not verify hosted Auth, the deployed schema, RLS policies, payment, storage, or browser workflows. Attach final candidate results separately before checking any release box.
+Local builds and tests use the application source and synthetic backend fixtures. They do not verify email delivery, deployed schema, effective RLS policies, payment, storage, or production hosting. Attach results for the exact candidate and environment before checking any release box.
+
+## Track remaining demo defects
+
+The release cleanup identified these existing issues that still need a focused fix and browser verification:
+
+- The Add Course form freezes its values and dismissal after a setup failure. Its draft retry logic avoids duplicate writes, but a permanently invalid submission has no correction path. Preserve duplicate protection when adding editable recovery or cancellation.
+- Admin dialogs do not contain or restore keyboard focus consistently. Verify initial focus, Tab containment, Escape behavior, and focus restoration for Add Course, Add Session, and Change Role.
+
+These issues are separate from the production authorization and transaction work above.

@@ -30,7 +30,7 @@
   .lp-nav-link { font-size: 14px; color: rgba(255,255,255,.6); text-decoration: none; transition: color .15s; }
   .lp-nav-link:hover { color: #fff; }
   .lp-nav-signin:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
-  .lp-nav-cta { background: var(--gold); color: #fff; padding: 9px 20px; border-radius: 9px; font-size: 14px; font-weight: 500; text-decoration: none; transition: opacity .15s; }
+  .lp-nav-cta { background: var(--gold); color: #111110; padding: 9px 20px; border-radius: 9px; font-size: 14px; font-weight: 500; text-decoration: none; transition: opacity .15s; }
   .lp-nav-cta:hover { opacity: .85; }
 
   /* ──────────────────────────────────────────────────────────────────────────── */
@@ -79,7 +79,7 @@
     animation: fadeUp .5s ease .4s both;
   }
   .hero-btn-primary {
-    background: var(--gold); color: #fff; padding: 14px 32px; border-radius: 10px;
+    background: var(--gold); color: #111110; padding: 14px 32px; border-radius: 10px;
     font-size: 15px; font-weight: 500; text-decoration: none;
     transition: opacity .15s, transform .15s; display: inline-block;
   }
@@ -148,7 +148,7 @@
   .doctor-credentials { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 36px; }
   .cred-badge { display: flex; align-items: center; gap: 7px; background: rgba(201,168,76,.1); border: 1px solid rgba(201,168,76,.2); color: var(--gold); font-size: 12px; font-weight: 500; padding: 6px 14px; border-radius: 8px; }
   .cred-badge svg { width: 14px; height: 14px; }
-  .doctor-cta { display: inline-flex; align-items: center; gap: 8px; background: var(--gold); color: #fff; padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: 500; text-decoration: none; transition: opacity .15s; }
+  .doctor-cta { display: inline-flex; align-items: center; gap: 8px; background: var(--gold); color: #111110; padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: 500; text-decoration: none; transition: opacity .15s; }
   .doctor-cta:hover { opacity: .85; }
 
   /* Doctor card (right side) */

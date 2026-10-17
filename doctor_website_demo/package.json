@@ -11,7 +11,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
-    "verify": "npm run lint && npm test && npm run build",
+    "test:seed": "node --test scripts/test-seed-demo.mjs",
+    "verify": "npm run lint && npm test && npm run test:seed && npm run build",
     "preview": "vite preview",
     "seed": "node scripts/seed-demo.mjs"
   },
