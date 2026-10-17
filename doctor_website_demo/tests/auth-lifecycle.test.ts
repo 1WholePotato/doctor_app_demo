@@ -150,6 +150,75 @@ describe("real SDK auth notifications and profile hydration", () => {
     expect((await app.client.auth.getSession()).error).toBeNull();
   }, 3000);
 
+  it.each(["unchanged", "saved"])("finishes an explicit %s profile refresh across same-user token notifications", async (change) => {
+    const app = await setup();
+    const lifecycle = app.mount();
+    await app.signIn();
+    await vi.waitFor(() => expect(app.state.user?.id).toBe("alice"), waitOptions);
+    const verified = app.state.user;
+    const pending = deferred<Response>();
+    const started = deferred<void>();
+    app.backend.profile = async () => { started.resolve(); return (await pending.promise).clone(); };
+    app.states.length = 0;
+    const refresh = lifecycle.refreshUser();
+    let settled = false;
+    void refresh.then(() => { settled = true; }, () => { settled = true; });
+    await started.promise;
+    expect((await app.client.auth.refreshSession()).error).toBeNull();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(settled).toBe(false);
+    expect(app.states.every((state) => !state.loading && state.user === verified)).toBe(true);
+    const persisted = change === "saved" ? { ...profile(), first_name: "Saved" } : profile();
+    pending.resolve(response(persisted));
+    await expect(refresh).resolves.toBeUndefined();
+    expect(app.state.user).toEqual(persisted);
+    if (change === "unchanged") expect(app.state.user).toBe(verified);
+    expect(app.state.loading).toBe(false);
+    expect(app.state.authError).toBeNull();
+  });
+
+  it.each(["inactive", "wrong-account", "unavailable"])("still rejects %s verification across same-user token notifications", async (failure) => {
+    const app = await setup();
+    const lifecycle = app.mount();
+    await app.signIn();
+    await vi.waitFor(() => expect(app.state.user?.id).toBe("alice"), waitOptions);
+    const verified = app.state.user;
+    const pending = deferred<Response>();
+    const started = deferred<void>();
+    app.backend.profile = async () => { started.resolve(); return (await pending.promise).clone(); };
+    const refresh = lifecycle.refreshUser();
+    const rejected = expect(refresh).rejects.toMatchObject({
+      message: failure === "unavailable" ? "Unavailable" : "Your account profile could not be verified.",
+    });
+    await started.promise;
+    expect((await app.client.auth.refreshSession()).error).toBeNull();
+    pending.resolve(failure === "unavailable" ? response({ message: "Unavailable" }, 503)
+      : response(failure === "inactive" ? { ...profile(), active: false } : profile("bob")));
+    await rejected;
+    expect(app.state.user).toBe(failure === "unavailable" ? verified : null);
+    expect(app.state.loading).toBe(false);
+    expect(app.state.authError).toBeTruthy();
+  });
+
+  it("reads the saved profile instead of joining a pending background snapshot", async () => {
+    const app = await setup();
+    const lifecycle = app.mount();
+    await app.signIn();
+    await vi.waitFor(() => expect(app.state.user?.id).toBe("alice"), waitOptions);
+    const pending = deferred<Response>();
+    const started = deferred<void>();
+    app.backend.profile = async () => { started.resolve(); return (await pending.promise).clone(); };
+    expect((await app.client.auth.refreshSession()).error).toBeNull();
+    await started.promise;
+    app.backend.profile = async () => response({ ...profile(), first_name: "Saved" });
+    await lifecycle.refreshUser();
+    expect(app.state.user?.first_name).toBe("Saved");
+    const saved = app.state;
+    pending.resolve(response({ ...profile(), first_name: "Before save" }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(app.state).toBe(saved);
+  });
+
   it.each(["success", "error"])("ignores late %s after logout", async (result) => {
     const app = await setup();
     const lifecycle = app.mount();

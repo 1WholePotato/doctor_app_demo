@@ -31,6 +31,7 @@ export function createAuthLifecycle({ observe, loadUser, publish }: {
   let state = initialAuthState;
   let signal: AuthSignal = { kind: "initializing" };
   let generation = 0;
+  let pendingRefresh: number | undefined;
   let alive = true;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -49,6 +50,7 @@ export function createAuthLifecycle({ observe, loadUser, publish }: {
     invalidate();
     if (signal.kind !== "signed-in") return;
     const ticket = generation;
+    pendingRefresh = ticket;
     const userId = signal.userId;
     const isCurrent = () => alive && generation === ticket;
     commit({ ...state, loading: !state.user, authError: null });
@@ -70,10 +72,18 @@ export function createAuthLifecycle({ observe, loadUser, publish }: {
         });
       }
       throw error;
+    } finally {
+      if (pendingRefresh === ticket) pendingRefresh = undefined;
     }
   }
 
   const unsubscribe = observe((next) => {
+    if (next.kind === "signed-in" && signal.kind === "signed-in"
+      && next.userId === signal.userId && pendingRefresh === generation) {
+      signal = next;
+      commit({ ...state, passwordRecovery: next.passwordRecovery });
+      return;
+    }
     invalidate();
     signal = next;
     if (next.kind === "initializing") return;
