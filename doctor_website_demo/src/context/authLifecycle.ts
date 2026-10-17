@@ -31,7 +31,7 @@ export function createAuthLifecycle({ observe, loadUser, publish }: {
   let state = initialAuthState;
   let signal: AuthSignal = { kind: "initializing" };
   let generation = 0;
-  let pendingRefresh: number | undefined;
+  let pendingVerification: number | undefined;
   let alive = true;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -45,12 +45,12 @@ export function createAuthLifecycle({ observe, loadUser, publish }: {
     publish(state);
   }
 
-  async function refreshUser(): Promise<void> {
+  async function hydrateUser(explicit: boolean): Promise<void> {
     if (!alive) throw new Error("Account verification is no longer active.");
     invalidate();
     if (signal.kind !== "signed-in") return;
     const ticket = generation;
-    pendingRefresh = ticket;
+    pendingVerification = explicit ? ticket : undefined;
     const userId = signal.userId;
     const isCurrent = () => alive && generation === ticket;
     commit({ ...state, loading: !state.user, authError: null });
@@ -73,13 +73,13 @@ export function createAuthLifecycle({ observe, loadUser, publish }: {
       }
       throw error;
     } finally {
-      if (pendingRefresh === ticket) pendingRefresh = undefined;
+      if (pendingVerification === ticket) pendingVerification = undefined;
     }
   }
 
   const unsubscribe = observe((next) => {
     if (next.kind === "signed-in" && signal.kind === "signed-in"
-      && next.userId === signal.userId && pendingRefresh === generation) {
+      && next.userId === signal.userId && pendingVerification === generation) {
       signal = next;
       commit({ ...state, passwordRecovery: next.passwordRecovery });
       return;
@@ -94,11 +94,11 @@ export function createAuthLifecycle({ observe, loadUser, publish }: {
     const user = state.user?.id === next.userId ? state.user : null;
     commit({ user, loading: !user, authError: null, passwordRecovery: next.passwordRecovery });
     // Supabase awaits subscribers while holding its auth lock. Hydration must leave that stack.
-    timer = setTimeout(() => { void refreshUser().catch(() => {}); }, 0);
+    timer = setTimeout(() => { void hydrateUser(false).catch(() => {}); }, 0);
   });
 
   return {
-    refreshUser,
+    refreshUser: () => hydrateUser(true),
     dispose() {
       alive = false;
       invalidate();

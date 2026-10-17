@@ -219,6 +219,25 @@ describe("real SDK auth notifications and profile hydration", () => {
     expect(app.state).toBe(saved);
   });
 
+  it("reloads a background snapshot when an email update awaits confirmation", async () => {
+    const app = await setup();
+    app.mount();
+    await app.signIn();
+    await vi.waitFor(() => expect(app.state.user?.id).toBe("alice"), waitOptions);
+    const pending = deferred<Response>();
+    const started = deferred<void>();
+    app.backend.profile = async () => { started.resolve(); return pending.promise; };
+    expect((await app.client.auth.refreshSession()).error).toBeNull();
+    await started.promise;
+    app.backend.profile = async () => response({ ...profile(), first_name: "Saved" });
+    const update = await app.client.auth.updateUser({ email: "new@example.test" });
+    expect(update.error).toBeNull();
+    expect(update.data.user?.email).toBe("alice@example.test");
+    pending.resolve(response({ ...profile(), first_name: "Before" }));
+    await vi.waitFor(() => expect(app.state.user?.first_name).toBe("Saved"), waitOptions);
+    expect(app.state.authError).toBeNull();
+  });
+
   it.each(["success", "error"])("ignores late %s after logout", async (result) => {
     const app = await setup();
     const lifecycle = app.mount();
