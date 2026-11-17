@@ -1,0 +1,43 @@
+name: Local database rebuild
+on:
+  pull_request:
+    paths:
+      - 'doctor_website_demo/supabase/**'
+      - '.github/workflows/local-database.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: doctor_website_demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: '3.0.0'
+      - run: supabase start
+      - run: supabase db reset --local
+      - name: Check synthetic booking and linked records
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '54322'
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: |
+          result="$(psql -XAt -v ON_ERROR_STOP=1 <<'SQL'
+          select u.email, c.course_title, p.amount, cert.certificate_number
+          from public.bookings b
+          join public.users u on u.id = b.user_id
+          join auth.users au on au.id = u.id
+          join public.courses c on c.id = b.course_session_id
+          join public.payments p on p.booking_id = b.id
+          join public.certificates cert on cert.booking_id = b.id;
+          SQL
+          )"
+          test "$result" = 'student@example.test|Fixture Clinical Skills|100.00|FIXTURE-B01-001'
