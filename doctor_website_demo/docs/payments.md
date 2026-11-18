@@ -62,7 +62,7 @@ Ozow uses `PendingInvestigation` for FNB Pay by Bank payments it could not verif
 - No money is recorded and the booking is not confirmed.
 - If the seat is still held, its hold expiry is cleared (`expires_at` null, the same state as a pre-hold booking waiting for an admin). Neither time nor `expire_seat_holds` releases it, so the student is not bumped while the bank investigates. The flag's details keep the original expiry.
 - If the hold had already lapsed when the investigation was reported, the seat is not taken back. The flag records `seat_held: false`. A later `Complete` then follows the late-payment rules: a free seat, or review.
-- The student cannot start another payment for that booking (`begin_payment_attempt` refuses with 409), and the return page tells them not to pay again.
+- The student cannot start another payment for that booking (`begin_payment_attempt` refuses with 409). The return page and the booking history tell them not to pay again, and the history offers neither Pay nor Book again on that course until Ozow decides.
 - `ozow-reconcile` re-checks investigating attempts every run, whatever their age, so Ozow Support's answer lands even if no notification follows.
 
 ### Expiry

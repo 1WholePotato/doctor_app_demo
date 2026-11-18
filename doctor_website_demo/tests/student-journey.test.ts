@@ -72,6 +72,11 @@ describe("booking history", () => {
           payment_attempts: [{ status: "paid" }],
           payments: [{ payment_statuses: { name: "Paid" } }],
         }),
+        booking("checking", { booking_status: "Pending", holds_seat: true, expires_at: null, payment_attempts: [{ status: "investigating" }] }),
+        booking("checking-lapsed", { booking_status: "Pending", holds_seat: false, expires_at: hold(-1), payment_attempts: [{ status: "failed" }, { status: "investigating" }] }),
+        booking("bank-refused", { booking_status: "Expired", holds_seat: false, expires_at: null, payment_attempts: [{ status: "failed" }] }),
+        booking("checking-class-cancelled", { booking_status: "Class Cancelled", holds_seat: false, expires_at: null, payment_attempts: [{ status: "investigating" }] }),
+        booking("withdrawn", { booking_status: "Cancelled", holds_seat: false, payment_attempts: [{ status: "paid" }], payments: [{ payment_statuses: { name: "Paid" } }] }),
       ],
     });
 
@@ -86,6 +91,16 @@ describe("booking history", () => {
       ["paid", "confirmed", "paid"],
       ["legacy", "cancelled", "unpaid"],
       ["refund", "class_cancelled", "paid"],
+      ["checking", "investigating", "investigating"],
+      ["checking-lapsed", "investigating", "investigating"],
+      ["bank-refused", "failed", "unpaid"],
+      ["checking-class-cancelled", "investigating", "investigating"],
+      ["withdrawn", "review", "paid"],
+    ]);
+    expect(courses.filter((row) => row.state === "investigating").map(({ bookingId, holdsSeat }) => [bookingId, holdsSeat])).toEqual([
+      ["checking", true],
+      ["checking-lapsed", false],
+      ["checking-class-cancelled", false],
     ]);
     expect(courses[0]).toMatchObject({ material: "Printed", price: 250, bookedAt: "2026-11-18T08:00:00", courseId: "course-1" });
     expect(courses[6].cancellationReason).toBe("Venue flooded");
@@ -98,6 +113,8 @@ describe("verified payment", () => {
     [[], ["paid"], "paid"],
     [["Paid", "Refunded"], ["paid"], "refunded"],
     [[], ["failed", "open"], "awaiting"],
+    [[], ["failed", "investigating"], "investigating"],
+    [["Paid"], ["investigating", "paid"], "paid"],
     [["Pending", "Failed"], ["failed"], "unpaid"],
     [[], [], "unpaid"],
   ])("payments %j with attempts %j read as %s", (payments, attempts, record) => {
@@ -120,6 +137,8 @@ describe("next action", () => {
     ["confirmed", { booking_status: "Confirmed", holds_seat: true }, null],
     ["class cancelled", { booking_status: "Class Cancelled", holds_seat: false }, null],
     ["under review", { booking_status: "Expired", holds_seat: false, expires_at: hold(-1), payment_attempts: [{ status: "paid" }] }, null],
+    ["investigated", { booking_status: "Pending", holds_seat: true, expires_at: null, payment_attempts: [{ status: "investigating" }] }, null],
+    ["lapsed investigated", { booking_status: "Pending", holds_seat: false, expires_at: hold(-1), payment_attempts: [{ status: "investigating" }] }, null],
   ])("a %s booking offers %s while its course has a bookable class", async (_, fields, action) => {
     const rows = await history([booking("b-1", fields)]);
     expect(nextAction(rows[0], rows, bookable)).toBe(action);
@@ -144,6 +163,15 @@ describe("next action", () => {
       booking("old", { booking_status: "Expired", holds_seat: false, expires_at: hold(-1) }),
     ]);
     expect(rows.map((row) => nextAction(row, rows, bookable))).toEqual(["pay", null]);
+  });
+
+  it("offers nothing on the course while one of its payments is being checked with the bank", async () => {
+    const rows = await history([
+      booking("checking", { booking_status: "Expired", holds_seat: false, expires_at: hold(-1), payment_attempts: [{ status: "investigating" }] }),
+      booking("old", { booking_status: "Expired", holds_seat: false, expires_at: hold(-1) }),
+      booking("cancelled", { booking_status: "Cancelled", holds_seat: false }),
+    ]);
+    expect(rows.map((row) => nextAction(row, rows, bookable))).toEqual([null, null, null]);
   });
 });
 

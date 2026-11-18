@@ -42,7 +42,7 @@ jobs:
           SQL
           )"
           test "$result" = 'student@example.test|Fixture Clinical Skills|100.00|FIXTURE-B01-001'
-      - name: Test booking, class instructor, class administration, material fee, seat reservation, payment attempt, payment settlement and booking history access constraints
+      - name: Test booking, class instructor, class administration, material fee, seat reservation, payment attempt, payment settlement, booking history and investigated payment access constraints
         run: supabase test db
       - name: Race bookings against class capacity changes, seat reservations, payment attempts and payment settlement
         env:

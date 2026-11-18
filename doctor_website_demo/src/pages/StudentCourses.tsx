@@ -17,6 +17,7 @@ import { CourseCardSkeleton } from "../components/Skeleton";
 
 const STATE_TONE: Record<BookingState, string> = {
   held: "status-pending",
+  investigating: "status-pending",
   confirmed: "status-passed",
   completed: "status-passed",
   review: "status-pending",
@@ -42,12 +43,21 @@ function StateNote({ booking }: { booking: StudentCourseRow }) {
       ) : (
         <p className="sc-meta" role="note">Seat held until an administrator confirms your booking.</p>
       );
+    case "investigating":
+      return (
+        <p className="sc-meta" role="note">
+          Ozow is checking this payment with your bank by hand. No money has been recorded yet. Please don't pay again.{" "}
+          {booking.holdsSeat
+            ? "Your seat stays held until the check is finished."
+            : "Your seat is no longer held, so if your bank confirms the payment an administrator will place you in a class or refund you."}
+        </p>
+      );
     case "failed":
       return <p className="sc-meta" role="note">Ozow reported the payment as cancelled or failed, so the seat was released.</p>;
     case "expired":
       return <p className="sc-meta" role="note">The seat hold ended before payment, so the seat was released.</p>;
     case "review":
-      return <p className="sc-meta" role="note">Ozow confirmed your payment after your seat hold ended. An administrator will contact you to place you in a class or refund you.</p>;
+      return <p className="sc-meta" role="note">Ozow confirmed your payment, but we could not confirm your seat automatically. An administrator will contact you to place you in a class or refund you.</p>;
     case "class_cancelled":
       return (
         <p className="sc-meta sc-note-alert" role="note">

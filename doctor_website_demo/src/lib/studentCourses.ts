@@ -8,11 +8,12 @@ export type CourseStatus = "passed" | "failed" | "unavailable";
 
 export type NextAction = "pay" | "book_again" | null;
 
-export type PaymentRecord = "paid" | "refunded" | "awaiting" | "unpaid";
+export type PaymentRecord = "paid" | "refunded" | "investigating" | "awaiting" | "unpaid";
 
 export const PAYMENT_LABEL: Record<PaymentRecord, string> = {
   paid: "Paid",
   refunded: "Refunded",
+  investigating: "Being checked",
   awaiting: "Awaiting Ozow confirmation",
   unpaid: "Not paid",
 };
@@ -20,6 +21,7 @@ export const PAYMENT_LABEL: Record<PaymentRecord, string> = {
 export function paymentRecord(paymentStatuses: string[], attemptStatuses: string[]): PaymentRecord {
   if (paymentStatuses.includes("Refunded")) return "refunded";
   if (paymentStatuses.includes("Paid") || attemptStatuses.includes("paid")) return "paid";
+  if (attemptStatuses.includes("investigating")) return "investigating";
   if (attemptStatuses.includes("open")) return "awaiting";
   return "unpaid";
 }
@@ -28,6 +30,7 @@ export type StudentCourseRow = {
   bookingId: string;
   bookingStatus: string;
   state: BookingState;
+  holdsSeat: boolean;
   bookedAt: string;
   holdExpiresAt: string | null;
   material: string | null;
@@ -83,11 +86,13 @@ function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
   const bookingStatus = readString(record, ["booking_status"], "Pending");
   const holdExpiresAt = readString(record, ["expires_at"]) || null;
   const attemptStatuses = records(record.payment_attempts).map((attempt) => readString(attempt, ["status"]));
+  const holdsSeat = record.holds_seat === true;
   const material = asRecord(record.material_types);
   const shared = {
     bookingId: readString(record, ["id"]),
     bookingStatus,
-    state: bookingState({ bookingStatus, holdsSeat: record.holds_seat === true, expiresAt: holdExpiresAt, attemptStatuses }),
+    state: bookingState({ bookingStatus, holdsSeat, expiresAt: holdExpiresAt, attemptStatuses }),
+    holdsSeat,
     bookedAt: readString(record, ["created_at"]),
     holdExpiresAt,
     material: material ? readString(material, ["name"]) || null : null,
@@ -162,7 +167,7 @@ export async function fetchBookingHistory(userId: string): Promise<StudentCourse
 }
 
 const REBOOKABLE: BookingState[] = ["expired", "failed", "cancelled"];
-const AWAITS_STUDENT_OR_ADMIN: BookingState[] = ["held", "review"];
+const AWAITS_STUDENT_OR_ADMIN: BookingState[] = ["held", "investigating", "review"];
 
 export function nextAction(row: StudentCourseRow, history: StudentCourseRow[], bookableCourseIds: ReadonlySet<string>): NextAction {
   if (row.state === "held") return "pay";
