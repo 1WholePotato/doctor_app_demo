@@ -10,6 +10,7 @@ import {
   type StudentCourseDetail,
   type StudentSessionRow,
 } from "../lib/studentCourses";
+import type { MaterialOption } from "../lib/materials";
 
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -21,6 +22,7 @@ export default function StudentCourseDetails() {
 
   const [course, setCourse] = useState<StudentCourseDetail | null>(null);
   const [sessions, setSessions] = useState<StudentSessionRow[]>([]);
+  const [materials, setMaterials] = useState<MaterialOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
@@ -40,10 +42,12 @@ export default function StudentCourseDetails() {
         setLoadError(result.error);
         setCourse(null);
         setSessions([]);
+        setMaterials([]);
       } else {
         setLoadError("");
         setCourse(result.course);
         setSessions(result.sessions);
+        setMaterials(result.materials);
       }
       setLoading(false);
     }
@@ -123,6 +127,23 @@ export default function StudentCourseDetails() {
               <span className="hero-meta"><Clock />Duration: {displayCourse.duration}</span>
             </div>
           </div>
+
+          {materials.length > 0 && (
+            <>
+              <div className="s-header">
+                <p className="s-title">Course material</p>
+              </div>
+              <ul className="material-card" aria-label="Course material options">
+                {materials.map((option) => (
+                  <li key={option.id} className="material-option">
+                    <span className="material-name">{option.name}</span>
+                    <span className="material-fee">{option.fee === 0 ? "Free" : `+ R ${option.fee.toLocaleString()}`}</span>
+                    <span className="material-total">Total R {option.total.toLocaleString()}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
 
           {/* Sessions */}
           <div className="s-header">

@@ -2,6 +2,7 @@ import { supabase } from "../supabaseClient";
 import { ACTIVE_BOOKING_STATUSES, CLASS_CANCELLED } from "./bookings";
 import { SESSION_INSTRUCTORS_EMBED, instructorNames } from "./instructors";
 import { locationLabel } from "./locations";
+import { fetchMaterialOptions, type MaterialOption } from "./materials";
 
 export type CourseStatus = "passed" | "failed" | "unavailable";
 
@@ -66,6 +67,7 @@ function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
     paymentStatus: latestPaymentStatus(record.payments),
     status: "unavailable" as const,
     classCancelled: readString(record, ["booking_status"]) === CLASS_CANCELLED,
+    price: Number(record.total_amount) || 0,
   };
 
   if (!session || !course) {
@@ -80,7 +82,6 @@ function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
       cancellationReason: null,
       title: "Class to be confirmed",
       description: "This booking is being reviewed so it can be linked to a scheduled class.",
-      price: Number(record.total_amount) || 0,
       instructor: "TBD",
     };
   }
@@ -96,7 +97,6 @@ function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
     cancellationReason: readString(session, ["cancellation_reason"]) || null,
     title: readString(course, ["course_title"], "Untitled course"),
     description: readString(course, ["course_description"]),
-    price: Number(course.course_price) || 0,
     instructor: instructorNames(session.instructors, "TBD"),
   };
 }
@@ -108,7 +108,7 @@ export async function fetchStudentCourses(userId: string): Promise<{
   const { data, error } = await supabase
     .from("bookings")
     .select(
-      `id, booking_status, total_amount, created_at, course_sessions ( id, start_date, end_date, start_time, end_time, rescheduled_at, cancellation_reason, locations ( name, address ), courses ( id, course_title, course_description, course_price ), ${SESSION_INSTRUCTORS_EMBED} ), payments ( created_at, payment_statuses ( name ) )`,
+      `id, booking_status, total_amount, created_at, course_sessions ( id, start_date, end_date, start_time, end_time, rescheduled_at, cancellation_reason, locations ( name, address ), courses ( id, course_title, course_description ), ${SESSION_INSTRUCTORS_EMBED} ), payments ( created_at, payment_statuses ( name ) )`,
     )
     .eq("user_id", userId)
     .in("booking_status", [...ACTIVE_BOOKING_STATUSES, CLASS_CANCELLED])
@@ -185,6 +185,7 @@ function formatSchedule(session: Record<string, unknown>): string | null {
 export async function fetchStudentCourseDetail(courseId: string): Promise<{
   course: StudentCourseDetail | null;
   sessions: StudentSessionRow[];
+  materials: MaterialOption[];
   error: string | null;
 }> {
   const { data: courseRow, error: courseError } = await supabase
@@ -194,24 +195,28 @@ export async function fetchStudentCourseDetail(courseId: string): Promise<{
     .maybeSingle();
 
   if (courseError) {
-    return { course: null, sessions: [], error: courseError.message };
+    return { course: null, sessions: [], materials: [], error: courseError.message };
   }
   if (!courseRow?.active) {
-    return { course: null, sessions: [], error: "Course not found" };
+    return { course: null, sessions: [], materials: [], error: "Course not found" };
   }
 
-  const { data: sessionRows, error: sessionsError } = await supabase
-    .from("course_sessions")
-    .select(
-      `id, start_date, start_time, end_time, ${SESSION_INSTRUCTORS_EMBED}, locations ( name, address )`,
-    )
-    .eq("course_id", courseId)
-    .eq("status", "scheduled")
-    .gte("start_date", new Date().toISOString().slice(0, 10))
-    .order("start_date");
+  const [{ data: sessionRows, error: sessionsError }, materialResult] = await Promise.all([
+    supabase
+      .from("course_sessions")
+      .select(
+        `id, start_date, start_time, end_time, ${SESSION_INSTRUCTORS_EMBED}, locations ( name, address )`,
+      )
+      .eq("course_id", courseId)
+      .eq("status", "scheduled")
+      .gte("start_date", new Date().toISOString().slice(0, 10))
+      .order("start_date"),
+    fetchMaterialOptions(courseId),
+  ]);
 
-  if (sessionsError) {
-    return { course: null, sessions: [], error: sessionsError.message };
+  const loadError = sessionsError?.message ?? materialResult.error;
+  if (loadError) {
+    return { course: null, sessions: [], materials: [], error: loadError };
   }
 
   const sessions = (sessionRows ?? [])
@@ -241,6 +246,7 @@ export async function fetchStudentCourseDetail(courseId: string): Promise<{
       duration: firstSession?.duration ?? "—",
     },
     sessions,
+    materials: materialResult.options,
     error: null,
   };
 }
