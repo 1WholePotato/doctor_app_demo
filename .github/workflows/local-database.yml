@@ -41,3 +41,5 @@ jobs:
           SQL
           )"
           test "$result" = 'student@example.test|Fixture Clinical Skills|100.00|FIXTURE-B01-001'
+      - name: Test booking constraints
+        run: supabase test db
