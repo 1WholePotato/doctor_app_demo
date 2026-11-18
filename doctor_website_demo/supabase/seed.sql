@@ -103,6 +103,11 @@ values ('b0100000-0000-4000-8000-000000000037', 'b0100000-0000-4000-8000-0000000
 -- The insert trigger always starts a fresh 72-hour hold, so lapse this one afterwards.
 update public.bookings set expires_at = now() - interval '1 day' where id = 'b0100000-0000-4000-8000-000000000072';
 
+-- A refused Ozow request on the live hold, so the student's next Pay click starts a fresh attempt.
+insert into public.payment_attempts (id, booking_id, reference, amount, expires_at, status)
+select 'b0100000-0000-4000-8000-000000000081', id, 'DAFIXTURE01', total_amount, expires_at, 'failed'
+from public.bookings where id = 'b0100000-0000-4000-8000-000000000071';
+
 insert into public.payments (id, booking_id, amount, payment_date, payment_status_id)
 select fixture.id, fixture.booking_id, 100.00, fixture.paid_at, ps.id
 from (values

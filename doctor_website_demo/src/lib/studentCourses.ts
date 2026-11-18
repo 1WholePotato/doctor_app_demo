@@ -9,6 +9,7 @@ export type CourseStatus = "passed" | "failed" | "unavailable";
 export type StudentCourseRow = {
   bookingId: string;
   bookingStatus: string;
+  holdExpiresAt: string | null;
   courseId: string | null;
   sessionId: string | null;
   sessionDate: string | null;
@@ -64,6 +65,7 @@ function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
   const shared = {
     bookingId: readString(record, ["id"]),
     bookingStatus: readString(record, ["booking_status"], "Pending"),
+    holdExpiresAt: readString(record, ["expires_at"]) || null,
     paymentStatus: latestPaymentStatus(record.payments),
     status: "unavailable" as const,
     classCancelled: readString(record, ["booking_status"]) === CLASS_CANCELLED,
@@ -108,7 +110,7 @@ export async function fetchStudentCourses(userId: string): Promise<{
   const { data, error } = await supabase
     .from("bookings")
     .select(
-      `id, booking_status, total_amount, created_at, course_sessions ( id, start_date, end_date, start_time, end_time, rescheduled_at, cancellation_reason, locations ( name, address ), courses ( id, course_title, course_description ), ${SESSION_INSTRUCTORS_EMBED} ), payments ( created_at, payment_statuses ( name ) )`,
+      `id, booking_status, total_amount, created_at, expires_at, course_sessions ( id, start_date, end_date, start_time, end_time, rescheduled_at, cancellation_reason, locations ( name, address ), courses ( id, course_title, course_description ), ${SESSION_INSTRUCTORS_EMBED} ), payments ( created_at, payment_statuses ( name ) )`,
     )
     .eq("user_id", userId)
     .or(SEAT_HOLDING_OR_CLASS_CANCELLED)

@@ -4,6 +4,7 @@ import {
   CalendarDays, Clock,
   MapPin, User, ChevronLeft,
 } from "lucide-react";
+import PayButton from "../components/PayButton";
 import { Skeleton, TableRowSkeleton } from "../components/Skeleton";
 import { useAuth } from "../context/useAuth";
 import { formatHoldExpiry, reserveSeat, type SeatBooking } from "../lib/bookings";
@@ -239,7 +240,10 @@ export default function StudentCourseDetails() {
                       </td>
                       <td style={{ textAlign: "right" }}>
                         {booking ? (
-                          <span className="booked-label">{holdLabel(booking)}</span>
+                          <span className="booking-actions">
+                            <span className="booked-label">{holdLabel(booking)}</span>
+                            {booking.status === "Pending" && booking.expiresAt && <PayButton bookingId={booking.id} amount={booking.total} />}
+                          </span>
                         ) : (
                           <button
                             className="book-btn"
