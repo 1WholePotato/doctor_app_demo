@@ -16,6 +16,8 @@ export type PaymentRequest = {
 
 export type CreatedPayment = { id: string; redirectUrl: string };
 
+export type OzowTransaction = { id: string; status: string } & Record<string, unknown>;
+
 export class OzowError extends Error {
   constructor(readonly status: number, detail: string) {
     super(`Ozow answered ${status}: ${detail}`);
@@ -23,6 +25,16 @@ export class OzowError extends Error {
 }
 
 const TOKEN_REFRESH_MARGIN_MS = 60_000;
+const DAY_MS = 86_400_000;
+
+function isoDate(time: number): string {
+  return new Date(time).toISOString().slice(0, 10);
+}
+
+function isTransaction(value: unknown): value is OzowTransaction {
+  const record = value as Record<string, unknown> | null;
+  return typeof record?.id === "string" && typeof record?.status === "string";
+}
 
 export function ozowClient(config: OzowConfig, fetchImpl: typeof fetch = fetch) {
   let token: { value: string; expiresAt: number } | null = null;
@@ -47,8 +59,15 @@ export function ozowClient(config: OzowConfig, fetchImpl: typeof fetch = fetch) 
     return token.value;
   }
 
-  function postPayment(request: PaymentRequest, bearer: string): Promise<Response> {
-    return fetchImpl(`${config.apiUrl}/payments`, {
+  async function authorized(send: (bearer: string) => Promise<Response>): Promise<Response> {
+    const response = await send(await accessToken());
+    if (response.status !== 401) return response;
+    token = null;
+    return send(await accessToken());
+  }
+
+  async function createPayment(request: PaymentRequest): Promise<CreatedPayment> {
+    const response = await authorized((bearer) => fetchImpl(`${config.apiUrl}/payments`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${bearer}`,
@@ -65,15 +84,7 @@ export function ozowClient(config: OzowConfig, fetchImpl: typeof fetch = fetch) 
         returnUrl: request.returnUrl,
         notifyUrl: request.notifyUrl,
       }),
-    });
-  }
-
-  async function createPayment(request: PaymentRequest): Promise<CreatedPayment> {
-    let response = await postPayment(request, await accessToken());
-    if (response.status === 401) {
-      token = null;
-      response = await postPayment(request, await accessToken());
-    }
+    }));
     const body = await response.json().catch(() => null);
     if (!response.ok) throw new OzowError(response.status, body?.detail ?? response.statusText);
     if (typeof body?.id !== "string" || typeof body?.redirectUrl !== "string" || String(body.status).toLowerCase() !== "created") {
@@ -82,7 +93,39 @@ export function ozowClient(config: OzowConfig, fetchImpl: typeof fetch = fetch) 
     return { id: body.id, redirectUrl: body.redirectUrl };
   }
 
-  return { createPayment };
+  async function paymentTransactions(paymentId: string, createdAt: Date): Promise<OzowTransaction[]> {
+    const query = new URLSearchParams({
+      fromDate: isoDate(createdAt.getTime() - DAY_MS),
+      toDate: isoDate(Date.now() + DAY_MS),
+      limit: "50",
+    });
+    let next: string | null = `${config.apiUrl}/payments/${encodeURIComponent(paymentId)}/transactions?${query}`;
+    const transactions: OzowTransaction[] = [];
+    while (next) {
+      const page: string = next;
+      const response = await authorized((bearer) => fetchImpl(page, { headers: { Authorization: `Bearer ${bearer}` } }));
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new OzowError(response.status, body?.detail ?? response.statusText);
+      if (!Array.isArray(body?.results) || !body.results.every(isTransaction)) {
+        throw new OzowError(response.status, `unexpected transactions ${JSON.stringify(body)}`);
+      }
+      transactions.push(...body.results);
+      next = typeof body.links?.next === "string" ? body.links.next : null;
+    }
+    return transactions;
+  }
+
+  return { createPayment, paymentTransactions };
 }
 
 export type OzowClient = ReturnType<typeof ozowClient>;
+
+export function ozowFromEnv(env: (name: string) => string): OzowClient | null {
+  const config = {
+    apiUrl: env("OZOW_API_URL"),
+    clientId: env("OZOW_CLIENT_ID"),
+    clientSecret: env("OZOW_CLIENT_SECRET"),
+    siteCode: env("OZOW_SITE_CODE"),
+  };
+  return Object.values(config).every(Boolean) ? ozowClient(config) : null;
+}

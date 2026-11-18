@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.102.1";
-import { OzowError, type OzowClient } from "./ozow.ts";
+import { OzowError, type OzowClient } from "../_shared/ozow.ts";
 
 export type CheckoutDeps = {
   db: SupabaseClient;
@@ -76,10 +76,10 @@ export function checkoutHandler({ db, ozow, appUrl, notifyUrl }: CheckoutDeps) {
         .from("payment_attempts")
         .update({ ozow_payment_id: payment.id, redirect_url: payment.redirectUrl })
         .eq("id", attempt.id)
-        .eq("status", "open")
         .select()
         .maybeSingle();
-      if (saveError || !saved) throw saveError ?? new Error(`attempt ${attempt.id} closed before Ozow answered`);
+      if (saveError || !saved) throw saveError ?? new Error(`attempt ${attempt.id} vanished before Ozow answered`);
+      if (saved.status !== "open") throw new Error(`attempt ${attempt.id} closed before Ozow answered`);
       return checkout(saved as Attempt, payment.redirectUrl);
     } catch (failure) {
       console.error("Ozow payment request failed", failure instanceof OzowError ? failure.message : failure);

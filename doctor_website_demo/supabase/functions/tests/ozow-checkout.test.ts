@@ -1,46 +1,10 @@
 import { assert, assertEquals, assertMatch } from "jsr:@std/assert@1.0.14";
-import { createClient } from "npm:@supabase/supabase-js@2.102.1";
 import { startOzowMock } from "./ozow-mock.ts";
-
-const env = (name: string) => {
-  const value = Deno.env.get(name);
-  if (!value) throw new Error(`Set ${name} from supabase status -o env`);
-  return value;
-};
-const supabaseUrl = env("SUPABASE_URL");
-const anonKey = env("SUPABASE_ANON_KEY");
-const admin = createClient(supabaseUrl, env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
+import { admin, anonKey, attempts, COURSE, env, LOCATION, pay, reserve, signIn } from "./stack.ts";
 
 const APP_URL = "http://127.0.0.1:5173";
-const COURSE = "b0100000-0000-4000-8000-000000000023";
-const LOCATION = "b0100000-0000-4000-8000-000000000022";
-const PRINTED = "b0100000-0000-4000-8000-000000000061";
 const CONFIRMED_BOOKING = "b0100000-0000-4000-8000-000000000034";
 const CLASSES = ["b1100000-0000-4000-8000-000000000001", "b1100000-0000-4000-8000-000000000002"];
-
-type Checkout = { status: number; body: { url?: string; reference?: string; amount?: number; expiresAt?: string; error?: string } };
-
-async function signIn(email: string) {
-  const client = createClient(supabaseUrl, anonKey, { auth: { persistSession: false } });
-  const { data, error } = await client.auth.signInWithPassword({ email, password: "LocalDemo-B01!" });
-  if (error) throw error;
-  return { client, token: data.session.access_token };
-}
-
-async function pay(token: string, body: unknown): Promise<Checkout> {
-  const response = await fetch(`${supabaseUrl}/functions/v1/ozow-checkout`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, apikey: anonKey, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  return { status: response.status, body: await response.json() };
-}
-
-async function attempts(bookingId: string) {
-  const { data, error } = await admin.from("payment_attempts").select("*").eq("booking_id", bookingId).order("created_at");
-  if (error) throw error;
-  return data;
-}
 
 async function cleanup() {
   const { data: bookings } = await admin.from("bookings").select("id").in("course_session_id", CLASSES);
@@ -61,11 +25,6 @@ Deno.test("ozow-checkout starts one Ozow payment per held booking from the store
 
   const student = await signIn("student@example.test");
   const second = await signIn("second-student@example.test");
-  const reserve = async (who: typeof student, classId: string) => {
-    const { data, error } = await who.client.rpc("reserve_seat", { p_course_session_id: classId, p_material_type_id: PRINTED });
-    if (error) throw error;
-    return data as { id: string; total_amount: string; expires_at: string };
-  };
   const held = await reserve(student, CLASSES[0]);
 
   try {

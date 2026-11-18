@@ -59,7 +59,7 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Start Ozow payments through the checkout function against the mock
+      - name: Start, confirm and reconcile Ozow payments through the Edge Functions against the mock
         run: |
           supabase functions serve --env-file supabase/functions/tests/ozow-mock.env > "$RUNNER_TEMP/functions.log" 2>&1 &
           for _ in $(seq 1 60); do grep -q 'Serving functions' "$RUNNER_TEMP/functions.log" && break; sleep 2; done

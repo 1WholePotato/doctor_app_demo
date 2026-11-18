@@ -1,7 +1,9 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.102.1";
 import { checkoutHandler } from "../ozow-checkout/checkout.ts";
-import { OzowError, ozowClient, type PaymentRequest } from "../ozow-checkout/ozow.ts";
+import { notifyHandler } from "../ozow-notify/notify.ts";
+import { reconcileHandler } from "../ozow-reconcile/reconcile.ts";
+import { OzowError, ozowClient, type PaymentRequest } from "../_shared/ozow.ts";
 import { MOCK_CREDENTIALS, startOzowMock } from "./ozow-mock.ts";
 
 const request: PaymentRequest = {
@@ -114,4 +116,79 @@ Deno.test("the checkout answers preflight, refuses other methods, and refuses to
 
   const unconfigured = await handler(new Request("http://function/", { method: "POST", body: "{}" }));
   assertEquals([unconfigured.status, await unconfigured.json()], [503, { error: "Online payment is not available yet." }]);
+});
+
+Deno.test("lists a payment's transactions across pages, sending the dates Ozow requires", async () => {
+  const mock = startOzowMock({ pageSize: 2 });
+  try {
+    const client = clientFor(mock);
+    const payment = await client.createPayment(request);
+    const sent = ["Created", "Cancelled", "Complete"].map((outcome) => mock.addTransaction(payment.id, outcome as "Created"));
+
+    const listed = await client.paymentTransactions(payment.id, new Date());
+
+    assertEquals(listed.map((transaction) => [transaction.id, transaction.status]), sent.map((transaction) => [transaction.id, transaction.status]));
+    assertEquals(listed.map((transaction) => transaction.status), ["Incomplete", "Error", "Successful"]);
+    assertEquals(listed[2].amount, { currency: "ZAR", value: 250 });
+    assertEquals(listed[2].merchantReference, request.reference);
+  } finally {
+    await mock.close();
+  }
+});
+
+Deno.test("a payment Ozow does not know lists no transactions", async () => {
+  const mock = startOzowMock();
+  try {
+    assertEquals(await clientFor(mock).paymentTransactions(crypto.randomUUID(), new Date()), []);
+  } finally {
+    await mock.close();
+  }
+});
+
+Deno.test("a lookup with a token Ozow no longer accepts gets a fresh token and retries once", async () => {
+  const first = startOzowMock({ port: 0 });
+  const client = ozowClient({ apiUrl: first.url, ...MOCK_CREDENTIALS });
+  await client.paymentTransactions(crypto.randomUUID(), new Date());
+  await first.close();
+
+  const restarted = startOzowMock({ port: first.port });
+  try {
+    assertEquals(await client.paymentTransactions(crypto.randomUUID(), new Date()), []);
+    assertEquals(restarted.tokenRequests(), 1);
+  } finally {
+    await restarted.close();
+  }
+});
+
+Deno.test("a lookup Ozow refuses surfaces as OzowError", async () => {
+  const mock = startOzowMock();
+  try {
+    const error = await assertRejects(
+      () => clientFor(mock, { clientSecret: "wrong" }).paymentTransactions(crypto.randomUUID(), new Date()),
+      OzowError,
+    );
+    assertEquals(error.status, 401);
+  } finally {
+    await mock.close();
+  }
+});
+
+Deno.test("notify and reconcile refuse what they cannot act on", async () => {
+  const ozow = ozowClient({ apiUrl: "http://127.0.0.1:9/v1", ...MOCK_CREDENTIALS });
+  const db = {} as SupabaseClient;
+  const post = (body: string, headers: HeadersInit = {}) =>
+    new Request("http://function/", { method: "POST", body, headers: { "Content-Type": "application/x-www-form-urlencoded", ...headers } });
+
+  const notify = notifyHandler({ db, ozow });
+  assertEquals((await notify(new Request("http://function/", { method: "GET" }))).status, 405);
+  assertEquals((await notify(post("Status=Complete"))).status, 400);
+  assertEquals((await notify(post("TransactionReference=DA-12%27%3B"))).status, 400);
+  assertEquals((await notifyHandler({ db, ozow: null })(post("TransactionReference=DA0123456789"))).status, 503);
+
+  const reconcile = reconcileHandler({ db, ozow, serviceRoleKey: "service-key" });
+  assertEquals((await reconcile(new Request("http://function/", { method: "GET" }))).status, 405);
+  assertEquals((await reconcile(post("{}"))).status, 401);
+  assertEquals((await reconcile(post("{}", { Authorization: "Bearer anon-key" }))).status, 401);
+  assertEquals((await reconcileHandler({ db, ozow, serviceRoleKey: "" })(post("{}", { Authorization: "Bearer " }))).status, 401);
+  assertEquals((await reconcileHandler({ db, ozow: null, serviceRoleKey: "service-key" })(post("{}", { Authorization: "Bearer service-key" }))).status, 503);
 });
