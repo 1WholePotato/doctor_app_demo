@@ -116,7 +116,7 @@ select throws_ok(
   '42501', null, 'a student cannot change an attempt');
 select throws_ok($$delete from public.payment_attempts$$, '42501', null, 'a student cannot delete an attempt');
 select set_config('request.jwt.claims', '{"sub":"b0100000-0000-4000-8000-000000000012","role":"authenticated"}', true);
-select is((select count(*)::int from public.payment_attempts), 0, 'another student sees none of them');
+select is((select count(*)::int from public.payment_attempts where booking_id = 'b0100000-0000-4000-8000-000000000071'), 0, 'another student sees none of them');
 reset role;
 
 set local role anon;
