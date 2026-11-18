@@ -1,7 +1,7 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "../supabaseClient";
 
-export type PaymentOutcome = "paid" | "awaiting" | "lapsed" | "closed";
+export type PaymentOutcome = "paid" | "review" | "awaiting" | "failed" | "lapsed" | "closed";
 
 export type BookingPayment = {
   bookingId: string;
@@ -18,6 +18,7 @@ type BookingPaymentRow = {
   total_amount: number | string;
   expires_at: string | null;
   holds_seat: boolean;
+  payment_attempts: { status: string }[] | null;
   course_sessions: { courses: { id: string; course_title: string } | null } | null;
 };
 
@@ -41,17 +42,25 @@ export async function startPayment(bookingId: string): Promise<{ url: string; er
   return { url: null, error: await checkoutRefusal(error) };
 }
 
-export function paymentOutcome(bookingStatus: string, holdsSeat: boolean): PaymentOutcome {
+export type BookingPaymentState = {
+  bookingStatus: string;
+  holdsSeat: boolean;
+  expiresAt: string | null;
+  attemptStatuses: string[];
+};
+
+export function paymentOutcome({ bookingStatus, holdsSeat, expiresAt, attemptStatuses }: BookingPaymentState, now = Date.now()): PaymentOutcome {
   if (bookingStatus === "Confirmed" || bookingStatus === "Completed") return "paid";
+  if (attemptStatuses.includes("paid")) return "review";
   if (bookingStatus === "Pending") return holdsSeat ? "awaiting" : "lapsed";
-  if (bookingStatus === "Expired") return "lapsed";
+  if (bookingStatus === "Expired") return expiresAt && Date.parse(expiresAt) > now ? "failed" : "lapsed";
   return "closed";
 }
 
 export async function fetchBookingPayment(bookingId: string, userId: string): Promise<{ payment: BookingPayment | null; error: string | null }> {
   const { data, error } = await supabase
     .from("bookings")
-    .select("id, booking_status, total_amount, expires_at, holds_seat, course_sessions ( courses ( id, course_title ) )")
+    .select("id, booking_status, total_amount, expires_at, holds_seat, payment_attempts ( status ), course_sessions ( courses ( id, course_title ) )")
     .eq("id", bookingId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -66,7 +75,12 @@ export async function fetchBookingPayment(bookingId: string, userId: string): Pr
       courseTitle: course?.course_title ?? "your class",
       total: Number(row.total_amount),
       expiresAt: row.expires_at,
-      outcome: paymentOutcome(row.booking_status, row.holds_seat),
+      outcome: paymentOutcome({
+        bookingStatus: row.booking_status,
+        holdsSeat: row.holds_seat,
+        expiresAt: row.expires_at,
+        attemptStatuses: (row.payment_attempts ?? []).map((attempt) => attempt.status),
+      }),
     },
     error: null,
   };

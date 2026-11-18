@@ -18,6 +18,18 @@ function Outcome({ payment, onRefresh }: { payment: BookingPayment; onRefresh: (
           <div className="payment-actions"><Link className="sc-enrol-btn" to="/courses">My courses</Link></div>
         </>
       );
+    case "review":
+      return (
+        <>
+          <h1>Payment received</h1>
+          <p>
+            Ozow confirmed your payment of R {payment.total.toLocaleString()}, but it reached us after your seat hold
+            in {payment.courseTitle} ended and we could not confirm a seat automatically. An administrator will contact
+            you to place you in the class or refund you.
+          </p>
+          <div className="payment-actions"><Link className="sc-enrol-btn" to="/courses">My courses</Link></div>
+        </>
+      );
     case "awaiting":
       return (
         <>
@@ -34,6 +46,14 @@ function Outcome({ payment, onRefresh }: { payment: BookingPayment; onRefresh: (
             <PayButton bookingId={payment.bookingId} amount={payment.total} />
             <button className="payment-secondary" type="button" onClick={onRefresh}>Check again</button>
           </div>
+        </>
+      );
+    case "failed":
+      return (
+        <>
+          <h1>Payment did not go through</h1>
+          <p>Ozow reported the payment as cancelled or failed, so your seat was released. Book the class again to pay.</p>
+          <div className="payment-actions"><Link className="sc-enrol-btn" to={courseLink}>Back to the course</Link></div>
         </>
       );
     case "lapsed":
