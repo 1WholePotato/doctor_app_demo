@@ -315,6 +315,17 @@
   .book-btn:hover { background: var(--s-teal-mid); }
   .book-btn:disabled { background: var(--s-border); color: var(--s-text-3); cursor: not-allowed; }
   .booked-label { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; color: var(--s-text-3); }
+  .booking-actions { display: inline-flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
+  .pay-action { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .pay-error { font-size: 12px; color: #DC2626; max-width: 220px; text-align: right; }
+
+  .payment-card { max-width: 560px; background: var(--s-surface); border: 1px solid var(--s-border); border-radius: var(--s-radius); padding: 28px; }
+  .payment-card .eyebrow { font-size: 11px; font-weight: 600; color: var(--s-text-3); letter-spacing: .07em; text-transform: uppercase; }
+  .payment-card h1 { font-size: 22px; font-weight: 700; color: var(--s-text-1); margin: 6px 0 12px; }
+  .payment-card p { font-size: 14px; color: var(--s-text-2); line-height: 1.6; margin-bottom: 12px; }
+  .payment-actions { display: flex; align-items: flex-start; gap: 12px; margin-top: 18px; }
+  .payment-actions a { text-decoration: none; }
+  .payment-secondary { background: var(--s-surface); color: var(--s-text-2); border: 1px solid var(--s-border); padding: 8px 18px; border-radius: 8px; font-family: var(--s-font); font-size: 13px; font-weight: 500; cursor: pointer; }
 
   .material-card {
     list-style: none; background: var(--s-surface); border: 1px solid var(--s-border); border-radius: var(--s-radius);

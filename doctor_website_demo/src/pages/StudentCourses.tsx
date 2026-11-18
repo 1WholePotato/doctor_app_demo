@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, CalendarDays, MapPin, Search, User } from "lucide-react";
+import PayButton from "../components/PayButton";
 import { useAuth } from "../context/useAuth";
+import { formatHoldExpiry } from "../lib/bookings";
 import { fetchStudentCourses, type StudentCourseRow } from "../lib/studentCourses";
 import { supabase } from "../supabaseClient";
 import { CourseCardSkeleton } from "../components/Skeleton";
@@ -178,19 +180,25 @@ export default function StudentCourses() {
                       <span className="sc-meta"><User />{course.instructor}</span>
                       <span className="sc-meta">R {course.price.toLocaleString()}</span>
                     </div>
+                    {course.bookingStatus === "Pending" && course.holdExpiresAt && (
+                      <p className="sc-meta" role="note">Seat held until {formatHoldExpiry(course.holdExpiresAt)}. Pay before then to keep it.</p>
+                    )}
 
                     <div className="sc-card-footer">
                       <span style={{ fontSize: 11, color: "var(--s-text-3)", background: "var(--s-bg)", border: "1px solid var(--s-border)", padding: "2px 9px", borderRadius: 20, fontWeight: 500 }}>
                         Payment status: {course.paymentStatus}
                       </span>
-                      {course.courseId && (
-                        <button
-                          className="sc-enrol-btn"
-                          onClick={() => navigate(`/courses/${course.courseId}`, { state: { course } })}
-                        >
-                          View course
-                        </button>
-                      )}
+                      <span className="booking-actions">
+                        {course.bookingStatus === "Pending" && course.holdExpiresAt && <PayButton bookingId={course.bookingId} amount={course.price} />}
+                        {course.courseId && (
+                          <button
+                            className="sc-enrol-btn"
+                            onClick={() => navigate(`/courses/${course.courseId}`, { state: { course } })}
+                          >
+                            View course
+                          </button>
+                        )}
+                      </span>
                     </div>
                   </div>
                 ))}

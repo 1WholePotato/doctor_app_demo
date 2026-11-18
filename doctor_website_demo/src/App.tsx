@@ -23,6 +23,7 @@ const StudentCourseDetails = lazy(() => import("./pages/StudentCourseDetails"));
 const StudentGrades = lazy(() => import("./pages/StudentGrades"));
 const StudentProfile = lazy(() => import("./pages/StudentProfile"));
 const StudentNotifications = lazy(() => import("./pages/StudentNotifications"));
+const PaymentReturn = lazy(() => import("./pages/PaymentReturn"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 function PageLoading() {
@@ -85,6 +86,7 @@ function App() {
               <Route path="/grades" element={<StudentGrades />} />
               <Route path="/notifications" element={<StudentNotifications />} />
               <Route path="/profile" element={<StudentProfile />} />
+              <Route path="/payments/return" element={<PaymentReturn />} />
             </Route>
 
             {/* 404 Catch-All */}
