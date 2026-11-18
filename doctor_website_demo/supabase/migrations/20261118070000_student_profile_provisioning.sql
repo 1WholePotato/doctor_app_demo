@@ -1,11 +1,3 @@
-do $$
-begin
-  if not exists (select 1 from public.roles where name = 'student') then
-    raise exception 'Student profile provisioning needs a role named exactly ''student''';
-  end if;
-end;
-$$;
-
 alter table public.users alter column sanc_num drop not null;
 
 create function public.insert_student_profile(account auth.users)
