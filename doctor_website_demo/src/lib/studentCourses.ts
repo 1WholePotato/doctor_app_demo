@@ -8,19 +8,24 @@ export type CourseStatus = "passed" | "failed" | "unavailable";
 
 export type NextAction = "pay" | "book_again" | null;
 
-export type PaymentRecord = "paid" | "refunded" | "investigating" | "awaiting" | "unpaid";
+export type PaymentRecord = "paid" | "partly_refunded" | "refunded" | "investigating" | "awaiting" | "unpaid";
 
 export const PAYMENT_LABEL: Record<PaymentRecord, string> = {
   paid: "Paid",
+  partly_refunded: "Partly refunded",
   refunded: "Refunded",
   investigating: "Being checked",
   awaiting: "Awaiting Ozow confirmation",
   unpaid: "Not paid",
 };
 
-export function paymentRecord(paymentStatuses: string[], attemptStatuses: string[]): PaymentRecord {
-  if (paymentStatuses.includes("Refunded")) return "refunded";
-  if (paymentStatuses.includes("Paid") || attemptStatuses.includes("paid")) return "paid";
+export type PaymentEntry = { status: string; amount: number };
+
+export function paymentRecord(payments: PaymentEntry[], attemptStatuses: string[]): PaymentRecord {
+  const total = (status: string) => payments.reduce((sum, payment) => sum + (payment.status === status ? Math.round(payment.amount * 100) : 0), 0);
+  const refunded = total("Refunded");
+  if (refunded > 0) return refunded >= total("Paid") ? "refunded" : "partly_refunded";
+  if (payments.some((payment) => payment.status === "Paid") || attemptStatuses.includes("paid")) return "paid";
   if (attemptStatuses.includes("investigating")) return "investigating";
   if (attemptStatuses.includes("open")) return "awaiting";
   return "unpaid";
@@ -97,7 +102,10 @@ function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
     holdExpiresAt,
     material: material ? readString(material, ["name"]) || null : null,
     payment: paymentRecord(
-      records(record.payments).map((payment) => readString(asRecord(payment.payment_statuses) ?? {}, ["name"])),
+      records(record.payments).map((payment) => ({
+        status: readString(asRecord(payment.payment_statuses) ?? {}, ["name"]),
+        amount: Number(payment.amount) || 0,
+      })),
       attemptStatuses,
     ),
     status: "unavailable" as const,
@@ -136,7 +144,7 @@ function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
   };
 }
 
-const STUDENT_BOOKING_COLUMNS = `id, booking_status, total_amount, created_at, expires_at, holds_seat, material_types ( name ), payment_attempts ( status ), payments ( payment_statuses ( name ) ), course_sessions ( id, start_date, end_date, start_time, end_time, rescheduled_at, cancellation_reason, locations ( name, address ), courses ( id, course_title, course_description ), ${SESSION_INSTRUCTORS_EMBED} )`;
+const STUDENT_BOOKING_COLUMNS = `id, booking_status, total_amount, created_at, expires_at, holds_seat, material_types ( name ), payment_attempts ( status ), payments ( amount, payment_statuses ( name ) ), course_sessions ( id, start_date, end_date, start_time, end_time, rescheduled_at, cancellation_reason, locations ( name, address ), courses ( id, course_title, course_description ), ${SESSION_INSTRUCTORS_EMBED} )`;
 
 type StudentCourseRows = { courses: StudentCourseRow[]; error: string | null };
 

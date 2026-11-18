@@ -52,7 +52,7 @@ describe("booking history", () => {
     expect(bookingCalls.map((call) => call.method)).toEqual(["select", "eq", "order"]);
     expect(bookingCalls[1].args).toEqual(["user_id", "student-1"]);
     expect(bookingCalls[2].args).toEqual(["created_at", { ascending: false }]);
-    expect(bookingCalls[0].args[0]).toContain("material_types ( name ), payment_attempts ( status ), payments ( payment_statuses ( name ) )");
+    expect(bookingCalls[0].args[0]).toContain("material_types ( name ), payment_attempts ( status ), payments ( amount, payment_statuses ( name ) )");
   });
 
   it("reads each booking's state, material, stored total and verified payment", async () => {
@@ -109,16 +109,18 @@ describe("booking history", () => {
 
 describe("verified payment", () => {
   it.each([
-    [["Paid"], [], "paid"],
+    [[["Paid", 250]], [], "paid"],
     [[], ["paid"], "paid"],
-    [["Paid", "Refunded"], ["paid"], "refunded"],
+    [[["Paid", 250], ["Refunded", 250]], ["paid"], "refunded"],
+    [[["Paid", 250], ["Refunded", 100], ["Refunded", 50]], ["paid"], "partly_refunded"],
+    [[["Paid", 100], ["Paid", 100], ["Refunded", 100]], ["paid"], "partly_refunded"],
     [[], ["failed", "open"], "awaiting"],
     [[], ["failed", "investigating"], "investigating"],
-    [["Paid"], ["investigating", "paid"], "paid"],
-    [["Pending", "Failed"], ["failed"], "unpaid"],
+    [[["Paid", 250]], ["investigating", "paid"], "paid"],
+    [[["Pending", 250], ["Failed", 250]], ["failed"], "unpaid"],
     [[], [], "unpaid"],
   ])("payments %j with attempts %j read as %s", (payments, attempts, record) => {
-    expect(paymentRecord(payments, attempts)).toBe(record);
+    expect(paymentRecord(payments.map(([status, amount]) => ({ status: status as string, amount: amount as number })), attempts)).toBe(record);
   });
 });
 
