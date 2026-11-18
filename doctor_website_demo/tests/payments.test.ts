@@ -56,6 +56,7 @@ describe("startPayment", () => {
     [refusal(409, "Booking b-1 is not awaiting payment"), "This booking is not awaiting payment."],
     [refusal(403, "Booking b-1 belongs to another student"), "This booking belongs to another account."],
     [refusal(409, "Booking b-1 has nothing to pay"), "This booking has nothing to pay."],
+    [refusal(409, "A payment on booking b-1 is under investigation with the bank"), "Your earlier payment is still being checked with your bank. Please don't pay again."],
     [refusal(503, "Online payment is not available yet."), "Online payment is not available yet."],
     [refusal(502, "Ozow could not start the payment. Try again."), "Could not start the payment. Try again."],
     [new FunctionsFetchError(new Error("offline")), "Could not start the payment. Try again."],
@@ -76,8 +77,13 @@ describe("payment outcome", () => {
     ["Completed", true, holdEnds, [], "paid"],
     ["Pending", true, holdEnds, ["open"], "awaiting"],
     ["Pending", false, lapsedAt, ["open"], "lapsed"],
-    ["Pending", false, lapsedAt, ["paid"], "review"],
-    ["Expired", false, lapsedAt, ["failed", "paid"], "review"],
+    ["Pending", false, lapsedAt, ["paid"], "late"],
+    ["Expired", false, lapsedAt, ["failed", "paid"], "late"],
+    ["Class Cancelled", false, holdEnds, ["paid"], "class_cancelled"],
+    ["Cancelled", false, holdEnds, ["paid"], "booking_cancelled"],
+    ["Pending", true, null, ["investigating"], "investigating"],
+    ["Pending", false, lapsedAt, ["failed", "investigating"], "investigating"],
+    ["Expired", false, null, ["failed"], "failed"],
     ["Expired", false, holdEnds, ["failed"], "failed"],
     ["Expired", false, lapsedAt, ["failed"], "lapsed"],
     ["Expired", false, lapsedAt, [], "lapsed"],
@@ -119,7 +125,7 @@ describe("payment outcome", () => {
 });
 
 describe("fetchBookingPayment after Ozow answers", () => {
-  it("reads a booking whose payment arrived too late for a seat as under review", async () => {
+  it("reads a booking whose payment arrived too late for a seat as a late payment", async () => {
     bookingRow = {
       id: "booking-2",
       booking_status: "Pending",
@@ -130,7 +136,7 @@ describe("fetchBookingPayment after Ozow answers", () => {
       course_sessions: { courses: { id: "course-1", course_title: "Wound Care" } },
     };
     const { payment } = await fetchBookingPayment("booking-2", "student-1");
-    expect(payment?.outcome).toBe("review");
+    expect(payment?.outcome).toBe("late");
   });
 
   it("reads a booking with no attempts embedded as before", async () => {

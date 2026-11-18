@@ -1,7 +1,16 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "../supabaseClient";
 
-export type PaymentOutcome = "paid" | "review" | "awaiting" | "failed" | "lapsed" | "closed";
+export type PaymentOutcome =
+  | "paid"
+  | "late"
+  | "class_cancelled"
+  | "booking_cancelled"
+  | "investigating"
+  | "awaiting"
+  | "failed"
+  | "lapsed"
+  | "closed";
 
 export type BookingPayment = {
   bookingId: string;
@@ -27,6 +36,7 @@ const CHECKOUT_REFUSALS: [fragment: string, message: string][] = [
   ["not awaiting payment", "This booking is not awaiting payment."],
   ["belongs to another student", "This booking belongs to another account."],
   ["nothing to pay", "This booking has nothing to pay."],
+  ["under investigation", "Your earlier payment is still being checked with your bank. Please don't pay again."],
   ["not available yet", "Online payment is not available yet."],
 ];
 
@@ -49,11 +59,17 @@ export type BookingPaymentState = {
   attemptStatuses: string[];
 };
 
+const PAID_WITHOUT_SEAT: Record<string, PaymentOutcome> = {
+  "Class Cancelled": "class_cancelled",
+  Cancelled: "booking_cancelled",
+};
+
 export function paymentOutcome({ bookingStatus, holdsSeat, expiresAt, attemptStatuses }: BookingPaymentState, now = Date.now()): PaymentOutcome {
   if (bookingStatus === "Confirmed" || bookingStatus === "Completed") return "paid";
-  if (attemptStatuses.includes("paid")) return "review";
+  if (attemptStatuses.includes("investigating")) return "investigating";
+  if (attemptStatuses.includes("paid")) return PAID_WITHOUT_SEAT[bookingStatus] ?? "late";
   if (bookingStatus === "Pending") return holdsSeat ? "awaiting" : "lapsed";
-  if (bookingStatus === "Expired") return expiresAt && Date.parse(expiresAt) > now ? "failed" : "lapsed";
+  if (bookingStatus === "Expired") return expiresAt === null || Date.parse(expiresAt) > now ? "failed" : "lapsed";
   return "closed";
 }
 

@@ -18,7 +18,7 @@ function Outcome({ payment, onRefresh }: { payment: BookingPayment; onRefresh: (
           <div className="payment-actions"><Link className="sc-enrol-btn" to="/courses">My courses</Link></div>
         </>
       );
-    case "review":
+    case "late":
       return (
         <>
           <h1>Payment received</h1>
@@ -28,6 +28,43 @@ function Outcome({ payment, onRefresh }: { payment: BookingPayment; onRefresh: (
             you to place you in the class or refund you.
           </p>
           <div className="payment-actions"><Link className="sc-enrol-btn" to="/courses">My courses</Link></div>
+        </>
+      );
+    case "class_cancelled":
+      return (
+        <>
+          <h1>Payment received</h1>
+          <p>
+            Ozow confirmed your payment of R {payment.total.toLocaleString()}, but {payment.courseTitle} has been
+            cancelled. An administrator will contact you to refund you or move you to another class.
+          </p>
+          <div className="payment-actions"><Link className="sc-enrol-btn" to="/courses">My courses</Link></div>
+        </>
+      );
+    case "booking_cancelled":
+      return (
+        <>
+          <h1>Payment received</h1>
+          <p>
+            Ozow confirmed your payment of R {payment.total.toLocaleString()}, but your booking for {payment.courseTitle} was
+            cancelled. An administrator will contact you about a refund.
+          </p>
+          <div className="payment-actions"><Link className="sc-enrol-btn" to="/courses">My courses</Link></div>
+        </>
+      );
+    case "investigating":
+      return (
+        <>
+          <h1>Your bank is checking this payment</h1>
+          <p>
+            Ozow could not confirm your payment of R {payment.total.toLocaleString()} with your bank straight away, so
+            it is checking by hand. No money has been recorded yet. Your seat in {payment.courseTitle} stays held until
+            the check is finished. Please don't pay again. An administrator will contact you if anything is needed.
+          </p>
+          <div className="payment-actions">
+            <Link className="sc-enrol-btn" to="/courses">My courses</Link>
+            <button className="payment-secondary" type="button" onClick={onRefresh}>Check again</button>
+          </div>
         </>
       );
     case "awaiting":
