@@ -3,24 +3,30 @@ import { CLASS_CANCELLED, SEAT_HOLDING_OR_CLASS_CANCELLED, bookingState, fetchSe
 import { SESSION_INSTRUCTORS_EMBED, instructorNames } from "./instructors";
 import { locationLabel } from "./locations";
 import { fetchMaterialOptions, type MaterialOption } from "./materials";
+import { utcInstant } from "./time";
 
 export type CourseStatus = "passed" | "failed" | "unavailable";
 
 export type NextAction = "pay" | "book_again" | null;
 
-export type PaymentRecord = "paid" | "refunded" | "investigating" | "awaiting" | "unpaid";
+export type PaymentRecord = "paid" | "partly_refunded" | "refunded" | "investigating" | "awaiting" | "unpaid";
 
 export const PAYMENT_LABEL: Record<PaymentRecord, string> = {
   paid: "Paid",
+  partly_refunded: "Partly refunded",
   refunded: "Refunded",
   investigating: "Being checked",
   awaiting: "Awaiting Ozow confirmation",
   unpaid: "Not paid",
 };
 
-export function paymentRecord(paymentStatuses: string[], attemptStatuses: string[]): PaymentRecord {
-  if (paymentStatuses.includes("Refunded")) return "refunded";
-  if (paymentStatuses.includes("Paid") || attemptStatuses.includes("paid")) return "paid";
+export type PaymentEntry = { status: string; amount: number };
+
+export function paymentRecord(payments: PaymentEntry[], attemptStatuses: string[]): PaymentRecord {
+  const total = (status: string) => payments.reduce((sum, payment) => sum + (payment.status === status ? Math.round(payment.amount * 100) : 0), 0);
+  const refunded = total("Refunded");
+  if (refunded > 0) return refunded >= total("Paid") ? "refunded" : "partly_refunded";
+  if (payments.some((payment) => payment.status === "Paid") || attemptStatuses.includes("paid")) return "paid";
   if (attemptStatuses.includes("investigating")) return "investigating";
   if (attemptStatuses.includes("open")) return "awaiting";
   return "unpaid";
@@ -69,16 +75,14 @@ function records(value: unknown): Record<string, unknown>[] {
     .filter((record): record is Record<string, unknown> => record !== null);
 }
 
-function utcInstant(timestamp: string): number {
-  return Date.parse(/(Z|[+-]\d\d:?\d\d)$/i.test(timestamp) ? timestamp : `${timestamp}Z`);
-}
-
 function movedAfterBooking(session: Record<string, unknown>, booking: Record<string, unknown>): boolean {
   const rescheduledAt = readString(session, ["rescheduled_at"]);
   const bookedAt = readString(booking, ["created_at"]);
   if (!rescheduledAt) return false;
   return !bookedAt || utcInstant(rescheduledAt) > utcInstant(bookedAt);
 }
+
+const ENDED_BY_REFUND: ReadonlySet<BookingState> = new Set(["review", "cancelled", "expired", "failed"]);
 
 function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
   const session = asRecord(record.course_sessions);
@@ -88,18 +92,23 @@ function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
   const attemptStatuses = records(record.payment_attempts).map((attempt) => readString(attempt, ["status"]));
   const holdsSeat = record.holds_seat === true;
   const material = asRecord(record.material_types);
+  const payment = paymentRecord(
+    records(record.payments).map((entry) => ({
+      status: readString(asRecord(entry.payment_statuses) ?? {}, ["name"]),
+      amount: Number(entry.amount) || 0,
+    })),
+    attemptStatuses,
+  );
+  const state = bookingState({ bookingStatus, holdsSeat, expiresAt: holdExpiresAt, attemptStatuses });
   const shared = {
     bookingId: readString(record, ["id"]),
     bookingStatus,
-    state: bookingState({ bookingStatus, holdsSeat, expiresAt: holdExpiresAt, attemptStatuses }),
+    state: payment === "refunded" && ENDED_BY_REFUND.has(state) ? "refunded" : state,
     holdsSeat,
     bookedAt: readString(record, ["created_at"]),
     holdExpiresAt,
     material: material ? readString(material, ["name"]) || null : null,
-    payment: paymentRecord(
-      records(record.payments).map((payment) => readString(asRecord(payment.payment_statuses) ?? {}, ["name"])),
-      attemptStatuses,
-    ),
+    payment,
     status: "unavailable" as const,
     classCancelled: bookingStatus === CLASS_CANCELLED,
     price: Number(record.total_amount) || 0,
@@ -136,7 +145,7 @@ function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
   };
 }
 
-const STUDENT_BOOKING_COLUMNS = `id, booking_status, total_amount, created_at, expires_at, holds_seat, material_types ( name ), payment_attempts ( status ), payments ( payment_statuses ( name ) ), course_sessions ( id, start_date, end_date, start_time, end_time, rescheduled_at, cancellation_reason, locations ( name, address ), courses ( id, course_title, course_description ), ${SESSION_INSTRUCTORS_EMBED} )`;
+const STUDENT_BOOKING_COLUMNS = `id, booking_status, total_amount, created_at, expires_at, holds_seat, material_types ( name ), payment_attempts ( status ), payments ( amount, payment_statuses ( name ) ), course_sessions ( id, start_date, end_date, start_time, end_time, rescheduled_at, cancellation_reason, locations ( name, address ), courses ( id, course_title, course_description ), ${SESSION_INSTRUCTORS_EMBED} )`;
 
 type StudentCourseRows = { courses: StudentCourseRow[]; error: string | null };
 
@@ -166,14 +175,20 @@ export async function fetchBookingHistory(userId: string): Promise<StudentCourse
   );
 }
 
-const REBOOKABLE: BookingState[] = ["expired", "failed", "cancelled"];
-const AWAITS_STUDENT_OR_ADMIN: BookingState[] = ["held", "investigating", "review"];
+const REBOOKABLE: BookingState[] = ["expired", "failed", "cancelled", "refunded"];
+const NOTHING_HELD_FOR_STUDENT: PaymentRecord[] = ["unpaid", "refunded"];
+const SEATED_OR_AWAITING: BookingState[] = ["held", "investigating", "review", "confirmed", "completed"];
+
+function rebookable(row: StudentCourseRow): boolean {
+  if (row.state === "class_cancelled") return NOTHING_HELD_FOR_STUDENT.includes(row.payment);
+  return REBOOKABLE.includes(row.state);
+}
 
 export function nextAction(row: StudentCourseRow, history: StudentCourseRow[], bookableCourseIds: ReadonlySet<string>): NextAction {
   if (row.state === "held") return "pay";
-  if (!REBOOKABLE.includes(row.state) || !row.courseId || !bookableCourseIds.has(row.courseId)) return null;
-  const pending = history.some((other) => other.courseId === row.courseId && AWAITS_STUDENT_OR_ADMIN.includes(other.state));
-  return pending ? null : "book_again";
+  if (!rebookable(row) || !row.courseId || !bookableCourseIds.has(row.courseId)) return null;
+  const blocked = history.some((other) => other.courseId === row.courseId && SEATED_OR_AWAITING.includes(other.state));
+  return blocked ? null : "book_again";
 }
 
 export function nextBookedSession(rows: StudentCourseRow[], today: string): StudentCourseRow | null {

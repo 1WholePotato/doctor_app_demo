@@ -6,7 +6,7 @@ import { createLocation, locationLabel, type LocationRow } from "../lib/location
 
 const NEW_LOCATION = "__new__";
 
-function ModalShell({
+export function ModalShell({
   labelledBy,
   pending,
   onClose,

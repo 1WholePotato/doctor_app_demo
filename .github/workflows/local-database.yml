@@ -42,9 +42,9 @@ jobs:
           SQL
           )"
           test "$result" = 'student@example.test|Fixture Clinical Skills|100.00|FIXTURE-B01-001'
-      - name: Test booking, class instructor, class administration, material fee, seat reservation, payment attempt, payment settlement, booking history and investigated payment access constraints
+      - name: Test booking, class instructor, class administration, material fee, seat reservation, payment attempt, payment settlement, booking history, investigated payment access and booking administration constraints
         run: supabase test db
-      - name: Race bookings against class capacity changes, seat reservations, payment attempts and payment settlement
+      - name: Race bookings against class capacity changes, seat reservations, payment attempts, payment settlement and refunds
         env:
           PGHOST: 127.0.0.1
           PGPORT: '54322'
@@ -56,6 +56,7 @@ jobs:
           supabase/checks/seat_reservation_race.sh
           supabase/checks/payment_attempt_race.sh
           supabase/checks/payment_settle_race.sh
+          supabase/checks/refund_race.sh
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x

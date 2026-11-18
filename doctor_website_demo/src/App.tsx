@@ -16,6 +16,9 @@ const AdminLanding = lazy(() => import("./pages/AdminLanding"));
 const AdminCourse = lazy(() => import("./pages/AdminCourse"));
 const AdminCourseDetails = lazy(() => import("./pages/AdminCourseDetails"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers"));
+const AdminBookings = lazy(() => import("./pages/AdminBookings"));
+const AdminPrintedMaterial = lazy(() => import("./pages/AdminPrintedMaterial"));
+const AdminReviewQueue = lazy(() => import("./pages/AdminReviewQueue"));
 const AdminSettings = lazy(() => import("./pages/AdminSettings"));
 const StudentLanding = lazy(() => import("./pages/StudentLanding"));
 const StudentCourses = lazy(() => import("./pages/StudentCourses"));
@@ -68,6 +71,9 @@ function App() {
               <Route path="/admincourses" element={<AdminCourse />} />
               <Route path="/admincourses/:id" element={<AdminCourseDetails />} />
               <Route path="/admin/users" element={<AdminUsers />} />
+              <Route path="/admin/bookings" element={<AdminBookings />} />
+              <Route path="/admin/printed-material" element={<AdminPrintedMaterial />} />
+              <Route path="/admin/review" element={<AdminReviewQueue />} />
               <Route path="/settings" element={<AdminSettings />} />
               <Route path="/patients" element={<Navigate to="/admin/users" replace />} />
             </Route>

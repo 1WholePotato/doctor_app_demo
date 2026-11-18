@@ -69,7 +69,7 @@ Ozow uses `PendingInvestigation` for FNB Pay by Bank payments it could not verif
 
 A booking's seat is released by its own `expires_at` (`expire_seat_holds`) or by a failed attempt that belonged to its current hold. An open attempt that outlived its own expiry is failed, but a booking whose hold was renewed keeps it.
 
-Every transaction is logged once per status and reason in `payment_events`, unique on Ozow's transaction id, status and reason, so a repeated or parallel notification has no second effect and a change of reason alone, such as `Pending` to `PendingInvestigation`, is still recorded. The table is append-only: no API role writes it and a trigger refuses updates and deletes. Admins can read `payment_attempts` and `payment_events`. The review flags stay readable only by the service role until the admin permissions in #17 land.
+Every transaction is logged once per status and reason in `payment_events`, unique on Ozow's transaction id, status and reason, so a repeated or parallel notification has no second effect and a change of reason alone, such as `Pending` to `PendingInvestigation`, is still recorded. The table is append-only: no API role writes it and a trigger refuses updates and deletes. Admins can read `payment_attempts` and `payment_events`. Admins read and resolve review flags only through `review_flags()` and `resolve_review_flag()` (see below).
 
 The checkout keeps Ozow's payment id on an attempt even when that attempt failed while Ozow was creating the payment, so money paid on a link that was never handed out is still found.
 
@@ -82,6 +82,33 @@ Students can read the attempts on their own bookings. Only the service role writ
 ## Who reads bookings and payments
 
 Row level security limits `bookings` and `payments` for the API roles. A student reads their own bookings and the payments on them. An admin reads all of them. An instructor reads the bookings of classes they teach, through `teaches_class`, and no payments. Anon reads neither. No API role writes `payments`, so a payment the history shows as paid was recorded by `settle_payment_attempt` or the service role. Students insert and update only their own bookings and admins any booking, under the price and hold triggers. Nobody deletes a booking through the API. The full permission matrix is #17.
+
+## Refunds and the review queue
+
+Refunds are paid out by hand, by EFT or from the Ozow dashboard, and then recorded in the app on **Bookings** (`/admin/bookings`). Expand a booking and choose **Record refund**. The admin picks the payment, the amount, a reason, the bank or Ozow reference, and whether the student keeps access to course documents. There is no default for that last choice.
+
+```text
+record_refund(payment, amount, reason, reference, keeps_document_access)   admins only (42501)
+  lock the booking
+  reference already recorded (ignoring case)
+    same payment, amount, reason and decision -> return that refund, nothing new
+    anything different                        -> 23505
+  a payment on the booking under investigation -> 23514 (Ozow may still settle it; refund after Ozow decides)
+  payment not Paid -> 23514 · amount above what is left on the payment or the booking -> 23514
+  insert a Refunded payments row for the amount, next to the untouched Paid row
+  insert the refunds row (reason, reference, decision, recorded_by)
+  Pending or Confirmed booking now fully refunded -> Cancelled, seat released
+  Class Cancelled, Completed, Expired and Cancelled bookings keep their status
+  append admin_audit_log
+```
+
+Partial refunds are allowed, up to what is still refundable on that payment and on the booking. A booking reads `paid`, `partly_refunded` or `refunded` from the sum of its `Paid` and `Refunded` payments rows, in `admin_booking_overview` and in the student's history. With no money recorded, the overview reads `investigating` while Ozow checks a payment with the bank, `awaiting` while an attempt is open, and `unpaid` otherwise. In the student's history, a fully refunded booking that would otherwise read under review, cancelled, expired or failed reads **Refunded** and offers Book again. A class cancellation offers Book again once nothing is held for the student (never paid, or fully refunded), and says nothing was charged when it was never paid. No booking offers Book again while the student holds a confirmed or completed seat on that course. `refunds` and `admin_audit_log` are append-only. Students read the refunds on their own bookings. Admins read all of them.
+
+`documents_withdrawn(bookings)` is true when the latest refund on a booking withdrew access to course documents. It is a PostgREST computed field, so the PDF delivery in #32 can select it with the booking.
+
+**Review queue** (`/admin/review`) lists the flags `settle_payment_attempt` and the B03 reconciliation raise, such as `late_payment`, `duplicate_payment`, `payment_mismatch` and `payment_investigation`. Admins read them through `review_flags()` and close them through `resolve_review_flag(flag, note)`, which records who resolved it, when and why, and appends to `admin_audit_log`. Signed-in users still have no grant on `booking_review_flags` itself. A flag is unique per booking and reason, so when the same problem is raised again after it was resolved, the row reopens with the new details. A `payment_investigation` flag closes itself: `settle_payment_attempt` resolves it when Ozow confirms or fails the payment, with no `resolved_by` or note, and `resolve_review_flag` refuses it (23514) while the attempt is still investigating. The queue shows it without a resolve form. The expanded booking lists each Ozow event with its status and reason. The queue also lists paid bookings on cancelled classes that still await a refund.
+
+**Printed material** (`/admin/printed-material`) reads `printed_material_demand`: for each upcoming scheduled class, the printed bookings that are `Confirmed` or still hold a seat as `Pending`.
 
 ## Secrets
 

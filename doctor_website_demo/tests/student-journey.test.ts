@@ -52,7 +52,7 @@ describe("booking history", () => {
     expect(bookingCalls.map((call) => call.method)).toEqual(["select", "eq", "order"]);
     expect(bookingCalls[1].args).toEqual(["user_id", "student-1"]);
     expect(bookingCalls[2].args).toEqual(["created_at", { ascending: false }]);
-    expect(bookingCalls[0].args[0]).toContain("material_types ( name ), payment_attempts ( status ), payments ( payment_statuses ( name ) )");
+    expect(bookingCalls[0].args[0]).toContain("material_types ( name ), payment_attempts ( status ), payments ( amount, payment_statuses ( name ) )");
   });
 
   it("reads each booking's state, material, stored total and verified payment", async () => {
@@ -77,6 +77,25 @@ describe("booking history", () => {
         booking("bank-refused", { booking_status: "Expired", holds_seat: false, expires_at: null, payment_attempts: [{ status: "failed" }] }),
         booking("checking-class-cancelled", { booking_status: "Class Cancelled", holds_seat: false, expires_at: null, payment_attempts: [{ status: "investigating" }] }),
         booking("withdrawn", { booking_status: "Cancelled", holds_seat: false, payment_attempts: [{ status: "paid" }], payments: [{ payment_statuses: { name: "Paid" } }] }),
+        booking("refunded", {
+          booking_status: "Cancelled",
+          holds_seat: false,
+          payment_attempts: [{ status: "paid" }],
+          payments: [{ amount: "250.00", payment_statuses: { name: "Paid" } }, { amount: "250.00", payment_statuses: { name: "Refunded" } }],
+        }),
+        booking("late-part-refunded", {
+          booking_status: "Expired",
+          holds_seat: false,
+          expires_at: hold(-1),
+          payment_attempts: [{ status: "paid" }],
+          payments: [{ amount: "250.00", payment_statuses: { name: "Paid" } }, { amount: "100.00", payment_statuses: { name: "Refunded" } }],
+        }),
+        booking("class-refunded", {
+          booking_status: "Class Cancelled",
+          holds_seat: false,
+          payment_attempts: [{ status: "paid" }],
+          payments: [{ amount: "250.00", payment_statuses: { name: "Paid" } }, { amount: "250.00", payment_statuses: { name: "Refunded" } }],
+        }),
       ],
     });
 
@@ -96,6 +115,9 @@ describe("booking history", () => {
       ["bank-refused", "failed", "unpaid"],
       ["checking-class-cancelled", "investigating", "investigating"],
       ["withdrawn", "review", "paid"],
+      ["refunded", "refunded", "refunded"],
+      ["late-part-refunded", "review", "partly_refunded"],
+      ["class-refunded", "class_cancelled", "refunded"],
     ]);
     expect(courses.filter((row) => row.state === "investigating").map(({ bookingId, holdsSeat }) => [bookingId, holdsSeat])).toEqual([
       ["checking", true],
@@ -109,16 +131,18 @@ describe("booking history", () => {
 
 describe("verified payment", () => {
   it.each([
-    [["Paid"], [], "paid"],
+    [[["Paid", 250]], [], "paid"],
     [[], ["paid"], "paid"],
-    [["Paid", "Refunded"], ["paid"], "refunded"],
+    [[["Paid", 250], ["Refunded", 250]], ["paid"], "refunded"],
+    [[["Paid", 250], ["Refunded", 100], ["Refunded", 50]], ["paid"], "partly_refunded"],
+    [[["Paid", 100], ["Paid", 100], ["Refunded", 100]], ["paid"], "partly_refunded"],
     [[], ["failed", "open"], "awaiting"],
     [[], ["failed", "investigating"], "investigating"],
-    [["Paid"], ["investigating", "paid"], "paid"],
-    [["Pending", "Failed"], ["failed"], "unpaid"],
+    [[["Paid", 250]], ["investigating", "paid"], "paid"],
+    [[["Pending", 250], ["Failed", 250]], ["failed"], "unpaid"],
     [[], [], "unpaid"],
   ])("payments %j with attempts %j read as %s", (payments, attempts, record) => {
-    expect(paymentRecord(payments, attempts)).toBe(record);
+    expect(paymentRecord(payments.map(([status, amount]) => ({ status: status as string, amount: amount as number })), attempts)).toBe(record);
   });
 });
 
@@ -135,10 +159,30 @@ describe("next action", () => {
     ["failed", { booking_status: "Expired", holds_seat: false, expires_at: hold(10) }, "book_again"],
     ["cancelled", { booking_status: "Cancelled", holds_seat: false }, "book_again"],
     ["confirmed", { booking_status: "Confirmed", holds_seat: true }, null],
-    ["class cancelled", { booking_status: "Class Cancelled", holds_seat: false }, null],
+    ["class cancelled after payment", { booking_status: "Class Cancelled", holds_seat: false, payments: [{ amount: "250.00", payment_statuses: { name: "Paid" } }] }, null],
+    ["class cancelled before payment", { booking_status: "Class Cancelled", holds_seat: false }, "book_again"],
+    [
+      "class cancelled and refunded",
+      {
+        booking_status: "Class Cancelled",
+        holds_seat: false,
+        payments: [{ amount: "250.00", payment_statuses: { name: "Paid" } }, { amount: "250.00", payment_statuses: { name: "Refunded" } }],
+      },
+      "book_again",
+    ],
     ["under review", { booking_status: "Expired", holds_seat: false, expires_at: hold(-1), payment_attempts: [{ status: "paid" }] }, null],
     ["investigated", { booking_status: "Pending", holds_seat: true, expires_at: null, payment_attempts: [{ status: "investigating" }] }, null],
     ["lapsed investigated", { booking_status: "Pending", holds_seat: false, expires_at: hold(-1), payment_attempts: [{ status: "investigating" }] }, null],
+    [
+      "refunded",
+      {
+        booking_status: "Cancelled",
+        holds_seat: false,
+        payment_attempts: [{ status: "paid" }],
+        payments: [{ amount: "250.00", payment_statuses: { name: "Paid" } }, { amount: "250.00", payment_statuses: { name: "Refunded" } }],
+      },
+      "book_again",
+    ],
   ])("a %s booking offers %s while its course has a bookable class", async (_, fields, action) => {
     const rows = await history([booking("b-1", fields)]);
     expect(nextAction(rows[0], rows, bookable)).toBe(action);
@@ -149,12 +193,14 @@ describe("next action", () => {
     expect(nextAction(rows[0], rows, new Set())).toBeNull();
   });
 
-  it("still offers Book again when the student is confirmed in another class of the course", async () => {
+  it.each([["Confirmed"], ["Completed"]])("offers nothing for old bookings while the student holds a %s seat on the course", async (status) => {
     const rows = await history([
-      booking("paid", { booking_status: "Confirmed", holds_seat: true }),
-      booking("old", { booking_status: "Expired", holds_seat: false, expires_at: hold(-1) }),
+      booking("seat", { booking_status: status, holds_seat: status === "Confirmed" }),
+      booking("expired", { booking_status: "Expired", holds_seat: false, expires_at: hold(-1) }),
+      booking("cancelled", { booking_status: "Cancelled", holds_seat: false }),
+      booking("class-cancelled", { booking_status: "Class Cancelled", holds_seat: false }),
     ]);
-    expect(rows.map((row) => nextAction(row, rows, bookable))).toEqual([null, "book_again"]);
+    expect(rows.map((row) => nextAction(row, rows, bookable))).toEqual([null, null, null, null]);
   });
 
   it("offers nothing for a lapsed booking once the student holds another unpaid seat on the course", async () => {

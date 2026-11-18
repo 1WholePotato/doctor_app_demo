@@ -2,8 +2,11 @@ import type { ElementType } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   BookOpen,
+  ClipboardList,
+  Flag,
   LayoutDashboard,
   LogOut,
+  Printer,
   Settings,
   Users,
 } from "lucide-react";
@@ -83,6 +86,32 @@ export default function AdminSidebar({
           label="Users"
           active={pathname.startsWith("/admin/users")}
           onPrefetch={() => void import("../pages/AdminUsers")}
+          onClick={onCloseMobile}
+        />
+
+        <p className="nav-section-label">Payments</p>
+        <NavItem
+          to="/admin/bookings"
+          icon={ClipboardList}
+          label="Bookings"
+          active={pathname.startsWith("/admin/bookings")}
+          onPrefetch={() => void import("../pages/AdminBookings")}
+          onClick={onCloseMobile}
+        />
+        <NavItem
+          to="/admin/printed-material"
+          icon={Printer}
+          label="Printed material"
+          active={pathname.startsWith("/admin/printed-material")}
+          onPrefetch={() => void import("../pages/AdminPrintedMaterial")}
+          onClick={onCloseMobile}
+        />
+        <NavItem
+          to="/admin/review"
+          icon={Flag}
+          label="Review queue"
+          active={pathname.startsWith("/admin/review")}
+          onPrefetch={() => void import("../pages/AdminReviewQueue")}
           onClick={onCloseMobile}
         />
 
