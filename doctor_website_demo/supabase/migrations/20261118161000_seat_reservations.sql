@@ -39,6 +39,7 @@ declare
   v_status text;
   v_capacity integer;
   v_taken integer;
+  v_same_class boolean := tg_op = 'UPDATE' and old.course_session_id is not distinct from new.course_session_id;
 begin
   if new.booking_status = 'Pending' and (tg_op = 'INSERT' or old.booking_status <> 'Pending') then
     new.expires_at := now() + interval '72 hours';
@@ -47,9 +48,8 @@ begin
   if new.course_session_id is null or not public.holds_seat(new) then
     return new;
   end if;
-  if tg_op = 'UPDATE'
-     and old.course_session_id is not distinct from new.course_session_id
-     and public.holds_seat(old) then
+  if v_same_class
+     and (old.booking_status in ('Confirmed', 'Completed') or (old.booking_status = 'Pending' and old.expires_at is null)) then
     return new;
   end if;
 
@@ -58,6 +58,11 @@ begin
   where id = new.course_session_id
   for update;
   if not found then
+    return new;
+  end if;
+
+  -- now() is this transaction's start, so holds_seat(old) can still be true after a reservation took the lapsed seat.
+  if v_same_class and old.booking_status = 'Pending' and old.expires_at > clock_timestamp() then
     return new;
   end if;
 
