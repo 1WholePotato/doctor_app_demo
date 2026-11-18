@@ -3,11 +3,26 @@ import { CLASS_CANCELLED, SEAT_HOLDING_OR_CLASS_CANCELLED, bookingState, fetchSe
 import { SESSION_INSTRUCTORS_EMBED, instructorNames } from "./instructors";
 import { locationLabel } from "./locations";
 import { fetchMaterialOptions, type MaterialOption } from "./materials";
-import { paymentRecord, type PaymentRecord } from "./payments";
 
 export type CourseStatus = "passed" | "failed" | "unavailable";
 
 export type NextAction = "pay" | "book_again" | null;
+
+export type PaymentRecord = "paid" | "refunded" | "awaiting" | "unpaid";
+
+export const PAYMENT_LABEL: Record<PaymentRecord, string> = {
+  paid: "Paid",
+  refunded: "Refunded",
+  awaiting: "Awaiting Ozow confirmation",
+  unpaid: "Not paid",
+};
+
+export function paymentRecord(paymentStatuses: string[], attemptStatuses: string[]): PaymentRecord {
+  if (paymentStatuses.includes("Refunded")) return "refunded";
+  if (paymentStatuses.includes("Paid") || attemptStatuses.includes("paid")) return "paid";
+  if (attemptStatuses.includes("open")) return "awaiting";
+  return "unpaid";
+}
 
 export type StudentCourseRow = {
   bookingId: string;

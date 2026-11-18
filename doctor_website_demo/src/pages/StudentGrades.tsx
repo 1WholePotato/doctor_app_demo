@@ -4,8 +4,7 @@ import {
 } from "lucide-react";
 import { generateCertificatePdf, downloadCertificateFile } from "../lib/certificateGenerator";
 import { useAuth } from "../context/useAuth";
-import { PAYMENT_LABEL } from "../lib/payments";
-import { fetchStudentCourses, type CourseStatus, type StudentCourseRow } from "../lib/studentCourses";
+import { PAYMENT_LABEL, fetchStudentCourses, type CourseStatus, type StudentCourseRow } from "../lib/studentCourses";
 import { CourseCardSkeleton, StatCardSkeleton } from "../components/Skeleton";
 
 function StatusBadge({ status }: { status: CourseStatus }) {

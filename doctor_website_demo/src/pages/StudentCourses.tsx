@@ -4,12 +4,12 @@ import { BookOpen, CalendarDays, MapPin, Package, Search, User } from "lucide-re
 import PayButton from "../components/PayButton";
 import { useAuth } from "../context/useAuth";
 import { BOOKING_STATE_LABEL, formatHoldExpiry, type BookingState } from "../lib/bookings";
-import { PAYMENT_LABEL } from "../lib/payments";
 import {
   fetchBookingHistory,
   fetchCatalogue,
   formatSessionDate,
   nextAction,
+  PAYMENT_LABEL,
   type CatalogueCourse,
   type StudentCourseRow,
 } from "../lib/studentCourses";

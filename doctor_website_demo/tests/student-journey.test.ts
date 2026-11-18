@@ -28,8 +28,7 @@ vi.mock("../src/supabaseClient", () => ({
   },
 }));
 
-const { fetchBookingHistory, fetchCatalogue, nextAction } = await import("../src/lib/studentCourses");
-const { paymentRecord } = await import("../src/lib/payments");
+const { fetchBookingHistory, fetchCatalogue, nextAction, paymentRecord } = await import("../src/lib/studentCourses");
 
 const course = { id: "course-1", course_title: "Wound Care", course_description: "Dressings" };
 const session = { id: "class-1", start_date: "2027-03-02", end_date: "2027-03-02", start_time: "09:00:00", end_time: "12:00:00", courses: course, instructors: [] };

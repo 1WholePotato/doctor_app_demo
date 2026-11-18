@@ -74,22 +74,6 @@ export function paymentOutcome({ bookingStatus, holdsSeat, expiresAt, attemptSta
   return "closed";
 }
 
-export type PaymentRecord = "paid" | "refunded" | "awaiting" | "unpaid";
-
-export const PAYMENT_LABEL: Record<PaymentRecord, string> = {
-  paid: "Paid",
-  refunded: "Refunded",
-  awaiting: "Awaiting Ozow confirmation",
-  unpaid: "Not paid",
-};
-
-export function paymentRecord(paymentStatuses: string[], attemptStatuses: string[]): PaymentRecord {
-  if (paymentStatuses.includes("Refunded")) return "refunded";
-  if (paymentStatuses.includes("Paid") || attemptStatuses.includes("paid")) return "paid";
-  if (attemptStatuses.includes("open")) return "awaiting";
-  return "unpaid";
-}
-
 export async function fetchBookingPayment(bookingId: string, userId: string): Promise<{ payment: BookingPayment | null; error: string | null }> {
   const { data, error } = await supabase
     .from("bookings")
