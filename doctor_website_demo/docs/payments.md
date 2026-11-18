@@ -62,7 +62,7 @@ Ozow uses `PendingInvestigation` for FNB Pay by Bank payments it could not verif
 - No money is recorded and the booking is not confirmed.
 - If the seat is still held, its hold expiry is cleared (`expires_at` null, the same state as a pre-hold booking waiting for an admin). Neither time nor `expire_seat_holds` releases it, so the student is not bumped while the bank investigates. The flag's details keep the original expiry.
 - If the hold had already lapsed when the investigation was reported, the seat is not taken back. The flag records `seat_held: false`. A later `Complete` then follows the late-payment rules: a free seat, or review.
-- The student cannot start another payment for that booking (`begin_payment_attempt` refuses with 409), and the return page tells them not to pay again.
+- The student cannot start another payment for that booking (`begin_payment_attempt` refuses with 409). The return page and the booking history tell them not to pay again, and the history offers neither Pay nor Book again on that course until Ozow decides.
 - `ozow-reconcile` re-checks investigating attempts every run, whatever their age, so Ozow Support's answer lands even if no notification follows.
 
 ### Expiry
@@ -78,6 +78,10 @@ The checkout keeps Ozow's payment id on an attempt even when that attempt failed
 `payment_attempts` holds one row per Ozow payment request: `reference` (`DA` and ten hex digits, inside Ozow's 20 letters and digits), `amount`, `expires_at`, `status` (`open`, `investigating`, `paid` or `failed`), `ozow_payment_id` and `redirect_url`. A partial unique index allows one `open` attempt per booking, so retries and parallel clicks share it. If Ozow refuses the request, the attempt becomes `failed` and the next click starts a new attempt with a new reference.
 
 Students can read the attempts on their own bookings. Only the service role writes them, and only the service role can execute `begin_payment_attempt`.
+
+## Who reads bookings and payments
+
+Row level security limits `bookings` and `payments` for the API roles. A student reads their own bookings and the payments on them. An admin reads all of them. An instructor reads the bookings of classes they teach, through `teaches_class`, and no payments. Anon reads neither. No API role writes `payments`, so a payment the history shows as paid was recorded by `settle_payment_attempt` or the service role. Students insert and update only their own bookings and admins any booking, under the price and hold triggers. Nobody deletes a booking through the API. The full permission matrix is #17.
 
 ## Secrets
 

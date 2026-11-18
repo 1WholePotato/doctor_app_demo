@@ -1,15 +1,39 @@
 import { supabase } from "../supabaseClient";
-import { CLASS_CANCELLED, SEAT_HOLDING_OR_CLASS_CANCELLED, fetchSeatBookings, type SeatBooking } from "./bookings";
+import { CLASS_CANCELLED, SEAT_HOLDING_OR_CLASS_CANCELLED, bookingState, fetchSeatBookings, type BookingState, type SeatBooking } from "./bookings";
 import { SESSION_INSTRUCTORS_EMBED, instructorNames } from "./instructors";
 import { locationLabel } from "./locations";
 import { fetchMaterialOptions, type MaterialOption } from "./materials";
 
 export type CourseStatus = "passed" | "failed" | "unavailable";
 
+export type NextAction = "pay" | "book_again" | null;
+
+export type PaymentRecord = "paid" | "refunded" | "investigating" | "awaiting" | "unpaid";
+
+export const PAYMENT_LABEL: Record<PaymentRecord, string> = {
+  paid: "Paid",
+  refunded: "Refunded",
+  investigating: "Being checked",
+  awaiting: "Awaiting Ozow confirmation",
+  unpaid: "Not paid",
+};
+
+export function paymentRecord(paymentStatuses: string[], attemptStatuses: string[]): PaymentRecord {
+  if (paymentStatuses.includes("Refunded")) return "refunded";
+  if (paymentStatuses.includes("Paid") || attemptStatuses.includes("paid")) return "paid";
+  if (attemptStatuses.includes("investigating")) return "investigating";
+  if (attemptStatuses.includes("open")) return "awaiting";
+  return "unpaid";
+}
+
 export type StudentCourseRow = {
   bookingId: string;
   bookingStatus: string;
+  state: BookingState;
+  holdsSeat: boolean;
+  bookedAt: string;
   holdExpiresAt: string | null;
+  material: string | null;
   courseId: string | null;
   sessionId: string | null;
   sessionDate: string | null;
@@ -21,7 +45,7 @@ export type StudentCourseRow = {
   title: string;
   description: string;
   price: number;
-  paymentStatus: string;
+  payment: PaymentRecord;
   status: CourseStatus;
   instructor: string;
 };
@@ -39,13 +63,10 @@ function readString(record: Record<string, unknown>, keys: string[], fallback = 
   return fallback;
 }
 
-function latestPaymentStatus(payments: unknown): string {
-  const attempts = (Array.isArray(payments) ? payments : [])
+function records(value: unknown): Record<string, unknown>[] {
+  return (Array.isArray(value) ? value : [])
     .map(asRecord)
-    .filter((payment): payment is Record<string, unknown> => payment !== null)
-    .sort((a, b) => readString(b, ["created_at"]).localeCompare(readString(a, ["created_at"])));
-  const status = attempts[0] ? asRecord(attempts[0].payment_statuses) : null;
-  return status ? readString(status, ["name"], "Pending") : "Pending";
+    .filter((record): record is Record<string, unknown> => record !== null);
 }
 
 function utcInstant(timestamp: string): number {
@@ -62,13 +83,25 @@ function movedAfterBooking(session: Record<string, unknown>, booking: Record<str
 function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
   const session = asRecord(record.course_sessions);
   const course = session ? asRecord(session.courses) : null;
+  const bookingStatus = readString(record, ["booking_status"], "Pending");
+  const holdExpiresAt = readString(record, ["expires_at"]) || null;
+  const attemptStatuses = records(record.payment_attempts).map((attempt) => readString(attempt, ["status"]));
+  const holdsSeat = record.holds_seat === true;
+  const material = asRecord(record.material_types);
   const shared = {
     bookingId: readString(record, ["id"]),
-    bookingStatus: readString(record, ["booking_status"], "Pending"),
-    holdExpiresAt: readString(record, ["expires_at"]) || null,
-    paymentStatus: latestPaymentStatus(record.payments),
+    bookingStatus,
+    state: bookingState({ bookingStatus, holdsSeat, expiresAt: holdExpiresAt, attemptStatuses }),
+    holdsSeat,
+    bookedAt: readString(record, ["created_at"]),
+    holdExpiresAt,
+    material: material ? readString(material, ["name"]) || null : null,
+    payment: paymentRecord(
+      records(record.payments).map((payment) => readString(asRecord(payment.payment_statuses) ?? {}, ["name"])),
+      attemptStatuses,
+    ),
     status: "unavailable" as const,
-    classCancelled: readString(record, ["booking_status"]) === CLASS_CANCELLED,
+    classCancelled: bookingStatus === CLASS_CANCELLED,
     price: Number(record.total_amount) || 0,
   };
 
@@ -103,29 +136,44 @@ function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
   };
 }
 
-export async function fetchStudentCourses(userId: string): Promise<{
-  courses: StudentCourseRow[];
-  error: string | null;
-}> {
-  const { data, error } = await supabase
-    .from("bookings")
-    .select(
-      `id, booking_status, total_amount, created_at, expires_at, course_sessions ( id, start_date, end_date, start_time, end_time, rescheduled_at, cancellation_reason, locations ( name, address ), courses ( id, course_title, course_description ), ${SESSION_INSTRUCTORS_EMBED} ), payments ( created_at, payment_statuses ( name ) )`,
-    )
-    .eq("user_id", userId)
-    .or(SEAT_HOLDING_OR_CLASS_CANCELLED)
-    .order("created_at");
+const STUDENT_BOOKING_COLUMNS = `id, booking_status, total_amount, created_at, expires_at, holds_seat, material_types ( name ), payment_attempts ( status ), payments ( payment_statuses ( name ) ), course_sessions ( id, start_date, end_date, start_time, end_time, rescheduled_at, cancellation_reason, locations ( name, address ), courses ( id, course_title, course_description ), ${SESSION_INSTRUCTORS_EMBED} )`;
 
-  if (error) {
-    return { courses: [], error: error.message };
-  }
+type StudentCourseRows = { courses: StudentCourseRow[]; error: string | null };
 
-  const courses = (data ?? [])
-    .map(asRecord)
-    .filter((record): record is Record<string, unknown> => record !== null)
-    .map(toStudentCourseRow);
+function toStudentCourseRows({ data, error }: { data: unknown[] | null; error: { message: string } | null }): StudentCourseRows {
+  if (error) return { courses: [], error: error.message };
+  return { courses: records(data).map(toStudentCourseRow), error: null };
+}
 
-  return { courses, error: null };
+export async function fetchStudentCourses(userId: string): Promise<StudentCourseRows> {
+  return toStudentCourseRows(
+    await supabase
+      .from("bookings")
+      .select(STUDENT_BOOKING_COLUMNS)
+      .eq("user_id", userId)
+      .or(SEAT_HOLDING_OR_CLASS_CANCELLED)
+      .order("created_at"),
+  );
+}
+
+export async function fetchBookingHistory(userId: string): Promise<StudentCourseRows> {
+  return toStudentCourseRows(
+    await supabase
+      .from("bookings")
+      .select(STUDENT_BOOKING_COLUMNS)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false }),
+  );
+}
+
+const REBOOKABLE: BookingState[] = ["expired", "failed", "cancelled"];
+const AWAITS_STUDENT_OR_ADMIN: BookingState[] = ["held", "investigating", "review"];
+
+export function nextAction(row: StudentCourseRow, history: StudentCourseRow[], bookableCourseIds: ReadonlySet<string>): NextAction {
+  if (row.state === "held") return "pay";
+  if (!REBOOKABLE.includes(row.state) || !row.courseId || !bookableCourseIds.has(row.courseId)) return null;
+  const pending = history.some((other) => other.courseId === row.courseId && AWAITS_STUDENT_OR_ADMIN.includes(other.state));
+  return pending ? null : "book_again";
 }
 
 export function nextBookedSession(rows: StudentCourseRow[], today: string): StudentCourseRow | null {
@@ -261,6 +309,61 @@ export async function fetchStudentCourseDetail(courseId: string, userId: string)
     sessions,
     materials: materialResult.options,
     bookings: bookingResult.bookings,
+    error: null,
+  };
+}
+
+export type CatalogueClass = {
+  id: string;
+  schedule: string;
+  location: string;
+  instructor: string;
+  seatsLeft: number;
+};
+
+export type CatalogueCourse = {
+  id: string;
+  title: string;
+  description: string;
+  materials: MaterialOption[];
+  classes: CatalogueClass[];
+};
+
+function toCatalogueClass(session: Record<string, unknown>): CatalogueClass {
+  return {
+    id: readString(session, ["id"]),
+    schedule: formatSchedule(session) ?? "Date to be confirmed",
+    location: readLocation(session),
+    instructor: instructorNames(session.instructors, "TBD"),
+    seatsLeft: Math.max(0, (Number(session.max_students) || 0) - (Number(session.seats_taken) || 0)),
+  };
+}
+
+export async function fetchCatalogue(): Promise<{ courses: CatalogueCourse[]; error: string | null }> {
+  const { data, error } = await supabase
+    .from("courses")
+    .select(
+      `id, course_title, course_description, course_sessions ( id, start_date, end_date, start_time, end_time, max_students, seats_taken, locations ( name, address ), ${SESSION_INSTRUCTORS_EMBED} )`,
+    )
+    .eq("active", true)
+    .eq("course_sessions.bookable", true)
+    .order("course_title")
+    .order("start_date", { referencedTable: "course_sessions" });
+  if (error) return { courses: [], error: error.message };
+
+  const rows = records(data);
+  const prices = await Promise.all(rows.map((row) => fetchMaterialOptions(readString(row, ["id"]))));
+  const priceError = prices.find((result) => result.error)?.error;
+  if (priceError) return { courses: [], error: priceError };
+
+  return {
+    courses: rows.map((row, index) => ({
+      id: readString(row, ["id"]),
+      title: readString(row, ["course_title"], "Untitled course"),
+      description: readString(row, ["course_description"]),
+      materials: prices[index].options,
+      classes: records(row.course_sessions).map(toCatalogueClass),
+    })),
     error: null,
   };
 }

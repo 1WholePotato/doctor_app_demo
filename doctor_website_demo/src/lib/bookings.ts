@@ -1,7 +1,50 @@
 import { supabase } from "../supabaseClient";
+import { paymentOutcome, type BookingPaymentState, type PaymentOutcome } from "./payments";
 
 export const CLASS_CANCELLED = "Class Cancelled";
 export const SEAT_HOLDING_OR_CLASS_CANCELLED = `holds_seat.is.true,booking_status.eq.${CLASS_CANCELLED}`;
+
+export type BookingState =
+  | "held"
+  | "investigating"
+  | "confirmed"
+  | "completed"
+  | "review"
+  | "class_cancelled"
+  | "failed"
+  | "expired"
+  | "cancelled";
+
+export const BOOKING_STATE_LABEL: Record<BookingState, string> = {
+  held: "Seat held",
+  investigating: "Payment being checked",
+  confirmed: "Confirmed",
+  completed: "Completed",
+  review: "Under review",
+  class_cancelled: "Class cancelled",
+  failed: "Payment failed",
+  expired: "Expired",
+  cancelled: "Cancelled",
+};
+
+const STATE_OF_OUTCOME: Record<PaymentOutcome, BookingState> = {
+  paid: "confirmed",
+  late: "review",
+  class_cancelled: "class_cancelled",
+  booking_cancelled: "review",
+  investigating: "investigating",
+  awaiting: "held",
+  failed: "failed",
+  lapsed: "expired",
+  closed: "cancelled",
+};
+
+export function bookingState(booking: BookingPaymentState, now = Date.now()): BookingState {
+  const state = STATE_OF_OUTCOME[paymentOutcome(booking, now)];
+  if (state === "confirmed" && booking.bookingStatus === "Completed") return "completed";
+  if (state === "cancelled" && booking.bookingStatus === CLASS_CANCELLED) return "class_cancelled";
+  return state;
+}
 
 export type SeatBooking = {
   id: string;
