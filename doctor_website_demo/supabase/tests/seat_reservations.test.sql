@@ -75,7 +75,7 @@ select throws_ok(
   '23514', null, 'a class of an inactive course cannot be booked');
 select throws_ok(
   $$select public.reserve_seat('b1000000-0000-4000-8000-0000000000ff', 'b0100000-0000-4000-8000-000000000033')$$,
-  'P0002', null, 'an unknown class cannot be booked');
+  'PT404', null, 'an unknown class cannot be booked');
 select throws_ok(
   $$select public.reserve_seat('b1000000-0000-4000-8000-000000000014', null)$$,
   '23502', null, 'a reservation needs a material choice');

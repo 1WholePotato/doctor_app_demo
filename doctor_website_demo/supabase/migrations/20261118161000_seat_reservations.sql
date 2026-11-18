@@ -211,7 +211,7 @@ begin
 
   select * into v_class from public.course_sessions where id = p_course_session_id for update;
   if not found then
-    raise exception 'Class % does not exist', p_course_session_id using errcode = 'no_data_found';
+    raise exception 'Class % does not exist', p_course_session_id using errcode = 'PT404';
   end if;
 
   select * into v_booking

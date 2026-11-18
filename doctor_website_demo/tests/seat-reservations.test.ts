@@ -62,6 +62,7 @@ describe("reserveSeat", () => {
   });
 
   it.each([
+    ["Class b1000000-0000-4000-8000-0000000000ff does not exist", "This class is no longer available. Refresh the page to see the current classes."],
     ["Class b0100000-0000-4000-8000-000000000052 is full", "This class is full."],
     ["Class b0100000-0000-4000-8000-000000000052 has already started", "This class has already started."],
     ["Class b0100000-0000-4000-8000-000000000053 is cancelled", "This class was cancelled."],

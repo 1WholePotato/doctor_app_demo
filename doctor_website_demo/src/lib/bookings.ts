@@ -24,6 +24,7 @@ type BookingRow = {
 const BOOKING_COLUMNS = "id, course_session_id, booking_status, expires_at, material_type_id, total_amount";
 
 const RESERVE_REFUSALS: [fragment: string, message: string][] = [
+  ["does not exist", "This class is no longer available. Refresh the page to see the current classes."],
   ["is full", "This class is full."],
   ["has already started", "This class has already started."],
   ["is cancelled", "This class was cancelled."],
