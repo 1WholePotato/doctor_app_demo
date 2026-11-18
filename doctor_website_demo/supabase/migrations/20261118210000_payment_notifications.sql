@@ -112,7 +112,10 @@ begin
           'payment_attempt_id', v_attempt.id, 'ozow_transaction_id', v_tx->>'id', 'amount', v_attempt.amount))
         on conflict (booking_id, reason) do nothing;
       elsif v_booking.booking_status in ('Pending', 'Expired') then
-        v_outcome := case when public.holds_seat(v_booking) then 'paid' else 'late_paid' end;
+        v_outcome := case
+          when v_booking.booking_status = 'Pending' and (v_booking.expires_at is null or v_booking.expires_at > clock_timestamp()) then 'paid'
+          else 'late_paid'
+        end;
         begin
           update public.bookings set booking_status = 'Confirmed' where id = v_booking.id returning * into v_booking;
         exception when check_violation or unique_violation then
