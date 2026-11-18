@@ -79,6 +79,10 @@ The checkout keeps Ozow's payment id on an attempt even when that attempt failed
 
 Students can read the attempts on their own bookings. Only the service role writes them, and only the service role can execute `begin_payment_attempt`.
 
+## Who reads bookings and payments
+
+Row level security limits `bookings` and `payments` for the API roles. A student reads their own bookings and the payments on them. An admin reads all of them. An instructor reads the bookings of classes they teach, through `teaches_class`, and no payments. Anon reads neither. No API role writes `payments`, so a payment the history shows as paid was recorded by `settle_payment_attempt` or the service role. Students insert and update only their own bookings and admins any booking, under the price and hold triggers. Nobody deletes a booking through the API. The full permission matrix is #17.
+
 ## Secrets
 
 The functions read these from their environment. `supabase/functions/.env.example` lists them with empty values.

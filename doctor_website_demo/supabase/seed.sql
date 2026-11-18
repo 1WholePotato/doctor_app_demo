@@ -103,7 +103,6 @@ values ('b0100000-0000-4000-8000-000000000037', 'b0100000-0000-4000-8000-0000000
 -- The insert trigger always starts a fresh 72-hour hold, so lapse this one afterwards.
 update public.bookings set expires_at = now() - interval '1 day' where id = 'b0100000-0000-4000-8000-000000000072';
 
--- Ozow reported this hold's payment as failed before the hold ran out, so the seat was released early.
 insert into public.bookings (id, user_id, course_session_id, material_type_id, booking_status, created_at)
 values ('b0100000-0000-4000-8000-000000000091', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000073', 'b0100000-0000-4000-8000-000000000061', 'Expired', now() - interval '1 hour');
 update public.bookings set expires_at = now() + interval '71 hours' where id = 'b0100000-0000-4000-8000-000000000091';

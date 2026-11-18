@@ -81,7 +81,7 @@ function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
       attemptStatuses,
     ),
     status: "unavailable" as const,
-    classCancelled: readString(record, ["booking_status"]) === CLASS_CANCELLED,
+    classCancelled: bookingStatus === CLASS_CANCELLED,
     price: Number(record.total_amount) || 0,
   };
 
@@ -118,15 +118,14 @@ function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
 
 const STUDENT_BOOKING_COLUMNS = `id, booking_status, total_amount, created_at, expires_at, holds_seat, material_types ( name ), payment_attempts ( status ), payments ( payment_statuses ( name ) ), course_sessions ( id, start_date, end_date, start_time, end_time, rescheduled_at, cancellation_reason, locations ( name, address ), courses ( id, course_title, course_description ), ${SESSION_INSTRUCTORS_EMBED} )`;
 
-function toStudentCourseRows({ data, error }: { data: unknown[] | null; error: { message: string } | null }) {
+type StudentCourseRows = { courses: StudentCourseRow[]; error: string | null };
+
+function toStudentCourseRows({ data, error }: { data: unknown[] | null; error: { message: string } | null }): StudentCourseRows {
   if (error) return { courses: [], error: error.message };
   return { courses: records(data).map(toStudentCourseRow), error: null };
 }
 
-export async function fetchStudentCourses(userId: string): Promise<{
-  courses: StudentCourseRow[];
-  error: string | null;
-}> {
+export async function fetchStudentCourses(userId: string): Promise<StudentCourseRows> {
   return toStudentCourseRows(
     await supabase
       .from("bookings")
@@ -137,10 +136,7 @@ export async function fetchStudentCourses(userId: string): Promise<{
   );
 }
 
-export async function fetchBookingHistory(userId: string): Promise<{
-  courses: StudentCourseRow[];
-  error: string | null;
-}> {
+export async function fetchBookingHistory(userId: string): Promise<StudentCourseRows> {
   return toStudentCourseRows(
     await supabase
       .from("bookings")
