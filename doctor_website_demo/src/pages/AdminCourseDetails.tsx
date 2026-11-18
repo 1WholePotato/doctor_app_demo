@@ -248,7 +248,7 @@ export default function AdminCourseDetails() {
                     </td>
                     <td>
                       {row.status === "scheduled" && (
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4, whiteSpace: "nowrap" }}>
                           <button type="button" className="btn-link" onClick={() => setDialog({ kind: "reschedule", row })}>Reschedule</button>
                           <button type="button" className="btn-link" onClick={() => setDialog({ kind: "teachers", row })}>Edit teachers</button>
                           <button type="button" className="btn-link" onClick={() => setDialog({ kind: "cancel", row })}>Cancel class</button>

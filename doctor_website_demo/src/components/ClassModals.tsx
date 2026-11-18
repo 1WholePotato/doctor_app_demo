@@ -240,13 +240,10 @@ export function ClassFormModal({
     }
     setPending(true);
     setError("");
-    try {
-      const submitError = await onSubmit(schedule, instructorIds);
-      if (submitError) setError(submitError);
-      else onClose();
-    } finally {
-      setPending(false);
-    }
+    const submitError = await onSubmit(schedule, instructorIds);
+    setPending(false);
+    if (submitError) setError(submitError);
+    else onClose();
   };
 
   return (

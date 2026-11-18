@@ -169,7 +169,7 @@ export default function StudentCourses() {
                       </div>
                     )}
                     {course.classCancelled && (
-                      <p className="sc-card-desc" role="note">
+                      <p className="sc-meta" role="note" style={{ color: "#DC2626" }}>
                         This class was cancelled{course.cancellationReason ? `: ${course.cancellationReason}` : ""}. Your booking and payment are kept while a refund is arranged.
                       </p>
                     )}

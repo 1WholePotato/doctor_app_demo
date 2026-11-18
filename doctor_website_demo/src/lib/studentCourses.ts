@@ -168,8 +168,7 @@ function formatSchedule(session: Record<string, unknown>): string | null {
   const dates = endDate && endDate !== startDate
     ? `${formatSessionDate(startDate)} – ${formatSessionDate(endDate)}`
     : formatSessionDate(startDate);
-  const hours = formatSessionDuration(readString(session, ["start_time"]) || null, readString(session, ["end_time"]) || null);
-  return hours === "—" ? dates : `${dates}, ${hours}`;
+  return `${dates}, ${formatSessionDuration(readString(session, ["start_time"]) || null, readString(session, ["end_time"]) || null)}`;
 }
 
 export async function fetchStudentCourseDetail(courseId: string): Promise<{
