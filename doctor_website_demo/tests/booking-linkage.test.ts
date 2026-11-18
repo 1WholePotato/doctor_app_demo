@@ -11,7 +11,7 @@ vi.mock("../src/supabaseClient", () => ({
           return Promise.resolve(responses.get(table) ?? { data: [], error: null }).then(resolve);
         },
       } as Record<string, unknown>;
-      for (const method of ["select", "eq", "in", "gte", "order", "limit"]) {
+      for (const method of ["select", "eq", "in", "or", "gte", "order", "limit"]) {
         query[method] = (...args: unknown[]) => {
           calls.push({ table, method, args });
           return query;
@@ -73,14 +73,14 @@ describe("fetchStudentCourses", () => {
     ]);
   });
 
-  it("asks for the student's active bookings and the ones whose class was cancelled", async () => {
+  it("asks for the student's seat-holding bookings and the ones whose class was cancelled", async () => {
     await fetchStudentCourses("student-1");
 
     expect(calls).toContainEqual({ table: "bookings", method: "eq", args: ["user_id", "student-1"] });
     expect(calls).toContainEqual({
       table: "bookings",
-      method: "in",
-      args: ["booking_status", ["Pending", "Confirmed", "Completed", "Class Cancelled"]],
+      method: "or",
+      args: ["holds_seat.is.true,booking_status.eq.Class Cancelled"],
     });
   });
 
@@ -142,14 +142,14 @@ describe("fetchUpcomingSessions", () => {
             { first_name: "Thandi", last_name: "Mokoena", email: "t@example.test" },
             { first_name: "Anele", last_name: "Dube", email: "a@example.test" },
           ],
-          bookings: [{ count: 0 }],
+          seats_taken: 0,
         },
         {
           id: "session-2",
           start_date: "2026-12-02",
           courses: { id: "course-1", course_title: "Wound Care", active: true },
           instructors: [],
-          bookings: [{ count: 0 }],
+          seats_taken: 0,
         },
       ],
     });
@@ -159,7 +159,7 @@ describe("fetchUpcomingSessions", () => {
     expect(sessions.map((session) => session.instructor)).toEqual(["Anele Dube, Thandi Mokoena", "Unassigned"]);
   });
 
-  it("counts only active bookings for each class", async () => {
+  it("counts the seats each class has taken", async () => {
     responses.set("course_sessions", {
       error: null,
       data: [
@@ -168,7 +168,7 @@ describe("fetchUpcomingSessions", () => {
           start_date: "2026-12-01",
           courses: { id: "course-1", course_title: "Wound Care", active: true },
           instructors: [{ first_name: "Thandi", last_name: "Mokoena", email: "t@example.test" }],
-          bookings: [{ count: 2 }],
+          seats_taken: 2,
         },
       ],
     });
@@ -178,10 +178,6 @@ describe("fetchUpcomingSessions", () => {
     expect(sessions).toEqual([
       { id: "session-1", courseTitle: "Wound Care", displayDate: "2026-12-01", instructor: "Thandi Mokoena", bookedCount: 2 },
     ]);
-    expect(calls).toContainEqual({
-      table: "course_sessions",
-      method: "in",
-      args: ["bookings.booking_status", ["Pending", "Confirmed", "Completed"]],
-    });
+    expect(calls).toContainEqual({ table: "course_sessions", method: "select", args: [expect.stringContaining("seats_taken")] });
   });
 });

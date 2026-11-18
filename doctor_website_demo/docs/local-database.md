@@ -61,6 +61,16 @@ A booking must choose an active material type. On insert, the `price_booking` tr
 
 The `20261118142400_material_fees` migration marked free material types `electronic` and paid ones `printed`, gave every course the fee of the active printed type (or zero), and set each existing booking's `course_price` to `total_amount - material_fee`, so no booking's amounts changed.
 
+## Seat reservations
+
+Students book through `reserve_seat(class_id, material_type_id)`. It checks that the caller is an active student, locks the class row, refuses a cancelled class, a class that started before today, or a class whose course is inactive, and inserts a `Pending` booking priced by `price_booking`. A repeat call while the student holds a seat returns that booking unchanged, whatever material it names. A full class is refused by the `check_booking_seat` trigger, which every write path runs.
+
+A `Pending` booking holds its seat until `bookings.expires_at`, which the trigger sets to 72 hours after the booking becomes `Pending`. Signed-in and anonymous callers cannot change it. `holds_seat(booking)` is the one seat rule: `Confirmed` and `Completed` always hold a seat, `Pending` holds one until it expires. Capacity checks, `cancel_class`, `seats_taken(class)` and the student's booking list all use it, so a lapsed hold frees its seat at once, before any cleanup. The client reads `seats_taken` and `holds_seat` as computed fields through PostgREST.
+
+The one-active-booking index still covers every `Pending` row, so `reserve_seat` marks the student's own lapsed hold `Expired` before inserting the new one. The `expire-seat-holds` `pg_cron` job runs `expire_seat_holds()` every five minutes and marks the rest `Expired`. `Pending` bookings written before the `20261118161000_seat_reservations` migration have no `expires_at` and keep their seats until an admin confirms or cancels them.
+
+To race reservations against each other on the local stack, run `supabase/checks/seat_reservation_race.sh` with the `PG*` variables from the CI workflow.
+
 ## Database tests
 
 `supabase test db` runs the pgTAP files in `supabase/tests/` against the seeded database. To rehearse the reconciliation on legacy-shaped rows, run:
@@ -74,6 +84,7 @@ supabase migration up --local
 supabase test db supabase/checks/legacy_reconciliation.test.sql
 supabase test db supabase/checks/legacy_session_instructors.test.sql
 supabase test db supabase/checks/legacy_material_fees.test.sql
+supabase test db supabase/checks/legacy_seat_holds.test.sql
 supabase db reset --local
 ```
 

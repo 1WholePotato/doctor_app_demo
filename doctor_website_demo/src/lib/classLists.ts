@@ -1,5 +1,4 @@
 import { supabase } from "../supabaseClient";
-import { ACTIVE_BOOKING_STATUSES } from "./bookings";
 import { SESSION_INSTRUCTORS_EMBED, instructorNames } from "./instructors";
 
 export type UpcomingSession = {
@@ -40,9 +39,8 @@ export async function fetchUpcomingSessions(): Promise<FetchUpcomingSessionsResu
       start_date,
       courses ( id, course_title, active ),
       ${SESSION_INSTRUCTORS_EMBED},
-      bookings ( count )
+      seats_taken
     `)
-    .in("bookings.booking_status", [...ACTIVE_BOOKING_STATUSES])
     .eq("status", "scheduled")
     .gte("start_date", today)
     .order("start_date", { ascending: true })
@@ -68,14 +66,13 @@ export async function fetchUpcomingSessions(): Promise<FetchUpcomingSessionsResu
     if (!course) continue;
 
     const startDate = row.start_date ?? "";
-    const bookings = Array.isArray(row.bookings) ? asRecord(row.bookings[0]) : null;
 
     sessions.push({
       id: row.id,
       courseTitle: readString(course, ["course_title"], "Untitled Course"),
       displayDate: startDate || "Upcoming",
       instructor: instructorNames(row.instructors, "Unassigned"),
-      bookedCount: Number(bookings?.count) || 0,
+      bookedCount: Number(row.seats_taken) || 0,
     });
   }
 

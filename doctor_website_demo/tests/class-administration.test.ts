@@ -13,7 +13,7 @@ vi.mock("../src/supabaseClient", () => ({
           return Promise.resolve(responses.get(table) ?? { data: [], error: null }).then(resolve);
         },
       } as Record<string, unknown>;
-      for (const method of ["select", "eq", "in", "gte", "order", "limit", "insert", "single", "maybeSingle"]) {
+      for (const method of ["select", "eq", "in", "or", "gte", "order", "limit", "insert", "single", "maybeSingle"]) {
         query[method] = (...args: unknown[]) => {
           calls.push({ table, method, args });
           return query;

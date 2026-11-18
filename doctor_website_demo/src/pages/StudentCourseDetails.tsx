@@ -5,6 +5,8 @@ import {
   MapPin, User, ChevronLeft,
 } from "lucide-react";
 import { Skeleton, TableRowSkeleton } from "../components/Skeleton";
+import { useAuth } from "../context/useAuth";
+import { formatHoldExpiry, reserveSeat, type SeatBooking } from "../lib/bookings";
 import {
   fetchStudentCourseDetail,
   type StudentCourseDetail,
@@ -12,30 +14,55 @@ import {
 } from "../lib/studentCourses";
 import type { MaterialOption } from "../lib/materials";
 
+function SeatsBadge({ session }: { session: StudentSessionRow }) {
+  if (session.seatsLeft === 0) {
+    return <span className="seats-badge seats-full"><span className="seats-dot" />Full</span>;
+  }
+  const tone = session.seatsLeft <= Math.max(2, Math.ceil(session.capacity / 5)) ? "seats-low" : "seats-ok";
+  return (
+    <span className={`seats-badge ${tone}`}>
+      <span className="seats-dot" />{session.seatsLeft} of {session.capacity} seats left
+    </span>
+  );
+}
+
+function holdLabel(booking: SeatBooking): string {
+  if (booking.status !== "Pending") return "Booked";
+  return booking.expiresAt ? `Held until ${formatHoldExpiry(booking.expiresAt)}` : "Awaiting payment";
+}
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function StudentCourseDetails() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
+  const userId = user?.id;
   const routerLocation = useLocation();
   const passedCourse = (routerLocation.state as { course?: { courseId?: string; title?: string; description?: string } })?.course;
 
   const [course, setCourse] = useState<StudentCourseDetail | null>(null);
   const [sessions, setSessions] = useState<StudentSessionRow[]>([]);
   const [materials, setMaterials] = useState<MaterialOption[]>([]);
+  const [bookings, setBookings] = useState<SeatBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [reload, setReload] = useState(0);
+  const [chosenMaterialId, setChosenMaterialId] = useState("");
+  const [bookingClassId, setBookingClassId] = useState<string | null>(null);
+  const [bookError, setBookError] = useState("");
+  const [heldBooking, setHeldBooking] = useState<SeatBooking | null>(null);
+
+  const materialId = materials.some((option) => option.id === chosenMaterialId) ? chosenMaterialId : materials[0]?.id ?? "";
 
   useEffect(() => {
-    if (!id) {
+    if (!id || !userId) {
       return;
     }
 
     let cancelled = false;
 
-    async function load(resolvedId: string) {
-      setLoading(true);
-      const result = await fetchStudentCourseDetail(resolvedId);
+    async function load(resolvedId: string, resolvedUserId: string) {
+      const result = await fetchStudentCourseDetail(resolvedId, resolvedUserId);
       if (cancelled) return;
 
       if (result.error) {
@@ -43,18 +70,33 @@ export default function StudentCourseDetails() {
         setCourse(null);
         setSessions([]);
         setMaterials([]);
+        setBookings([]);
       } else {
         setLoadError("");
         setCourse(result.course);
         setSessions(result.sessions);
         setMaterials(result.materials);
+        setBookings(result.bookings);
       }
       setLoading(false);
     }
 
-    void load(id);
+    void load(id, userId);
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, userId, reload]);
+
+  const book = async (classId: string) => {
+    setBookingClassId(classId);
+    setBookError("");
+    const result = await reserveSeat(classId, materialId);
+    setBookingClassId(null);
+    if (result.booking) {
+      setHeldBooking(result.booking);
+    } else {
+      setBookError(result.error);
+    }
+    setReload((count) => count + 1);
+  };
 
   const displayCourse = course ?? (passedCourse && id ? {
     id,
@@ -133,15 +175,22 @@ export default function StudentCourseDetails() {
               <div className="s-header">
                 <p className="s-title">Course material</p>
               </div>
-              <ul className="material-card" aria-label="Course material options">
+              <div className="material-card" role="radiogroup" aria-label="Course material options">
                 {materials.map((option) => (
-                  <li key={option.id} className="material-option">
+                  <label key={option.id} className="material-option">
+                    <input
+                      type="radio"
+                      name="material"
+                      value={option.id}
+                      checked={option.id === materialId}
+                      onChange={() => setChosenMaterialId(option.id)}
+                    />
                     <span className="material-name">{option.name}</span>
                     <span className="material-fee">{option.fee === 0 ? "Free" : `+ R ${option.fee.toLocaleString()}`}</span>
                     <span className="material-total">Total R {option.total.toLocaleString()}</span>
-                  </li>
+                  </label>
                 ))}
-              </ul>
+              </div>
             </>
           )}
 
@@ -149,6 +198,13 @@ export default function StudentCourseDetails() {
           <div className="s-header">
             <p className="s-title">Available sessions</p>
           </div>
+
+          {heldBooking?.status === "Pending" && heldBooking.expiresAt && (
+            <p className="scd-notice" role="status">
+              Your seat is held until {formatHoldExpiry(heldBooking.expiresAt)}. Pay R {heldBooking.total.toLocaleString()} before then to keep it. Unpaid holds are released automatically.
+            </p>
+          )}
+          {bookError && <p className="scd-error" role="alert">{bookError}</p>}
 
           <div className="sessions-card">
             {sessions.length === 0 && !loading ? (
@@ -165,7 +221,9 @@ export default function StudentCourseDetails() {
                 </tr>
               </thead>
               <tbody>
-                {sessions.map((session) => (
+                {sessions.map((session) => {
+                    const booking = bookings.find((candidate) => candidate.classId === session.id);
+                    return (
                     <tr key={session.id}>
                       <td>
                         <div className="cell-icon"><CalendarDays />{session.date}</div>
@@ -176,22 +234,26 @@ export default function StudentCourseDetails() {
                       <td className="muted">
                         <div className="cell-icon"><User />{session.instructor}</div>
                       </td>
-                      <td className="muted" title="Bookings are not linked to a session, so remaining capacity cannot be calculated.">
-                        Unavailable
+                      <td>
+                        <SeatsBadge session={session} />
                       </td>
                       <td style={{ textAlign: "right" }}>
-                        <button
-                          className="book-btn"
-                          type="button"
-                          disabled
-                          title="Online booking pending server RLS (issue #4)"
-                          aria-label="Book now — online booking not yet available"
-                        >
-                          Book now
-                        </button>
+                        {booking ? (
+                          <span className="booked-label">{holdLabel(booking)}</span>
+                        ) : (
+                          <button
+                            className="book-btn"
+                            type="button"
+                            disabled={session.seatsLeft === 0 || !materialId || bookingClassId !== null}
+                            onClick={() => void book(session.id)}
+                          >
+                            {bookingClassId === session.id ? "Booking…" : "Book now"}
+                          </button>
+                        )}
                       </td>
                     </tr>
-                ))}
+                    );
+                })}
               </tbody>
             </table>
             )}
