@@ -198,8 +198,8 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_reason text := nullif(btrim(p_reason), '');
-  v_reference text := nullif(btrim(p_reference), '');
+  v_reason text := nullif(regexp_replace(p_reason, '^\s+|\s+$', '', 'g'), '');
+  v_reference text := nullif(regexp_replace(p_reference, '^\s+|\s+$', '', 'g'), '');
   v_payment public.payments;
   v_booking public.bookings;
   v_refund public.refunds;

@@ -2,7 +2,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(78);
+select plan(80);
 
 select ok((select relrowsecurity from pg_class where oid = 'public.refunds'::regclass), 'refunds have row level security');
 select ok((select relrowsecurity from pg_class where oid = 'public.admin_audit_log'::regclass), 'the admin audit log has row level security');
@@ -176,6 +176,13 @@ select throws_ok(
 select throws_ok(
   $$select public.record_refund('b1400000-0000-4000-8000-000000000032', 100, 'Printed books not needed', 'rf-001 ', true)$$,
   '23505', null, 'a reference is unique across payments, whatever its case');
+select is(
+  (select id from public.record_refund('b1400000-0000-4000-8000-000000000031', 100, 'Printed books not needed', E'\tRF-001\n', true)),
+  (select id from public.refunds where external_reference = 'RF-001'),
+  'a reference padded with tabs or newlines is the same reference');
+select throws_ok(
+  $$select public.record_refund('b1400000-0000-4000-8000-000000000032', 100, 'Printed books not needed', E'\trf-001\n', true)$$,
+  '23505', null, 'a reference padded with tabs or newlines cannot record a second refund');
 select throws_ok(
   $$select public.record_refund('b1400000-0000-4000-8000-000000000031', 150.01, 'Rest', 'RF-002', false)$$,
   '23514', null, 'refunding more than what is left on the payment is refused');
