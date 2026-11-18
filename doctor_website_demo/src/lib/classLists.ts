@@ -67,7 +67,6 @@ export async function fetchUpcomingSessions(): Promise<FetchUpcomingSessionsResu
     const course = asRecord(row.courses);
     if (!course) continue;
 
-
     const startDate = row.start_date ?? "";
     const bookings = Array.isArray(row.bookings) ? asRecord(row.bookings[0]) : null;
 

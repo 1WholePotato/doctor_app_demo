@@ -91,7 +91,10 @@ function EditTeachersModal({
   onClose: () => void;
   onSave: (instructorIds: string[]) => Promise<string | null>;
 }) {
-  const [instructorIds, setInstructorIds] = useState(session.instructorIds);
+  const offered = new Set(instructors.map((instructor) => instructor.id));
+  const stillAuthorized = session.instructorIds.filter((id) => offered.has(id));
+  const unauthorizedCount = session.instructorIds.length - stillAuthorized.length;
+  const [instructorIds, setInstructorIds] = useState(stillAuthorized);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -115,6 +118,11 @@ function EditTeachersModal({
         <button className="modal-close" onClick={onClose} disabled={pending} aria-label="Close"><X /></button>
         <p className="modal-eyebrow">{session.startDate}</p>
         <h2 id="teachers-modal-title">Class teachers</h2>
+        {unauthorizedCount > 0 && (
+          <p className="course-help">
+            {unauthorizedCount === 1 ? "One current teacher is" : `${unauthorizedCount} current teachers are`} no longer active or authorized for this course and will be removed when you save.
+          </p>
+        )}
         <fieldset style={{ border: "none", padding: 0, margin: "0 0 18px" }}>
           <legend className="readonly-label" style={{ marginBottom: 6 }}>Teachers</legend>
           <InstructorChecklist instructors={instructors} selected={instructorIds} onChange={(ids) => { setInstructorIds(ids); setError(""); }} />

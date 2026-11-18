@@ -2,7 +2,6 @@ import { supabase } from "../supabaseClient";
 
 export type Instructor = {
   id: string;
-  user_id?: string | null;
   first_name: string;
   last_name: string;
   email: string;
