@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { Skeleton } from "../components/Skeleton";
@@ -16,8 +16,9 @@ export default function StudentProfile() {
   const [roleName, setRoleName] = useState("Student");
   const [originalEmail, setOriginalEmail] = useState("");
   const [banner, setBanner] = useState<{ type: "err" | "ok"; text: string } | null>(() => authLinkFailed(window.location)
-    ? { type: "err", text: "This email confirmation link is invalid, has expired, or was already used. Your sign-in email has not changed. Save your new email below to get a new link." }
+    ? { type: "err", text: "This email confirmation link is invalid, has expired, or was already used. The email below is your current sign-in email. To change it, save a new email and we will send a fresh link." }
     : null);
+  const bannerRef = useRef<HTMLDivElement>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [first_name, setFirstname] = useState("");
@@ -62,6 +63,10 @@ export default function StudentProfile() {
       cancelled = true;
     };
   }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    bannerRef.current?.scrollIntoView({ block: "nearest" });
+  }, [banner, loading]);
 
   const clearErr = (key: string) =>
     setErrors((p) => {
@@ -159,7 +164,7 @@ export default function StudentProfile() {
 
           <div className="sp-card">
             {banner && (
-              <div className={`sp-banner ${banner.type}`}>{banner.text}</div>
+              <div ref={bannerRef} className={`sp-banner ${banner.type}`} role={banner.type === "err" ? "alert" : "status"}>{banner.text}</div>
             )}
 
             <form onSubmit={handleSave}>
