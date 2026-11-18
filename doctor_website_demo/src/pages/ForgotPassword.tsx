@@ -1,82 +1,86 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/useAuth";
-import { authErrorMessage } from "../lib/auth";
+import { authErrorMessage, authLinkFailed, homeForRole, recoveryStep } from "../lib/auth";
 import "../styles/auth.css";
 
 export default function ForgotPassword({ resetMode = false }: { resetMode?: boolean }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const { passwordRecovery } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const { user, loading: authLoading, passwordRecovery } = useAuth();
+  const [linkFailed] = useState(() => resetMode && authLinkFailed(window.location));
+  const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [passwordChanged, setPasswordChanged] = useState(false);
 
-  useEffect(() => {
-    if (!resetMode) return;
-    const callback = new URLSearchParams(window.location.search).get("error_description")
-      ?? new URLSearchParams(window.location.hash.slice(1)).get("error_description");
-    if (callback) setError("This reset link is invalid or expired. Request a new one.");
-  }, [resetMode]);
+  const step = recoveryStep({ resetMode, linkFailed, passwordRecovery, loading: authLoading });
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    setLoading(true);
+    setSubmitting(true);
     setError("");
     setMessage("");
     try {
-      if (resetMode) {
-        if (!passwordRecovery) {
-          setError("Open a valid password reset link before changing your password.");
-          return;
-        }
+      if (step === "choose-password") {
         if (password.length < 6) {
           setError("Password must be at least 6 characters.");
           return;
         }
         const { error: updateError } = await supabase.auth.updateUser({ password });
         if (updateError) throw updateError;
-        setMessage("Your password has been changed. You can now sign in.");
         setPassword("");
+        setPasswordChanged(true);
       } else {
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: `${window.location.origin}/reset`,
         });
         if (resetError) throw resetError;
-        setMessage("If an account exists for that email, a password reset link is on its way.");
+        setMessage("If an account exists for that email, a password reset link is on its way. Use the newest link; earlier links stop working.");
       }
     } catch (err) {
       setError(authErrorMessage(err instanceof Error ? err : {}));
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const canReset = resetMode && passwordRecovery;
+  const choosing = step === "choose-password";
+  const linkNotice = !resetMode || choosing || step === "checking-link" || message ? null : linkFailed
+    ? "This reset link is invalid, has expired, or was already used. Enter your email below and we'll send you a new one."
+    : "Open the password reset link from your email to choose a new password, or request a new link below.";
 
   return (
     <div className="fp-shell">
       <div className="fp-left">
         <div className="fp-logo"><div className="fp-logo-dot">✚</div>Dr <span>Admin</span></div>
         <div className="fp-hero">
-          <h2>{resetMode ? <>Choose a<br /><em>new password.</em></> : <>Account<br /><em>recovery.</em></>}</h2>
-          <p>{resetMode ? "Set a new password to regain access to your account." : "We'll email you a secure link to reset your password."}</p>
+          <h2>{choosing ? <>Choose a<br /><em>new password.</em></> : <>Account<br /><em>recovery.</em></>}</h2>
+          <p>{choosing ? "Set a new password to regain access to your account." : "We'll email you a secure link to reset your password."}</p>
         </div>
         <p className="fp-footer">© 2026 Dr Admin. All rights reserved.</p>
       </div>
       <div className="fp-right">
         <div className="fp-wrap">
           <p className="eyebrow">Account</p>
-          <h1>{resetMode ? "Reset password" : "Forgot password"}</h1>
-          <p className="sub">{resetMode ? "Enter a new password for your account." : "Enter the email address you use to sign in."}</p>
+          <h1>{choosing ? "Reset password" : resetMode ? "Request a new link" : "Forgot password"}</h1>
+          <p className="sub">{choosing ? "Enter a new password for your account." : "Enter the email address you use to sign in."}</p>
+          {linkNotice && <div className="lf-error" role="alert">{linkNotice}</div>}
           {message && <div className="fp-banner" role="status">{message}</div>}
           {error && <div className="lf-error" role="alert">{error}</div>}
-          {resetMode && !canReset ? (
-            <div className="fp-banner" role="status">Open the password reset link from your email to choose a new password.</div>
-          ) : !message || resetMode ? (
+          {step === "checking-link" ? (
+            <div className="fp-banner" role="status">Checking your reset link…</div>
+          ) : passwordChanged ? (
+            <div className="fp-banner" role="status">
+              Your password has been changed.{" "}
+              <Link to={user ? homeForRole(user.role_id) : "/login"} className="fp-back">
+                {user ? "Continue to your account →" : "Sign in →"}
+              </Link>
+            </div>
+          ) : choosing || !message ? (
             <form onSubmit={handleSubmit}>
-              {resetMode ? (
+              {choosing ? (
                 <div className="lf-field">
                   <label htmlFor="new-password">New password</label>
                   <input id="new-password" type="password" autoComplete="new-password" minLength={6} required value={password} onChange={(event) => setPassword(event.target.value)} />
@@ -87,8 +91,8 @@ export default function ForgotPassword({ resetMode = false }: { resetMode?: bool
                   <input id="recovery-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
                 </div>
               )}
-              <button className="lf-submit" type="submit" disabled={loading}>
-                {loading ? "Please wait…" : resetMode ? "Update password" : "Send reset link"}
+              <button className="lf-submit" type="submit" disabled={submitting}>
+                {submitting ? "Please wait…" : choosing ? "Update password" : resetMode ? "Send a new link" : "Send reset link"}
               </button>
             </form>
           ) : null}

@@ -2,10 +2,9 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { Skeleton } from "../components/Skeleton";
-import { type AppUser } from "../lib/auth";
+import { authErrorMessage, authLinkFailed, requestEmailChange, type AppUser } from "../lib/auth";
 import { useAuth } from "../context/useAuth";
 import { loadRoles, roleLabel } from "../lib/roles";
-import { authErrorMessage } from "../lib/auth";
 
 export default function StudentProfile() {
   const navigate = useNavigate();
@@ -16,7 +15,9 @@ export default function StudentProfile() {
   const [profile, setProfile] = useState<AppUser | null>(null);
   const [roleName, setRoleName] = useState("Student");
   const [originalEmail, setOriginalEmail] = useState("");
-  const [banner, setBanner] = useState<{ type: "err" | "ok"; text: string } | null>(null);
+  const [banner, setBanner] = useState<{ type: "err" | "ok"; text: string } | null>(() => authLinkFailed(window.location)
+    ? { type: "err", text: "This email confirmation link is invalid, has expired, or was already used. Your sign-in email has not changed. Save your new email below to get a new link." }
+    : null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [first_name, setFirstname] = useState("");
@@ -106,27 +107,16 @@ export default function StudentProfile() {
       if (updateError) throw updateError;
 
       if (requestedEmail !== originalEmail) {
-        const { data, error: authError } = await supabase.auth.updateUser({ email: requestedEmail });
-        if (authError) {
-          setBanner({ type: "err", text: `Profile details saved, but the email was not changed: ${authErrorMessage(authError)}` });
+        try {
+          if (await requestEmailChange(requestedEmail) === "pending") {
+            setEmail(originalEmail);
+            setBanner({ type: "ok", text: `Profile details saved. We sent a confirmation link to ${requestedEmail}. Your sign-in email stays ${originalEmail} until you open it.` });
+            return;
+          }
+        } catch (authError) {
+          setBanner({ type: "err", text: `Profile details saved, but the email was not changed: ${authErrorMessage(authError instanceof Error ? authError : {})}` });
           return;
         }
-
-        if (data.user?.email?.toLowerCase() !== requestedEmail.toLowerCase()) {
-          setBanner({ type: "ok", text: "Profile details saved. Confirm the email change using the link sent to your new address; the current email remains active until then." });
-          return;
-        }
-
-        const { error: emailError } = await supabase.from("users").update({ email: requestedEmail }).eq("id", profile.id);
-        if (emailError) {
-          const { error: rollbackError } = await supabase.auth.updateUser({ email: originalEmail });
-          setBanner({
-            type: "err",
-            text: `Profile details saved, but the email sync failed: ${authErrorMessage(emailError)}${rollbackError ? " The Auth email rollback also failed; contact support." : " The Auth email change was reverted."}`,
-          });
-          return;
-        }
-        setOriginalEmail(requestedEmail);
       }
 
       await refreshUser();

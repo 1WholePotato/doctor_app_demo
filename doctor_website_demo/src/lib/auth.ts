@@ -16,6 +16,9 @@ export function authErrorMessage(error: { message?: string; code?: string }): st
   if (message.includes("database error saving new user")) {
     return "We couldn't create your student profile. Check your details and try again.";
   }
+  if (error.code === "same_password" || message.includes("should be different from the old password")) {
+    return "Choose a password different from your current one.";
+  }
   if (message.includes("password should be at least") || message.includes("weak_password")) {
     return "Choose a stronger password that meets the password requirements.";
   }
@@ -101,16 +104,21 @@ export async function getSessionUser(): Promise<AppUser | null> {
   if (error && error.code !== "PGRST116") throw error;
 
   if (error || !data || !data.active) return null;
-
-  // Auth is canonical. In particular, an email change becomes active only after confirmation.
-  if (authUser.email && data.email !== authUser.email) {
-    const { error: syncError } = await supabase
-      .from("users")
-      .update({ email: authUser.email })
-      .eq("id", authUser.id);
-    if (!syncError) data.email = authUser.email;
-  }
   return data as AppUser;
+}
+
+export async function requestEmailChange(email: string): Promise<"pending" | "changed"> {
+  const { data, error } = await supabase.auth.updateUser(
+    { email },
+    { emailRedirectTo: `${window.location.origin}/profile` },
+  );
+  if (error) throw error;
+  return data.user.email?.toLowerCase() === email.toLowerCase() ? "changed" : "pending";
+}
+
+export function authLinkFailed({ hash, search }: Pick<Location, "hash" | "search">): boolean {
+  return [new URLSearchParams(search), new URLSearchParams(hash.replace(/^#/, ""))]
+    .some((params) => params.has("error") || params.has("error_code") || params.has("error_description"));
 }
 
 export function homeForRole(roleId: string, roleName?: string | null): string {
@@ -132,4 +140,17 @@ export function initials(user: Pick<AppUser, "first_name" | "last_name" | "email
   if (first && last) return `${first}${last}`.toUpperCase();
   if (first) return first.toUpperCase();
   return user.email.slice(0, 2).toUpperCase();
+}
+
+export type RecoveryStep = "request-link" | "checking-link" | "choose-password";
+
+export function recoveryStep({ resetMode, linkFailed, passwordRecovery, loading }: {
+  resetMode: boolean;
+  linkFailed: boolean;
+  passwordRecovery: boolean;
+  loading: boolean;
+}): RecoveryStep {
+  if (!resetMode || linkFailed) return "request-link";
+  if (passwordRecovery) return "choose-password";
+  return loading ? "checking-link" : "request-link";
 }
