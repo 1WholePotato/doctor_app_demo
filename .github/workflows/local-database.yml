@@ -4,6 +4,7 @@ on:
     paths:
       - 'doctor_website_demo/supabase/**'
       - 'doctor_website_demo/scripts/test-registration-local.mjs'
+      - 'doctor_website_demo/scripts/test-recovery-email-local.mjs'
       - '.github/workflows/local-database.yml'
 
 permissions:
@@ -55,6 +56,12 @@ jobs:
           eval "$(supabase status -o env | grep -E '^[A-Z_]+=')"
           set +a
           EXPECT_EMAIL_CONFIRMATION=false node --test scripts/test-registration-local.mjs
+      - name: Recover passwords and change emails through Auth links
+        run: |
+          set -a
+          eval "$(supabase status -o env | grep -E '^[A-Z_]+=')"
+          set +a
+          node --test scripts/test-recovery-email-local.mjs
       - name: Register students with email confirmation
         run: |
           supabase stop
