@@ -25,6 +25,7 @@ const STATE_TONE: Record<BookingState, string> = {
   failed: "status-failed",
   expired: "status-failed",
   cancelled: "status-failed",
+  refunded: "status-failed",
 };
 
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -56,6 +57,8 @@ function StateNote({ booking }: { booking: StudentCourseRow }) {
       return <p className="sc-meta" role="note">Ozow reported the payment as cancelled or failed, so the seat was released.</p>;
     case "expired":
       return <p className="sc-meta" role="note">The seat hold ended before payment, so the seat was released.</p>;
+    case "refunded":
+      return <p className="sc-meta" role="note">Your payment was refunded.</p>;
     case "review":
       return <p className="sc-meta" role="note">Ozow confirmed your payment, but we could not confirm your seat automatically. An administrator will contact you to place you in a class or refund you.</p>;
     case "class_cancelled":

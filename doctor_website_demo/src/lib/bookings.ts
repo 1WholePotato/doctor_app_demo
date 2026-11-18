@@ -13,7 +13,8 @@ export type BookingState =
   | "class_cancelled"
   | "failed"
   | "expired"
-  | "cancelled";
+  | "cancelled"
+  | "refunded";
 
 export const BOOKING_STATE_LABEL: Record<BookingState, string> = {
   held: "Seat held",
@@ -25,6 +26,7 @@ export const BOOKING_STATE_LABEL: Record<BookingState, string> = {
   failed: "Payment failed",
   expired: "Expired",
   cancelled: "Cancelled",
+  refunded: "Refunded",
 };
 
 const STATE_OF_OUTCOME: Record<PaymentOutcome, BookingState> = {

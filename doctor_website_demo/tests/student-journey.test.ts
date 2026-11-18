@@ -77,6 +77,25 @@ describe("booking history", () => {
         booking("bank-refused", { booking_status: "Expired", holds_seat: false, expires_at: null, payment_attempts: [{ status: "failed" }] }),
         booking("checking-class-cancelled", { booking_status: "Class Cancelled", holds_seat: false, expires_at: null, payment_attempts: [{ status: "investigating" }] }),
         booking("withdrawn", { booking_status: "Cancelled", holds_seat: false, payment_attempts: [{ status: "paid" }], payments: [{ payment_statuses: { name: "Paid" } }] }),
+        booking("refunded", {
+          booking_status: "Cancelled",
+          holds_seat: false,
+          payment_attempts: [{ status: "paid" }],
+          payments: [{ amount: "250.00", payment_statuses: { name: "Paid" } }, { amount: "250.00", payment_statuses: { name: "Refunded" } }],
+        }),
+        booking("late-part-refunded", {
+          booking_status: "Expired",
+          holds_seat: false,
+          expires_at: hold(-1),
+          payment_attempts: [{ status: "paid" }],
+          payments: [{ amount: "250.00", payment_statuses: { name: "Paid" } }, { amount: "100.00", payment_statuses: { name: "Refunded" } }],
+        }),
+        booking("class-refunded", {
+          booking_status: "Class Cancelled",
+          holds_seat: false,
+          payment_attempts: [{ status: "paid" }],
+          payments: [{ amount: "250.00", payment_statuses: { name: "Paid" } }, { amount: "250.00", payment_statuses: { name: "Refunded" } }],
+        }),
       ],
     });
 
@@ -96,6 +115,9 @@ describe("booking history", () => {
       ["bank-refused", "failed", "unpaid"],
       ["checking-class-cancelled", "investigating", "investigating"],
       ["withdrawn", "review", "paid"],
+      ["refunded", "refunded", "refunded"],
+      ["late-part-refunded", "review", "partly_refunded"],
+      ["class-refunded", "class_cancelled", "refunded"],
     ]);
     expect(courses.filter((row) => row.state === "investigating").map(({ bookingId, holdsSeat }) => [bookingId, holdsSeat])).toEqual([
       ["checking", true],
@@ -141,6 +163,16 @@ describe("next action", () => {
     ["under review", { booking_status: "Expired", holds_seat: false, expires_at: hold(-1), payment_attempts: [{ status: "paid" }] }, null],
     ["investigated", { booking_status: "Pending", holds_seat: true, expires_at: null, payment_attempts: [{ status: "investigating" }] }, null],
     ["lapsed investigated", { booking_status: "Pending", holds_seat: false, expires_at: hold(-1), payment_attempts: [{ status: "investigating" }] }, null],
+    [
+      "refunded",
+      {
+        booking_status: "Cancelled",
+        holds_seat: false,
+        payment_attempts: [{ status: "paid" }],
+        payments: [{ amount: "250.00", payment_statuses: { name: "Paid" } }, { amount: "250.00", payment_statuses: { name: "Refunded" } }],
+      },
+      "book_again",
+    ],
   ])("a %s booking offers %s while its course has a bookable class", async (_, fields, action) => {
     const rows = await history([booking("b-1", fields)]);
     expect(nextAction(rows[0], rows, bookable)).toBe(action);

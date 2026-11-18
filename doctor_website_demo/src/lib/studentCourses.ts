@@ -85,6 +85,8 @@ function movedAfterBooking(session: Record<string, unknown>, booking: Record<str
   return !bookedAt || utcInstant(rescheduledAt) > utcInstant(bookedAt);
 }
 
+const ENDED_BY_REFUND: ReadonlySet<BookingState> = new Set(["review", "cancelled", "expired", "failed"]);
+
 function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
   const session = asRecord(record.course_sessions);
   const course = session ? asRecord(session.courses) : null;
@@ -93,21 +95,23 @@ function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
   const attemptStatuses = records(record.payment_attempts).map((attempt) => readString(attempt, ["status"]));
   const holdsSeat = record.holds_seat === true;
   const material = asRecord(record.material_types);
+  const payment = paymentRecord(
+    records(record.payments).map((entry) => ({
+      status: readString(asRecord(entry.payment_statuses) ?? {}, ["name"]),
+      amount: Number(entry.amount) || 0,
+    })),
+    attemptStatuses,
+  );
+  const state = bookingState({ bookingStatus, holdsSeat, expiresAt: holdExpiresAt, attemptStatuses });
   const shared = {
     bookingId: readString(record, ["id"]),
     bookingStatus,
-    state: bookingState({ bookingStatus, holdsSeat, expiresAt: holdExpiresAt, attemptStatuses }),
+    state: payment === "refunded" && ENDED_BY_REFUND.has(state) ? "refunded" : state,
     holdsSeat,
     bookedAt: readString(record, ["created_at"]),
     holdExpiresAt,
     material: material ? readString(material, ["name"]) || null : null,
-    payment: paymentRecord(
-      records(record.payments).map((payment) => ({
-        status: readString(asRecord(payment.payment_statuses) ?? {}, ["name"]),
-        amount: Number(payment.amount) || 0,
-      })),
-      attemptStatuses,
-    ),
+    payment,
     status: "unavailable" as const,
     classCancelled: bookingStatus === CLASS_CANCELLED,
     price: Number(record.total_amount) || 0,
@@ -174,7 +178,7 @@ export async function fetchBookingHistory(userId: string): Promise<StudentCourse
   );
 }
 
-const REBOOKABLE: BookingState[] = ["expired", "failed", "cancelled"];
+const REBOOKABLE: BookingState[] = ["expired", "failed", "cancelled", "refunded"];
 const AWAITS_STUDENT_OR_ADMIN: BookingState[] = ["held", "investigating", "review"];
 
 export function nextAction(row: StudentCourseRow, history: StudentCourseRow[], bookableCourseIds: ReadonlySet<string>): NextAction {
