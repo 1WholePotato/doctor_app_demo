@@ -35,9 +35,24 @@ jobs:
           from public.bookings b
           join public.users u on u.id = b.user_id
           join auth.users au on au.id = u.id
-          join public.courses c on c.id = b.course_session_id
+          join public.course_sessions cs on cs.id = b.course_session_id
+          join public.courses c on c.id = cs.course_id
           join public.payments p on p.booking_id = b.id
           join public.certificates cert on cert.booking_id = b.id;
           SQL
           )"
           test "$result" = 'student@example.test|Fixture Clinical Skills|100.00|FIXTURE-B01-001'
+      - name: Test booking constraints
+        run: supabase test db
+      - name: Reconcile legacy bookings
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '54322'
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: |
+          supabase db reset --local --no-seed --version 20261117190000
+          psql -XAq -v ON_ERROR_STOP=1 -f supabase/checks/legacy_bookings.sql
+          supabase migration up --local
+          supabase test db supabase/checks/legacy_reconciliation.test.sql

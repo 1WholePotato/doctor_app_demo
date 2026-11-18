@@ -62,12 +62,12 @@ function AdminLanding() {
 
     async function load() {
       setLoading(true);
-      const [studentRoleId, result, courseRes, bookingRes] = await Promise.all([
+      const [studentRoleId, result, courseRes, paymentRes] = await Promise.all([
         resolveStudentRoleId(),
         fetchUpcomingSessions(),
         supabase.from("courses").select("id", { count: "exact", head: true }).eq("active", true),
         // RAD client query only. Report revenue only when every matching row was returned.
-        supabase.from("bookings").select("total_amount", { count: "exact" }).eq("payment_status", "paid"),
+        supabase.from("payments").select("amount, payment_statuses!inner ( name )", { count: "exact" }).eq("payment_statuses.name", "Paid"),
       ]);
       const userRes = studentRoleId
         ? await supabase.from("users").select("id", { count: "exact", head: true }).eq("role_id", studentRoleId)
@@ -79,18 +79,18 @@ function AdminLanding() {
       const errors = [
         !studentRoleId ? "Student count unavailable: student role could not be resolved." : userRes?.error?.message,
         courseRes.error?.message,
-        bookingRes.error?.message,
-        bookingRes.count != null && bookingRes.count !== (bookingRes.data?.length ?? 0)
-          ? "Revenue unavailable: the browser result omitted some paid bookings; use a server aggregate."
+        paymentRes.error?.message,
+        paymentRes.count != null && paymentRes.count !== (paymentRes.data?.length ?? 0)
+          ? "Revenue unavailable: the browser result omitted some paid payments; use a server aggregate."
           : null,
         result.error,
       ].filter((message): message is string => Boolean(message));
       setMetricErrors(errors);
       const studentCount = userRes?.error ? null : userRes?.count ?? null;
       const courseCount = courseRes.error ? null : courseRes.count ?? null;
-      const revenue = bookingRes.error || (bookingRes.count != null && bookingRes.count !== (bookingRes.data?.length ?? 0))
+      const revenue = paymentRes.error || (paymentRes.count != null && paymentRes.count !== (paymentRes.data?.length ?? 0))
         ? null
-        : (bookingRes.data ?? []).reduce((sum, booking) => sum + (Number(booking.total_amount) || 0), 0);
+        : (paymentRes.data ?? []).reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
       setStats({ studentCount, courseCount, revenue });
       setLoading(false);
     }
@@ -137,7 +137,7 @@ function AdminLanding() {
             <div className="stat-card">
               <p className="stat-label">Revenue (Gross)</p>
               <p className="stat-value">{stats.revenue == null ? "—" : `R ${stats.revenue.toLocaleString()}`}</p>
-              <p className="stat-sub"><span className="up">Paid</span> course bookings</p>
+              <p className="stat-sub"><span className="up">Paid</span> course payments</p>
             </div>
               </>
             )}
@@ -229,7 +229,7 @@ function AdminLanding() {
                         >
                           Download
                         </button>
-                        <span className="download-note">Attendee lists are unavailable until bookings identify a specific session.</span>
+                        <span className="download-note">{session.bookedCount} booked. Attendee downloads are not available yet.</span>
                       </td>
                     </tr>
                   ))

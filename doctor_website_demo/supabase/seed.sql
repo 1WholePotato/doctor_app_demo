@@ -59,18 +59,21 @@ insert into public.course_sessions (
 values ('b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000021', 'b0100000-0000-4000-8000-000000000022',
         current_date + 30, current_date + 30, '09:00', '12:00');
 
-insert into public.booking_statuses (id, name) values ('b0100000-0000-4000-8000-000000000031', 'confirmed');
-insert into public.payment_statuses (id, name) values ('b0100000-0000-4000-8000-000000000032', 'paid');
 insert into public.material_types (id, name, fee) values ('b0100000-0000-4000-8000-000000000033', 'digital', 0);
 
--- The hosted FK points to courses.id despite the booking column name.
 insert into public.bookings (
-  id, user_id, course_session_id, total_amount, payment_status, material_type_id, booking_status_id
+  id, user_id, course_session_id, total_amount, material_type_id, booking_status, created_at
 )
-values ('b0100000-0000-4000-8000-000000000034', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000023', 100.00, 'paid', 'b0100000-0000-4000-8000-000000000033', 'b0100000-0000-4000-8000-000000000031');
+values ('b0100000-0000-4000-8000-000000000037', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 100.00, 'b0100000-0000-4000-8000-000000000033', 'Cancelled', now() - interval '2 days'),
+       ('b0100000-0000-4000-8000-000000000034', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 100.00, 'b0100000-0000-4000-8000-000000000033', 'Confirmed', now());
 
 insert into public.payments (id, booking_id, amount, payment_date, payment_status_id)
-values ('b0100000-0000-4000-8000-000000000035', 'b0100000-0000-4000-8000-000000000034', 100.00, now(), 'b0100000-0000-4000-8000-000000000032');
+select fixture.id, fixture.booking_id, 100.00, fixture.paid_at, ps.id
+from (values
+  ('b0100000-0000-4000-8000-000000000038'::uuid, 'b0100000-0000-4000-8000-000000000037'::uuid, null::timestamp, 'Failed'),
+  ('b0100000-0000-4000-8000-000000000035'::uuid, 'b0100000-0000-4000-8000-000000000034'::uuid, now()::timestamp, 'Paid')
+) as fixture(id, booking_id, paid_at, status)
+join public.payment_statuses ps on ps.name = fixture.status;
 
 insert into public.certificates (id, booking_id, certificate_number, issue_date)
 values ('b0100000-0000-4000-8000-000000000036', 'b0100000-0000-4000-8000-000000000034', 'FIXTURE-B01-001', current_date);

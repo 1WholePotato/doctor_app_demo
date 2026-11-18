@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
-import { fetchStudentCourses, type StudentCourseRow } from "../lib/studentCourses";
+import {
+  fetchStudentCourses,
+  formatSessionDate,
+  nextBookedSession,
+  type StudentCourseRow,
+} from "../lib/studentCourses";
 import { BookOpen, CalendarDays, ChevronRight, Clock, Bell } from "lucide-react";
 
 export default function StudentLanding() {
@@ -34,6 +39,8 @@ export default function StudentLanding() {
     return () => { cancelled = true; };
   }, [user]);
 
+  const nextSession = nextBookedSession(courses, new Date().toISOString().slice(0, 10));
+
   return (
     <main className="sl-main">
       <div className="sl-header">
@@ -48,8 +55,17 @@ export default function StudentLanding() {
           <div className="nb-icon"><CalendarDays /></div>
           <div>
             <p className="nb-label">Session schedule</p>
-            <p className="nb-title">Personal session details unavailable</p>
-            <p className="nb-meta">Course bookings are not linked to a specific session yet, so this dashboard cannot identify your next session.</p>
+            {nextSession?.sessionDate ? (
+              <>
+                <p className="nb-title">{nextSession.title}</p>
+                <p className="nb-meta">{formatSessionDate(nextSession.sessionDate)} with {nextSession.instructor}</p>
+              </>
+            ) : (
+              <>
+                <p className="nb-title">No upcoming sessions</p>
+                <p className="nb-meta">Book a scheduled class to see your next session here.</p>
+              </>
+            )}
           </div>
         </div>
         <div className="nb-right">
@@ -74,12 +90,15 @@ export default function StudentLanding() {
         <div className="classes-row">
           {courses.slice(0, 3).map((course) => (
             <Link
-              to={`/courses/${course.courseId}`}
-              state={{ course }}
+              to={course.courseId ? `/courses/${course.courseId}` : "/courses"}
+              state={course.courseId ? { course } : undefined}
               className="class-card"
               key={course.bookingId}
             >
-              <span className="cc-date-badge"><BookOpen />Course booking</span>
+              <span className="cc-date-badge">
+                <BookOpen />
+                {course.sessionDate ? formatSessionDate(course.sessionDate) : "Course booking"}
+              </span>
               <p className="cc-title">{course.title}</p>
               <p className="cc-meta"><Clock />{course.instructor}</p>
             </Link>
