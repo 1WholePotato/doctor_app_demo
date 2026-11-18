@@ -175,6 +175,76 @@ revoke execute on function public.forbid_payment_event_change() from public, ano
 revoke execute on function public.settle_payment_attempt(text, jsonb) from public, anon, authenticated;
 grant execute on function public.settle_payment_attempt(text, jsonb) to service_role;
 
+create or replace function public.begin_payment_attempt(p_booking_id uuid, p_student_id uuid)
+returns public.payment_attempts
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_booking public.bookings;
+  v_attempt public.payment_attempts;
+begin
+  select * into v_booking from public.bookings where id = p_booking_id for update;
+  if not found then
+    raise exception 'Booking % does not exist', p_booking_id using errcode = 'no_data_found';
+  end if;
+  if v_booking.user_id <> p_student_id then
+    raise exception 'Booking % belongs to another student', p_booking_id using errcode = 'insufficient_privilege';
+  end if;
+  if v_booking.booking_status <> 'Pending' then
+    raise exception 'Booking % is not awaiting payment', p_booking_id using errcode = 'check_violation';
+  end if;
+  if v_booking.expires_at is null or v_booking.expires_at <= now() then
+    raise exception 'The seat hold on booking % has expired', p_booking_id using errcode = 'check_violation';
+  end if;
+  if v_booking.total_amount <= 0 then
+    raise exception 'Booking % has nothing to pay', p_booking_id using errcode = 'check_violation';
+  end if;
+
+  select * into v_attempt from public.payment_attempts where booking_id = p_booking_id and status = 'open';
+  if found then
+    if v_attempt.expires_at = v_booking.expires_at
+       and v_attempt.expires_at > clock_timestamp()
+       and v_attempt.amount = v_booking.total_amount then
+      return v_attempt;
+    end if;
+    update public.payment_attempts set status = 'failed' where id = v_attempt.id;
+  end if;
+
+  insert into public.payment_attempts (booking_id, amount, expires_at)
+  values (p_booking_id, v_booking.total_amount, v_booking.expires_at)
+  returning * into v_attempt;
+  return v_attempt;
+end;
+$$;
+
+create function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.users u
+    join public.roles r on r.id = u.role_id
+    where u.id = auth.uid() and u.active and r.name = 'admin');
+$$;
+
+revoke execute on function public.is_admin() from public, anon;
+grant execute on function public.is_admin() to authenticated;
+
+create policy payment_attempts_select_admin on public.payment_attempts
+  for select to authenticated
+  using ((select public.is_admin()));
+
+grant select on table public.payment_events to authenticated;
+create policy payment_events_select_admin on public.payment_events
+  for select to authenticated
+  using ((select public.is_admin()));
+
 create extension if not exists pg_net with schema extensions;
 
 create function public.request_payment_reconciliation()

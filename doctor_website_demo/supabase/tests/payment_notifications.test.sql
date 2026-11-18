@@ -2,7 +2,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(55);
+select plan(64);
 
 create function pg_temp.tx(p_id text, p_reference text, p_value jsonb, p_status text, p_currency text default 'ZAR')
 returns jsonb
@@ -78,7 +78,7 @@ set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"b0100000-0000-4000-8000-000000000012","role":"authenticated"}', true);
 select throws_ok($$select public.settle_payment_attempt('pay-a', '[]')$$, '42501', null,
   'a student cannot settle a payment');
-select throws_ok($$select * from public.payment_events$$, '42501', null, 'a student cannot read payment events');
+select is((select count(*)::int from public.payment_events), 0, 'a student reads no payment events');
 reset role;
 set local role anon;
 select throws_ok($$select public.settle_payment_attempt('pay-a', '[]')$$, '42501', null, 'anon cannot settle a payment');
@@ -234,6 +234,52 @@ select throws_ok($$update public.payment_events set outcome = 'noted' where ozow
   'payment events cannot be changed');
 select throws_ok($$delete from public.payment_events where ozow_transaction_id = 'tx-a1'$$, '42501', null,
   'payment events cannot be deleted');
+
+insert into public.course_sessions (id, course_id, location_id, start_date, end_date, start_time, end_time, max_students)
+values ('b1200000-0000-4000-8000-000000000005', 'b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000022',
+        current_date + 84, current_date + 84, '09:00', '12:00', 10);
+insert into public.bookings (id, user_id, course_session_id, material_type_id, booking_status)
+values ('b1200000-0000-4000-8000-0000000000a5', 'b0100000-0000-4000-8000-000000000012', 'b1200000-0000-4000-8000-000000000005',
+        'b0100000-0000-4000-8000-000000000033', 'Pending');
+create temporary table begun (label text primary key, attempt public.payment_attempts) on commit drop;
+grant all on begun to service_role;
+
+set local role service_role;
+insert into begun select 'first', public.begin_payment_attempt('b1200000-0000-4000-8000-0000000000a5', 'b0100000-0000-4000-8000-000000000012');
+insert into begun select 'again', public.begin_payment_attempt('b1200000-0000-4000-8000-0000000000a5', 'b0100000-0000-4000-8000-000000000012');
+select is((select (attempt).id from begun where label = 'again'), (select (attempt).id from begun where label = 'first'),
+  'an open attempt that matches the hold is reused');
+reset role;
+update public.bookings set expires_at = now() + interval '48 hours' where id = 'b1200000-0000-4000-8000-0000000000a5';
+set local role service_role;
+insert into begun select 'renewed', public.begin_payment_attempt('b1200000-0000-4000-8000-0000000000a5', 'b0100000-0000-4000-8000-000000000012');
+select isnt((select (attempt).id from begun where label = 'renewed'), (select (attempt).id from begun where label = 'first'),
+  'a renewed hold gets a new attempt');
+select results_eq(
+  $$select status, expires_at = (select expires_at from public.bookings where id = 'b1200000-0000-4000-8000-0000000000a5')
+    from public.payment_attempts where booking_id = 'b1200000-0000-4000-8000-0000000000a5' order by created_at, status$$,
+  $$values ('failed', false), ('open', true)$$,
+  'the stale attempt is failed and the new one carries the current hold expiry');
+reset role;
+update public.payment_attempts set amount = 1 where booking_id = 'b1200000-0000-4000-8000-0000000000a5' and status = 'open';
+set local role service_role;
+insert into begun select 'repriced', public.begin_payment_attempt('b1200000-0000-4000-8000-0000000000a5', 'b0100000-0000-4000-8000-000000000012');
+select is((select (attempt).amount from begun where label = 'repriced'), 100.00::numeric(10,2),
+  'an open attempt for another amount is replaced by one for the stored total');
+select is((select count(*)::int from public.payment_attempts where booking_id = 'b1200000-0000-4000-8000-0000000000a5' and status = 'open'), 1,
+  'still one open attempt');
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"b0100000-0000-4000-8000-000000000011","role":"authenticated"}', true);
+select ok((select count(*) from public.payment_attempts where booking_id in (
+    'b1200000-0000-4000-8000-0000000000a1', 'b1200000-0000-4000-8000-0000000000b1')) = 3,
+  'an admin reads every student''s payment attempts');
+select ok((select count(*) from public.payment_events) > 0, 'an admin reads payment events');
+select throws_ok($$update public.payment_attempts set status = 'paid'$$, '42501', null, 'an admin cannot change payment attempts');
+select throws_ok($$insert into public.payment_events (payment_attempt_id, ozow_transaction_id, ozow_status, outcome, transaction)
+  values ('b1200000-0000-4000-8000-0000000001b1', 'tx-admin', 'Successful', 'paid', '{}')$$, '42501', null, 'an admin cannot write payment events');
+reset role;
 
 select is(public.request_payment_reconciliation(), null, 'reconciliation does nothing until its Vault secrets exist');
 select is((select schedule from cron.job where jobname = 'reconcile-ozow-payments'), '*/10 * * * *',
