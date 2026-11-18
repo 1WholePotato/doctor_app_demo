@@ -95,17 +95,26 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  if current_user in ('anon', 'authenticated')
-     and (new.material_type_id, new.course_price, new.material_fee, new.total_amount)
+  if current_user not in ('anon', 'authenticated') then
+    return new;
+  end if;
+  if (new.material_type_id, new.course_price, new.material_fee, new.total_amount)
        is distinct from (old.material_type_id, old.course_price, old.material_fee, old.total_amount) then
     raise exception 'Booking prices are fixed when the booking is made' using errcode = 'insufficient_privilege';
+  end if;
+  if new.course_session_id is distinct from old.course_session_id
+     and (old.course_session_id is null
+          or (select course_id from public.course_sessions where id = new.course_session_id)
+             is distinct from (select course_id from public.course_sessions where id = old.course_session_id)) then
+    raise exception 'A booking can only move to another class of the course it was priced for'
+      using errcode = 'insufficient_privilege';
   end if;
   return new;
 end;
 $$;
 
 create trigger guard_booking_price
-  before update of material_type_id, course_price, material_fee, total_amount on public.bookings
+  before update of course_session_id, material_type_id, course_price, material_fee, total_amount on public.bookings
   for each row execute function public.guard_booking_price();
 
 revoke execute on function public.course_material_prices(uuid) from public, anon;
