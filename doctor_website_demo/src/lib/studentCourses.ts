@@ -1,6 +1,7 @@
 import { supabase } from "../supabaseClient";
-import { ACTIVE_BOOKING_STATUSES } from "./bookings";
+import { ACTIVE_BOOKING_STATUSES, CLASS_CANCELLED } from "./bookings";
 import { SESSION_INSTRUCTORS_EMBED, instructorNames } from "./instructors";
+import { locationLabel } from "./locations";
 
 export type CourseStatus = "passed" | "failed" | "unavailable";
 
@@ -10,6 +11,11 @@ export type StudentCourseRow = {
   courseId: string | null;
   sessionId: string | null;
   sessionDate: string | null;
+  schedule: string | null;
+  location: string | null;
+  rescheduled: boolean;
+  classCancelled: boolean;
+  cancellationReason: string | null;
   title: string;
   description: string;
   price: number;
@@ -48,6 +54,7 @@ function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
     bookingStatus: readString(record, ["booking_status"], "Pending"),
     paymentStatus: latestPaymentStatus(record.payments),
     status: "unavailable" as const,
+    classCancelled: readString(record, ["booking_status"]) === CLASS_CANCELLED,
   };
 
   if (!session || !course) {
@@ -56,6 +63,10 @@ function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
       courseId: null,
       sessionId: null,
       sessionDate: null,
+      schedule: null,
+      location: null,
+      rescheduled: false,
+      cancellationReason: null,
       title: "Class to be confirmed",
       description: "This booking is being reviewed so it can be linked to a scheduled class.",
       price: Number(record.total_amount) || 0,
@@ -68,6 +79,10 @@ function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
     courseId: readString(course, ["id"]),
     sessionId: readString(session, ["id"]),
     sessionDate: readString(session, ["start_date"]) || null,
+    schedule: formatSchedule(session),
+    location: readLocation(session),
+    rescheduled: Boolean(readString(session, ["rescheduled_at"])),
+    cancellationReason: readString(session, ["cancellation_reason"]) || null,
     title: readString(course, ["course_title"], "Untitled course"),
     description: readString(course, ["course_description"]),
     price: Number(course.course_price) || 0,
@@ -82,10 +97,10 @@ export async function fetchStudentCourses(userId: string): Promise<{
   const { data, error } = await supabase
     .from("bookings")
     .select(
-      `id, booking_status, total_amount, course_sessions ( id, start_date, courses ( id, course_title, course_description, course_price ), ${SESSION_INSTRUCTORS_EMBED} ), payments ( created_at, payment_statuses ( name ) )`,
+      `id, booking_status, total_amount, course_sessions ( id, start_date, end_date, start_time, end_time, rescheduled_at, cancellation_reason, locations ( name, address ), courses ( id, course_title, course_description, course_price ), ${SESSION_INSTRUCTORS_EMBED} ), payments ( created_at, payment_statuses ( name ) )`,
     )
     .eq("user_id", userId)
-    .in("booking_status", [...ACTIVE_BOOKING_STATUSES])
+    .in("booking_status", [...ACTIVE_BOOKING_STATUSES, CLASS_CANCELLED])
     .order("created_at");
 
   if (error) {
@@ -102,7 +117,7 @@ export async function fetchStudentCourses(userId: string): Promise<{
 
 export function nextBookedSession(rows: StudentCourseRow[], today: string): StudentCourseRow | null {
   const upcoming = rows
-    .filter((row) => row.sessionDate !== null && row.sessionDate >= today && row.bookingStatus !== "Completed")
+    .filter((row) => row.sessionDate !== null && row.sessionDate >= today && !row.classCancelled && row.bookingStatus !== "Completed")
     .sort((a, b) => (a.sessionDate ?? "").localeCompare(b.sessionDate ?? ""));
   return upcoming[0] ?? null;
 }
@@ -143,9 +158,18 @@ function formatSessionDuration(startTime: string | null, endTime: string | null)
 function readLocation(record: Record<string, unknown>): string {
   const location = asRecord(record.locations);
   if (!location) return "Location TBD";
-  const name = readString(location, ["name"], "Location TBD");
-  const address = readString(location, ["address"]);
-  return address ? `${name}, ${address}` : name;
+  return locationLabel({ name: readString(location, ["name"], "Location TBD"), address: readString(location, ["address"]) || null });
+}
+
+function formatSchedule(session: Record<string, unknown>): string | null {
+  const startDate = readString(session, ["start_date"]);
+  if (!startDate) return null;
+  const endDate = readString(session, ["end_date"]);
+  const dates = endDate && endDate !== startDate
+    ? `${formatSessionDate(startDate)} – ${formatSessionDate(endDate)}`
+    : formatSessionDate(startDate);
+  const hours = formatSessionDuration(readString(session, ["start_time"]) || null, readString(session, ["end_time"]) || null);
+  return hours === "—" ? dates : `${dates}, ${hours}`;
 }
 
 export async function fetchStudentCourseDetail(courseId: string): Promise<{
@@ -169,10 +193,10 @@ export async function fetchStudentCourseDetail(courseId: string): Promise<{
   const { data: sessionRows, error: sessionsError } = await supabase
     .from("course_sessions")
     .select(
-      `id, start_date, start_time, end_time, active, ${SESSION_INSTRUCTORS_EMBED}, locations ( name, address )`,
+      `id, start_date, start_time, end_time, ${SESSION_INSTRUCTORS_EMBED}, locations ( name, address )`,
     )
     .eq("course_id", courseId)
-    .eq("active", true)
+    .eq("status", "scheduled")
     .gte("start_date", new Date().toISOString().slice(0, 10))
     .order("start_date");
 

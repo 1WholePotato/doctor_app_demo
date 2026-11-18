@@ -43,7 +43,7 @@ export async function fetchUpcomingSessions(): Promise<FetchUpcomingSessionsResu
       bookings ( count )
     `)
     .in("bookings.booking_status", [...ACTIVE_BOOKING_STATUSES])
-    .eq("active", true)
+    .eq("status", "scheduled")
     .gte("start_date", today)
     .order("start_date", { ascending: true })
     .limit(50);

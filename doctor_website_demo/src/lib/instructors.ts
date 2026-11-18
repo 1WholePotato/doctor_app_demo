@@ -1,5 +1,3 @@
-import { supabase } from "../supabaseClient";
-
 export type Instructor = {
   id: string;
   first_name: string;
@@ -29,18 +27,4 @@ export function instructorNames(embedded: unknown, fallback: string): string {
     .map(instructorName)
     .sort((a, b) => a.localeCompare(b));
   return names.length > 0 ? names.join(", ") : fallback;
-}
-
-export async function fetchInstructors(): Promise<{ instructors: Instructor[]; error: string | null }> {
-  const { data, error } = await supabase
-    .from("instructors")
-    .select("id, first_name, last_name, email")
-    .eq("active", true)
-    .order("last_name");
-
-  if (error) {
-    return { instructors: [], error: error.message };
-  }
-
-  return { instructors: (data ?? []) as Instructor[], error: null };
 }
