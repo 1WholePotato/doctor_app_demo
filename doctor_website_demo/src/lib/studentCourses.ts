@@ -3,6 +3,7 @@ import { CLASS_CANCELLED, SEAT_HOLDING_OR_CLASS_CANCELLED, bookingState, fetchSe
 import { SESSION_INSTRUCTORS_EMBED, instructorNames } from "./instructors";
 import { locationLabel } from "./locations";
 import { fetchMaterialOptions, type MaterialOption } from "./materials";
+import { utcInstant } from "./time";
 
 export type CourseStatus = "passed" | "failed" | "unavailable";
 
@@ -72,10 +73,6 @@ function records(value: unknown): Record<string, unknown>[] {
   return (Array.isArray(value) ? value : [])
     .map(asRecord)
     .filter((record): record is Record<string, unknown> => record !== null);
-}
-
-function utcInstant(timestamp: string): number {
-  return Date.parse(/(Z|[+-]\d\d:?\d\d)$/i.test(timestamp) ? timestamp : `${timestamp}Z`);
 }
 
 function movedAfterBooking(session: Record<string, unknown>, booking: Record<string, unknown>): boolean {

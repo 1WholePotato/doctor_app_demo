@@ -1,4 +1,5 @@
 import { supabase } from "../supabaseClient";
+import { utcInstant } from "./time";
 
 export type PaymentState = "refunded" | "partly_refunded" | "paid" | "investigating" | "awaiting" | "unpaid";
 
@@ -419,9 +420,10 @@ export function formatRand(amount: number): string {
 }
 
 export function formatDate(value: string): string {
-  return new Date(value.length === 10 ? `${value}T00:00:00` : value).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
+  const date = value.length === 10 ? new Date(`${value}T00:00:00`) : new Date(utcInstant(value));
+  return date.toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
 }
 
 export function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString("en-ZA", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return new Date(utcInstant(value)).toLocaleString("en-ZA", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
