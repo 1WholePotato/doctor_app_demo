@@ -42,9 +42,9 @@ jobs:
           SQL
           )"
           test "$result" = 'student@example.test|Fixture Clinical Skills|100.00|FIXTURE-B01-001'
-      - name: Test booking, class instructor, class administration, material fee, seat reservation and payment attempt constraints
+      - name: Test booking, class instructor, class administration, material fee, seat reservation, payment attempt and payment settlement constraints
         run: supabase test db
-      - name: Race bookings against class capacity changes, seat reservations and payment attempts
+      - name: Race bookings against class capacity changes, seat reservations, payment attempts and payment settlement
         env:
           PGHOST: 127.0.0.1
           PGPORT: '54322'
@@ -55,10 +55,11 @@ jobs:
           supabase/checks/class_capacity_race.sh
           supabase/checks/seat_reservation_race.sh
           supabase/checks/payment_attempt_race.sh
+          supabase/checks/payment_settle_race.sh
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Start Ozow payments through the checkout function against the mock
+      - name: Start, confirm and reconcile Ozow payments through the Edge Functions against the mock
         run: |
           supabase functions serve --env-file supabase/functions/tests/ozow-mock.env > "$RUNNER_TEMP/functions.log" 2>&1 &
           for _ in $(seq 1 60); do grep -q 'Serving functions' "$RUNNER_TEMP/functions.log" && break; sleep 2; done

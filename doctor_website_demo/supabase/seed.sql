@@ -108,14 +108,22 @@ insert into public.payment_attempts (id, booking_id, reference, amount, expires_
 select 'b0100000-0000-4000-8000-000000000081', id, 'DAFIXTURE01', total_amount, expires_at, 'failed'
 from public.bookings where id = 'b0100000-0000-4000-8000-000000000071';
 
-insert into public.payments (id, booking_id, amount, payment_date, payment_status_id)
-select fixture.id, fixture.booking_id, 100.00, fixture.paid_at, ps.id
+insert into public.payments (id, booking_id, ozow_transaction_id, amount, payment_date, payment_status_id)
+select fixture.id, fixture.booking_id, fixture.transaction_id, 100.00, fixture.paid_at, ps.id
 from (values
-  ('b0100000-0000-4000-8000-000000000038'::uuid, 'b0100000-0000-4000-8000-000000000037'::uuid, null::timestamp, 'Failed'),
-  ('b0100000-0000-4000-8000-000000000035'::uuid, 'b0100000-0000-4000-8000-000000000034'::uuid, now()::timestamp, 'Paid'),
-  ('b0100000-0000-4000-8000-000000000055'::uuid, 'b0100000-0000-4000-8000-000000000054'::uuid, now()::timestamp, 'Paid')
-) as fixture(id, booking_id, paid_at, status)
+  ('b0100000-0000-4000-8000-000000000038'::uuid, 'b0100000-0000-4000-8000-000000000037'::uuid, null, null::timestamp, 'Failed'),
+  ('b0100000-0000-4000-8000-000000000035'::uuid, 'b0100000-0000-4000-8000-000000000034'::uuid, 'b0100000-0000-4000-8000-000000000084', now()::timestamp, 'Paid'),
+  ('b0100000-0000-4000-8000-000000000055'::uuid, 'b0100000-0000-4000-8000-000000000054'::uuid, null, now()::timestamp, 'Paid')
+) as fixture(id, booking_id, transaction_id, paid_at, status)
 join public.payment_statuses ps on ps.name = fixture.status;
+
+insert into public.payment_attempts (id, booking_id, reference, amount, expires_at, status, ozow_payment_id, redirect_url)
+values ('b0100000-0000-4000-8000-000000000082', 'b0100000-0000-4000-8000-000000000034', 'DAFIXTURE02', 100.00, now() + interval '72 hours',
+        'paid', 'b0100000-0000-4000-8000-000000000083', 'https://pay.example.test/b0100000-0000-4000-8000-000000000083/secure');
+
+insert into public.payment_events (payment_attempt_id, ozow_transaction_id, ozow_status, ozow_reason, outcome, transaction)
+values ('b0100000-0000-4000-8000-000000000082', 'b0100000-0000-4000-8000-000000000084', 'Successful', 'Complete', 'paid',
+        '{"id": "b0100000-0000-4000-8000-000000000084", "merchantReference": "DAFIXTURE02", "siteCode": "MCK-MCK-001", "institution": "Fixture Bank", "amount": {"currency": "ZAR", "value": 100}, "status": "Successful", "reason": "Complete"}');
 
 insert into public.course_session_changes (course_session_id, change, previous, current, changed_by)
 values ('b0100000-0000-4000-8000-000000000053', 'cancelled',
