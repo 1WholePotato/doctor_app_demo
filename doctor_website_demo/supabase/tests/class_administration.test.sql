@@ -38,17 +38,17 @@ values ('b0700000-0000-4000-8000-000000000001', '4fd9e72e-f94b-4222-b5c1-95b4470
        ('b0700000-0000-4000-8000-000000000002', '4fd9e72e-f94b-4222-b5c1-95b447088d4d', 'Capacity', 'Two', '1990-01-01', 'B07-2', '0000000702', 'b07-student-2@example.test', 'B07-2');
 
 select lives_ok(
-  $$insert into public.bookings (user_id, course_session_id, total_amount, booking_status)
-    values ('b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000052', 100, 'Confirmed'),
-           ('b0700000-0000-4000-8000-000000000001', 'b0100000-0000-4000-8000-000000000052', 100, 'Pending')$$,
+  $$insert into public.bookings (user_id, course_session_id, material_type_id, booking_status)
+    values ('b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000052', 'b0100000-0000-4000-8000-000000000033', 'Confirmed'),
+           ('b0700000-0000-4000-8000-000000000001', 'b0100000-0000-4000-8000-000000000052', 'b0100000-0000-4000-8000-000000000033', 'Pending')$$,
   'a class takes bookings up to its capacity');
 select throws_ok(
-  $$insert into public.bookings (user_id, course_session_id, total_amount, booking_status)
-    values ('b0700000-0000-4000-8000-000000000002', 'b0100000-0000-4000-8000-000000000052', 100, 'Pending')$$,
+  $$insert into public.bookings (user_id, course_session_id, material_type_id, booking_status)
+    values ('b0700000-0000-4000-8000-000000000002', 'b0100000-0000-4000-8000-000000000052', 'b0100000-0000-4000-8000-000000000033', 'Pending')$$,
   '23514', null, 'a booking past capacity is rejected');
 select lives_ok(
-  $$insert into public.bookings (user_id, course_session_id, total_amount, booking_status)
-    values ('b0700000-0000-4000-8000-000000000002', 'b0100000-0000-4000-8000-000000000052', 100, 'Cancelled')$$,
+  $$insert into public.bookings (user_id, course_session_id, material_type_id, booking_status)
+    values ('b0700000-0000-4000-8000-000000000002', 'b0100000-0000-4000-8000-000000000052', 'b0100000-0000-4000-8000-000000000033', 'Cancelled')$$,
   'a cancelled attempt does not take a seat');
 select throws_ok(
   $$update public.bookings set booking_status = 'Pending'
@@ -196,8 +196,8 @@ select throws_ok(
   $$update public.course_sessions set status = 'scheduled', cancelled_at = null where id = 'b0100000-0000-4000-8000-000000000052'$$,
   '23514', null, 'a cancelled class stays cancelled, even by direct update');
 select throws_ok(
-  $$insert into public.bookings (user_id, course_session_id, total_amount, booking_status)
-    values ('b0700000-0000-4000-8000-000000000001', 'b0100000-0000-4000-8000-000000000053', 100, 'Pending')$$,
+  $$insert into public.bookings (user_id, course_session_id, material_type_id, booking_status)
+    values ('b0700000-0000-4000-8000-000000000001', 'b0100000-0000-4000-8000-000000000053', 'b0100000-0000-4000-8000-000000000033', 'Pending')$$,
   '23514', null, 'a cancelled class takes no new bookings');
 select throws_ok(
   $$insert into public.session_instructors (course_session_id, instructor_id)

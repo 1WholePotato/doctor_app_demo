@@ -9,28 +9,28 @@ select hasnt_column('public', 'bookings', 'payment_status', 'payment state lives
 select hasnt_column('public', 'bookings', 'booking_status_id', 'booking state lives only in bookings.booking_status');
 
 select throws_ok(
-  $$insert into public.bookings (user_id, course_session_id, total_amount, booking_status)
-    values ('b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000023', 100, 'Pending')$$,
+  $$insert into public.bookings (user_id, course_session_id, material_type_id, booking_status)
+    values ('b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000033', 'Pending')$$,
   '23503', null, 'a course id is not a valid session reference');
 
 select throws_ok(
-  $$insert into public.bookings (user_id, course_session_id, total_amount, booking_status)
-    values ('b0100000-0000-4000-8000-000000000012', null, 100, 'Pending')$$,
+  $$insert into public.bookings (user_id, course_session_id, material_type_id, booking_status)
+    values ('b0100000-0000-4000-8000-000000000012', null, 'b0100000-0000-4000-8000-000000000033', 'Pending')$$,
   '23514', null, 'a new booking must name a session');
 
 select throws_ok(
-  $$insert into public.bookings (user_id, course_session_id, total_amount, booking_status)
-    values ('b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 100, 'Waitlisted')$$,
+  $$insert into public.bookings (user_id, course_session_id, material_type_id, booking_status)
+    values ('b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000033', 'Waitlisted')$$,
   '23503', null, 'booking status must exist in booking_statuses');
 
 select throws_ok(
-  $$insert into public.bookings (user_id, course_session_id, total_amount, booking_status)
-    values ('b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 100, 'Pending')$$,
+  $$insert into public.bookings (user_id, course_session_id, material_type_id, booking_status)
+    values ('b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000033', 'Pending')$$,
   '23505', null, 'a second active booking for the same student and session fails');
 
 select lives_ok(
-  $$insert into public.bookings (user_id, course_session_id, total_amount, booking_status)
-    values ('b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 100, 'Cancelled')$$,
+  $$insert into public.bookings (user_id, course_session_id, material_type_id, booking_status)
+    values ('b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000033', 'Cancelled')$$,
   'cancelled attempts for the same student and session are kept alongside the active booking');
 
 select is(
@@ -44,8 +44,8 @@ select is(
 update public.bookings set booking_status = 'Cancelled' where id = 'b0100000-0000-4000-8000-000000000034';
 
 select lives_ok(
-  $$insert into public.bookings (user_id, course_session_id, total_amount, booking_status)
-    values ('b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 100, 'Pending')$$,
+  $$insert into public.bookings (user_id, course_session_id, material_type_id, booking_status)
+    values ('b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000033', 'Pending')$$,
   'a student can rebook a session once the earlier booking is cancelled');
 
 select throws_ok(

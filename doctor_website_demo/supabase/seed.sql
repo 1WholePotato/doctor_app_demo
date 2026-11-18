@@ -52,8 +52,8 @@ insert into public.locations (id, name, address)
 values ('b0100000-0000-4000-8000-000000000022', 'Fixture Training Room', '1 Example Way'),
        ('b0100000-0000-4000-8000-000000000051', 'Fixture Skills Lab', '2 Example Way');
 
-insert into public.courses (id, course_title, course_description, course_price)
-values ('b0100000-0000-4000-8000-000000000023', 'Fixture Clinical Skills', 'Synthetic course for local development.', 100.00);
+insert into public.courses (id, course_title, course_description, course_price, printed_material_fee)
+values ('b0100000-0000-4000-8000-000000000023', 'Fixture Clinical Skills', 'Synthetic course for local development.', 100.00, 150.00);
 
 insert into public.instructor_courses (id, instructor_id, course_id)
 values ('b0100000-0000-4000-8000-000000000024', 'b0100000-0000-4000-8000-000000000021', 'b0100000-0000-4000-8000-000000000023'),
@@ -82,14 +82,16 @@ update public.course_sessions
 set status = 'cancelled', cancelled_at = now(), cancellation_reason = 'Fixture venue unavailable'
 where id = 'b0100000-0000-4000-8000-000000000053';
 
-insert into public.material_types (id, name, fee) values ('b0100000-0000-4000-8000-000000000033', 'digital', 0);
+insert into public.material_types (id, name, kind, fee)
+values ('b0100000-0000-4000-8000-000000000033', 'Electronic', 'electronic', 0),
+       ('b0100000-0000-4000-8000-000000000061', 'Printed', 'printed', 0);
 
 insert into public.bookings (
-  id, user_id, course_session_id, total_amount, material_type_id, booking_status, created_at
+  id, user_id, course_session_id, material_type_id, booking_status, created_at
 )
-values ('b0100000-0000-4000-8000-000000000037', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 100.00, 'b0100000-0000-4000-8000-000000000033', 'Cancelled', now() - interval '2 days'),
-       ('b0100000-0000-4000-8000-000000000034', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 100.00, 'b0100000-0000-4000-8000-000000000033', 'Confirmed', now()),
-       ('b0100000-0000-4000-8000-000000000054', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000053', 100.00, 'b0100000-0000-4000-8000-000000000033', 'Class Cancelled', now() - interval '1 day');
+values ('b0100000-0000-4000-8000-000000000037', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000033', 'Cancelled', now() - interval '2 days'),
+       ('b0100000-0000-4000-8000-000000000034', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000033', 'Confirmed', now()),
+       ('b0100000-0000-4000-8000-000000000054', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000053', 'b0100000-0000-4000-8000-000000000033', 'Class Cancelled', now() - interval '1 day');
 
 insert into public.payments (id, booking_id, amount, payment_date, payment_status_id)
 select fixture.id, fixture.booking_id, 100.00, fixture.paid_at, ps.id
