@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createClient } from "@supabase/supabase-js";
-import { authLinkFailed, recoveryStep } from "../src/lib/auth";
+import { authLinkOutcome, recoveryStep } from "../src/lib/auth";
 
 type Captured = { url: URL; method: string; body: Record<string, unknown> };
 type Route = (request: Captured) => Response | undefined;
@@ -49,20 +49,25 @@ beforeEach(() => {
 });
 afterEach(() => { vi.unstubAllGlobals(); });
 
-describe("auth link errors", () => {
+describe("auth link outcomes", () => {
   it.each([
     ["#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired", ""],
     ["", "?error=access_denied&error_description=Email+link+is+invalid"],
     ["#error_code=otp_expired", ""],
   ])("treats %s%s as a failed link", (hash, search) => {
-    expect(authLinkFailed({ hash, search })).toBe(true);
+    expect(authLinkOutcome({ hash, search })).toBe("failed");
+  });
+
+  it("recognises the first of two email-change confirmations", () => {
+    const hash = "#message=Confirmation+link+accepted.+Please+proceed+to+confirm+link+sent+to+the+other+email&sb=";
+    expect(authLinkOutcome({ hash, search: "" })).toBe("awaiting-other-link");
   });
 
   it.each([
     ["#access_token=abc&type=recovery", ""],
     ["", ""],
   ])("treats %s%s as a usable link", (hash, search) => {
-    expect(authLinkFailed({ hash, search })).toBe(false);
+    expect(authLinkOutcome({ hash, search })).toBe(null);
   });
 });
 

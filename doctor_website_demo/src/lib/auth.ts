@@ -116,9 +116,12 @@ export async function requestEmailChange(email: string): Promise<"pending" | "ch
   return data.user.email?.toLowerCase() === email.toLowerCase() ? "changed" : "pending";
 }
 
-export function authLinkFailed({ hash, search }: Pick<Location, "hash" | "search">): boolean {
-  return [new URLSearchParams(search), new URLSearchParams(hash.replace(/^#/, ""))]
-    .some((params) => params.has("error") || params.has("error_code") || params.has("error_description"));
+export type AuthLinkOutcome = "failed" | "awaiting-other-link" | null;
+
+export function authLinkOutcome({ hash, search }: Pick<Location, "hash" | "search">): AuthLinkOutcome {
+  const params = [new URLSearchParams(search), new URLSearchParams(hash.replace(/^#/, ""))];
+  if (params.some((p) => p.has("error") || p.has("error_code") || p.has("error_description"))) return "failed";
+  return params.some((p) => p.has("message")) ? "awaiting-other-link" : null;
 }
 
 export function homeForRole(roleId: string, roleName?: string | null): string {

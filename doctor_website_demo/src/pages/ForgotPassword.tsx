@@ -2,14 +2,14 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/useAuth";
-import { authErrorMessage, authLinkFailed, homeForRole, recoveryStep } from "../lib/auth";
+import { authErrorMessage, authLinkOutcome, homeForRole, recoveryStep } from "../lib/auth";
 import "../styles/auth.css";
 
 export default function ForgotPassword({ resetMode = false }: { resetMode?: boolean }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { user, loading: authLoading, passwordRecovery } = useAuth();
-  const [linkFailed] = useState(() => resetMode && authLinkFailed(window.location));
+  const [linkFailed] = useState(() => resetMode && authLinkOutcome(window.location) === "failed");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
