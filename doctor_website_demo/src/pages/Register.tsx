@@ -10,8 +10,7 @@
  * 3. Progress indicator at the top of the form showing which step you're on.
  * 4. Inline field validation — required fields checked before moving to next step.
  * 5. SA citizen toggle redesigned — pill toggle instead of a raw checkbox.
- * 6. All Supabase logic kept intact, no changes to the submit handler.
- * 7. Same CSS token system as Login.tsx — no new packages.
+ * 6. Same CSS token system as Login.tsx — no new packages.
  *
  * NPM: none (lucide-react already installed but not needed here)
  * Google Fonts: Fraunces + DM Sans (already in index.css)
@@ -19,10 +18,8 @@
 
 import React, { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import { supabase } from "../supabaseClient";
 import { useNavigate, Link } from "react-router-dom";
-import { resolveStudentRoleId } from "../lib/roles";
-import { authErrorMessage } from "../lib/auth";
+import { authErrorMessage, registerStudent } from "../lib/auth";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -94,57 +91,11 @@ export default function Register() {
 
     setLoading(true);
     try {
-      const studentRoleId = await resolveStudentRoleId();
-      if (!studentRoleId) {
-        setBanner("Student role is not configured. Add a student role in the database before accepting registrations.");
-        return;
-      }
-
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-          data: {
-            first_name: first_name.trim(),
-            last_name: last_name.trim(),
-            birth_date,
-            id_num: id_num.trim() || null,
-            passport_num: passport_num.trim() || null,
-            cell_num: cell_num.trim(),
-            sanc_num: sanc_num.trim() || null,
-          },
-        },
+      const outcome = await registerStudent({
+        email, password, first_name, last_name, birth_date, cell_num, sanc_num,
+        identity: isCiti ? { kind: "id", id_num } : { kind: "passport", passport_num },
       });
-
-      if (error) {
-        setBanner(authErrorMessage(error));
-        return;
-      }
-      if (!data.user) {
-        setBanner("The account service did not return a new user. Please try again.");
-        return;
-      }
-
-      const { error: insertError } = await supabase.from("users").upsert({
-        id: data.user.id,
-        role_id: studentRoleId,
-        first_name: first_name.trim(),
-        last_name: last_name.trim(),
-        birth_date,
-        id_num: id_num.trim() || null,
-        passport_num: passport_num.trim() || null,
-        cell_num: cell_num.trim(),
-        email: data.user.email ?? email.trim(),
-        sanc_num: sanc_num.trim() || null,
-        active: true,
-      });
-
-      if (insertError) {
-        setBanner(`Your account was created, but its student profile could not be saved: ${authErrorMessage(insertError)} Please contact support before signing in.`);
-        return;
-      }
-
-      if (!data.session) {
+      if (outcome === "confirm_email") {
         setBanner("Account created. Check your email to confirm it before signing in.");
         return;
       }
