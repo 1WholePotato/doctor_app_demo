@@ -53,6 +53,7 @@ values ('b1200000-0000-4000-8000-0000000000a1', 'b0100000-0000-4000-8000-0000000
        ('b1200000-0000-4000-8000-000000000091', 'b0100000-0000-4000-8000-000000000012', 'b1200000-0000-4000-8000-000000000002',
         'b0100000-0000-4000-8000-000000000033', 'Pending');
 update public.bookings set expires_at = now() - interval '1 hour' where id = 'b1200000-0000-4000-8000-000000000091';
+update public.bookings set expires_at = now() - interval '1 minute' where id = 'b1200000-0000-4000-8000-0000000000f1';
 insert into public.bookings (id, user_id, course_session_id, material_type_id, booking_status)
 values ('b1200000-0000-4000-8000-000000000092', 'b0100000-0000-4000-8000-000000000014', 'b1200000-0000-4000-8000-000000000002',
         'b0100000-0000-4000-8000-000000000033', 'Pending');
@@ -67,7 +68,7 @@ from (values
   ('b1200000-0000-4000-8000-0000000001c1'::uuid, 'b1200000-0000-4000-8000-0000000000c1'::uuid, 'DAB12C1', 'open', 'pay-c', null),
   ('b1200000-0000-4000-8000-0000000001d1'::uuid, 'b1200000-0000-4000-8000-0000000000d1'::uuid, 'DAB12D1', 'open', 'pay-d', null),
   ('b1200000-0000-4000-8000-0000000001e1'::uuid, 'b1200000-0000-4000-8000-0000000000e1'::uuid, 'DAB12E1', 'failed', 'pay-e', null),
-  ('b1200000-0000-4000-8000-0000000001f1'::uuid, 'b1200000-0000-4000-8000-0000000000f1'::uuid, 'DAB12F1', 'open', 'pay-f', now() - interval '1 minute'),
+  ('b1200000-0000-4000-8000-0000000001f1'::uuid, 'b1200000-0000-4000-8000-0000000000f1'::uuid, 'DAB12F1', 'open', 'pay-f', null),
   ('b1200000-0000-4000-8000-000000000191'::uuid, 'b1200000-0000-4000-8000-000000000091'::uuid, 'DAB12L1', 'open', 'pay-l', null)
 ) as a(id, booking, reference, status, payment, expires_at)
 join public.bookings b on b.id = a.booking;
@@ -190,7 +191,7 @@ select is(pg_temp.settle('pay-c', jsonb_build_array(pg_temp.tx('tx-c1', 'DAB12C1
 
 select is(pg_temp.settle('pay-f', '[]'), 'failed', 'an attempt past its expiry with no transaction fails');
 select is((select booking_status from public.bookings where id = 'b1200000-0000-4000-8000-0000000000f1'), 'Expired',
-  'its booking expires');
+  'its booking, whose hold lapsed with it, expires');
 select is(pg_temp.settle('pay-b', '[]'), 'unchanged', 'an attempt still within its expiry with no transaction stays open');
 
 select is(pg_temp.settle('pay-e', jsonb_build_array(pg_temp.tx('tx-e1', 'DAB12E1', '100', 'Successful'))), 'late_paid',

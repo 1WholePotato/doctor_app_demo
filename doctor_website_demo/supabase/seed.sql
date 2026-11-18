@@ -121,9 +121,9 @@ insert into public.payment_attempts (id, booking_id, reference, amount, expires_
 values ('b0100000-0000-4000-8000-000000000082', 'b0100000-0000-4000-8000-000000000034', 'DAFIXTURE02', 100.00, now() + interval '72 hours',
         'paid', 'b0100000-0000-4000-8000-000000000083', 'https://pay.example.test/b0100000-0000-4000-8000-000000000083/secure');
 
-insert into public.payment_events (payment_attempt_id, ozow_transaction_id, ozow_status, outcome, transaction)
-values ('b0100000-0000-4000-8000-000000000082', 'b0100000-0000-4000-8000-000000000084', 'Successful', 'paid',
-        '{"id": "b0100000-0000-4000-8000-000000000084", "merchantReference": "DAFIXTURE02", "siteCode": "MCK-MCK-001", "institution": "Fixture Bank", "amount": {"currency": "ZAR", "value": 100}, "status": "Successful"}');
+insert into public.payment_events (payment_attempt_id, ozow_transaction_id, ozow_status, ozow_reason, outcome, transaction)
+values ('b0100000-0000-4000-8000-000000000082', 'b0100000-0000-4000-8000-000000000084', 'Successful', 'Complete', 'paid',
+        '{"id": "b0100000-0000-4000-8000-000000000084", "merchantReference": "DAFIXTURE02", "siteCode": "MCK-MCK-001", "institution": "Fixture Bank", "amount": {"currency": "ZAR", "value": 100}, "status": "Successful", "reason": "Complete"}');
 
 insert into public.course_session_changes (course_session_id, change, previous, current, changed_by)
 values ('b0100000-0000-4000-8000-000000000053', 'cancelled',
