@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import { generateCertificatePdf, downloadCertificateFile } from "../lib/certificateGenerator";
 import { useAuth } from "../context/useAuth";
+import { PAYMENT_LABEL } from "../lib/payments";
 import { fetchStudentCourses, type CourseStatus, type StudentCourseRow } from "../lib/studentCourses";
 import { CourseCardSkeleton, StatCardSkeleton } from "../components/Skeleton";
 
@@ -148,7 +149,7 @@ export default function StudentGrades() {
 
                       <div className="sg-card-footer">
                         <span style={{ fontSize: 11, color: "var(--s-text-3)", background: "var(--s-bg)", border: "1px solid var(--s-border)", padding: "2px 9px", borderRadius: 20, fontWeight: 500 }}>
-                          {e.paymentStatus}
+                          {PAYMENT_LABEL[e.payment]}
                         </span>
                         {e.status === "passed" && (
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

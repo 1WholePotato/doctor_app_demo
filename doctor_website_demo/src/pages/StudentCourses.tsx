@@ -1,247 +1,234 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { BookOpen, CalendarDays, MapPin, Search, User } from "lucide-react";
+import { Link } from "react-router-dom";
+import { BookOpen, CalendarDays, MapPin, Package, Search, User } from "lucide-react";
 import PayButton from "../components/PayButton";
 import { useAuth } from "../context/useAuth";
-import { formatHoldExpiry } from "../lib/bookings";
-import { fetchStudentCourses, type StudentCourseRow } from "../lib/studentCourses";
-import { supabase } from "../supabaseClient";
+import { BOOKING_STATE_LABEL, formatHoldExpiry, type BookingState } from "../lib/bookings";
+import { PAYMENT_LABEL } from "../lib/payments";
+import {
+  fetchBookingHistory,
+  fetchCatalogue,
+  formatSessionDate,
+  nextAction,
+  type CatalogueCourse,
+  type StudentCourseRow,
+} from "../lib/studentCourses";
 import { CourseCardSkeleton } from "../components/Skeleton";
 
-interface CatalogCourse {
-  id: string;
-  course_title: string;
-  course_description: string | null;
-  course_price: number;
+const STATE_TONE: Record<BookingState, string> = {
+  held: "status-pending",
+  confirmed: "status-passed",
+  completed: "status-passed",
+  review: "status-pending",
+  class_cancelled: "status-failed",
+  failed: "status-failed",
+  expired: "status-failed",
+  cancelled: "status-failed",
+};
+
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" className={`sc-tab${active ? " sc-tab-active" : ""}`} aria-pressed={active} onClick={onClick}>
+      {children}
+    </button>
+  );
+}
+
+function StateNote({ booking }: { booking: StudentCourseRow }) {
+  switch (booking.state) {
+    case "held":
+      return booking.holdExpiresAt ? (
+        <p className="sc-meta" role="note">Seat held until {formatHoldExpiry(booking.holdExpiresAt)}. Pay before then to keep it.</p>
+      ) : (
+        <p className="sc-meta" role="note">Seat held until an administrator confirms your booking.</p>
+      );
+    case "failed":
+      return <p className="sc-meta" role="note">Ozow reported the payment as cancelled or failed, so the seat was released.</p>;
+    case "expired":
+      return <p className="sc-meta" role="note">The seat hold ended before payment, so the seat was released.</p>;
+    case "review":
+      return <p className="sc-meta" role="note">Ozow confirmed your payment after your seat hold ended. An administrator will contact you to place you in a class or refund you.</p>;
+    case "class_cancelled":
+      return (
+        <p className="sc-meta sc-note-alert" role="note">
+          This class was cancelled{booking.cancellationReason ? `: ${booking.cancellationReason}` : ""}. Your booking and payment are kept while a refund is arranged.
+        </p>
+      );
+    default:
+      return null;
+  }
+}
+
+function BookingCard({ booking, history, bookableCourseIds }: { booking: StudentCourseRow; history: StudentCourseRow[]; bookableCourseIds: ReadonlySet<string> }) {
+  const action = nextAction(booking, history, bookableCourseIds);
+  const crossedOut = booking.state === "class_cancelled" ? { textDecoration: "line-through" } : undefined;
+
+  return (
+    <div className="sc-card" data-booking={booking.bookingId}>
+      <div className="sc-card-top">
+        <h2 className="sc-card-title">{booking.title}</h2>
+        <span className="sc-badges">
+          {booking.rescheduled && booking.state !== "class_cancelled" && <span className="status-badge status-pending">Rescheduled</span>}
+          <span className={`status-badge ${STATE_TONE[booking.state]}`}>{BOOKING_STATE_LABEL[booking.state]}</span>
+        </span>
+      </div>
+
+      {booking.schedule && (
+        <div className="sc-meta-row">
+          <span className="sc-meta" style={crossedOut}><CalendarDays />{booking.schedule}</span>
+          {booking.location && <span className="sc-meta"><MapPin />{booking.location}</span>}
+        </div>
+      )}
+      <div className="sc-meta-row">
+        <span className="sc-meta"><User />{booking.instructor}</span>
+        {booking.material && <span className="sc-meta"><Package />{booking.material} material</span>}
+        <span className="sc-meta">R {booking.price.toLocaleString()}</span>
+      </div>
+      {booking.bookedAt && <p className="sc-meta">Booked {formatSessionDate(booking.bookedAt)}</p>}
+      <StateNote booking={booking} />
+
+      <div className="sc-card-footer">
+        <span className="sc-pill">Payment: {PAYMENT_LABEL[booking.payment]}</span>
+        <span className="booking-actions">
+          {action === "pay" && <PayButton bookingId={booking.bookingId} amount={booking.price} />}
+          {action === "book_again" && booking.courseId && (
+            <Link className="sc-enrol-btn" to={`/courses/${booking.courseId}`}>Book again</Link>
+          )}
+          {action === null && booking.courseId && (
+            <Link className="payment-secondary" to={`/courses/${booking.courseId}`}>View course</Link>
+          )}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function CatalogueCard({ course }: { course: CatalogueCourse }) {
+  return (
+    <div className="sc-card" data-course={course.id}>
+      <div className="sc-card-top">
+        <h2 className="sc-card-title">{course.title}</h2>
+      </div>
+      <p className="sc-card-desc">{course.description || "No description provided."}</p>
+
+      {course.materials.length > 0 && (
+        <ul className="catalogue-list" aria-label="Price by material">
+          {course.materials.map((option) => (
+            <li key={option.id}><Package />{option.name} material <strong>R {option.total.toLocaleString()}</strong></li>
+          ))}
+        </ul>
+      )}
+
+      {course.classes.length === 0 ? (
+        <p className="sc-meta">No upcoming classes are open for booking.</p>
+      ) : (
+        <ul className="catalogue-list" aria-label="Upcoming classes">
+          {course.classes.map((session) => (
+            <li key={session.id}>
+              <CalendarDays />
+              <span>{session.schedule} · {session.location}</span>
+              <span className="catalogue-seats">{session.seatsLeft === 1 ? "1 seat left" : `${session.seatsLeft} seats left`}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="sc-card-footer">
+        <span className="sc-pill">{course.classes.length === 1 ? "1 class" : `${course.classes.length} classes`}</span>
+        {course.classes.length > 0 && <Link className="sc-enrol-btn" to={`/courses/${course.id}`}>Choose a class</Link>}
+      </div>
+    </div>
+  );
+}
+
+function Empty({ title, sub }: { title: string; sub: string }) {
+  return (
+    <div className="sc-empty">
+      <div className="sc-empty-icon"><BookOpen /></div>
+      <p className="sc-empty-title">{title}</p>
+      <p className="sc-empty-sub">{sub}</p>
+    </div>
+  );
 }
 
 export default function StudentCourses() {
-  const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<"enrolled" | "catalog">("enrolled");
+  const [activeTab, setActiveTab] = useState<"bookings" | "catalogue">("bookings");
   const [query, setQuery] = useState("");
-  const [courses, setCourses] = useState<StudentCourseRow[]>([]);
-  const [catalog, setCatalog] = useState<CatalogCourse[]>([]);
+  const [history, setHistory] = useState<StudentCourseRow[]>([]);
+  const [catalogue, setCatalogue] = useState<CatalogueCourse[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
-  const [enrolledError, setEnrolledError] = useState("");
-  const [catalogError, setCatalogError] = useState("");
+  const [historyError, setHistoryError] = useState("");
+  const [catalogueError, setCatalogueError] = useState("");
 
   const loading = authLoading || (Boolean(user) && dataLoading);
 
   useEffect(() => {
-    let cancelled = false;
     if (!user) return;
-
-    async function load() {
-      if (!user) return;
-      setDataLoading(true);
-      try {
-        const [result, catalogRes] = await Promise.all([
-          fetchStudentCourses(user.id),
-          supabase
-            .from("courses")
-            .select("id, course_title, course_description, course_price")
-            .eq("active", true)
-            .order("course_title"),
-        ]);
-        if (cancelled) return;
-
-        setEnrolledError(result.error ?? "");
-        setCourses(result.courses);
-        setCatalogError(catalogRes.error?.message ?? "");
-        setCatalog(catalogRes.data ?? []);
-      } catch (err) {
-        if (cancelled) return;
-        const message = err instanceof Error ? err.message : "Could not load courses.";
-        setEnrolledError(message);
-        setCatalogError(message);
-      } finally {
-        if (!cancelled) setDataLoading(false);
-      }
-    }
-
-    void load();
+    let cancelled = false;
+    void Promise.all([fetchBookingHistory(user.id), fetchCatalogue()]).then(([bookings, courses]) => {
+      if (cancelled) return;
+      setHistory(bookings.courses);
+      setHistoryError(bookings.error ?? "");
+      setCatalogue(courses.courses);
+      setCatalogueError(courses.error ?? "");
+      setDataLoading(false);
+    });
     return () => { cancelled = true; };
   }, [user]);
 
-  const filtered = courses.filter((c) =>
-    c.title.toLowerCase().includes(query.toLowerCase()) ||
-    c.instructor.toLowerCase().includes(query.toLowerCase()),
+  const needle = query.toLowerCase();
+  const bookableCourseIds = new Set(catalogue.filter((course) => course.classes.length > 0).map((course) => course.id));
+  const shownHistory = history.filter((row) =>
+    row.title.toLowerCase().includes(needle) || row.instructor.toLowerCase().includes(needle),
   );
-
-  const filteredCatalog = catalog.filter((c) =>
-    c.course_title.toLowerCase().includes(query.toLowerCase()) ||
-    (c.course_description ?? "").toLowerCase().includes(query.toLowerCase()),
+  const shownCatalogue = catalogue.filter((course) =>
+    course.title.toLowerCase().includes(needle) || course.description.toLowerCase().includes(needle),
   );
+  const error = activeTab === "bookings" ? historyError : catalogueError;
 
   return (
-    <>
-        <main className="sc-main">
-          <div className="sc-header">
-            <div className="sc-header-left">
-              <p className="eyebrow">Courses</p>
-              <h1>{activeTab === "enrolled" ? "My courses" : "Course Catalog"}</h1>
-              <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("enrolled")}
-                  style={{
-                    background: activeTab === "enrolled" ? "var(--s-teal)" : "var(--s-surface)",
-                    color: activeTab === "enrolled" ? "#fff" : "var(--s-text-2)",
-                    border: "1px solid var(--s-border)",
-                    borderRadius: "20px",
-                    padding: "6px 14px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  My Enrolments ({courses.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("catalog")}
-                  style={{
-                    background: activeTab === "catalog" ? "var(--s-teal)" : "var(--s-surface)",
-                    color: activeTab === "catalog" ? "#fff" : "var(--s-text-2)",
-                    border: "1px solid var(--s-border)",
-                    borderRadius: "20px",
-                    padding: "6px 14px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  All Courses ({catalog.length})
-                </button>
-              </div>
-            </div>
-            <div className="search-wrap">
-              <Search />
-              <input
-                className="search-input"
-                type="text"
-                placeholder="Search courses…"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </div>
+    <main className="sc-main">
+      <div className="sc-header">
+        <div className="sc-header-left">
+          <p className="eyebrow">Courses</p>
+          <h1>{activeTab === "bookings" ? "My bookings" : "Course catalogue"}</h1>
+          <div className="sc-tabs">
+            <TabButton active={activeTab === "bookings"} onClick={() => setActiveTab("bookings")}>My bookings ({history.length})</TabButton>
+            <TabButton active={activeTab === "catalogue"} onClick={() => setActiveTab("catalogue")}>Catalogue ({catalogue.length})</TabButton>
           </div>
+        </div>
+        <div className="search-wrap">
+          <Search />
+          <input className="search-input" type="text" placeholder="Search courses…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        </div>
+      </div>
 
-          {activeTab === "enrolled" && enrolledError && <p className="sc-error" role="alert">{enrolledError}</p>}
-          {activeTab === "catalog" && catalogError && <p className="sc-error" role="alert">{catalogError}</p>}
+      {error && <p className="sc-error" role="alert">{error}</p>}
 
-          {loading ? (
-            <div className="sc-grid">
-              <CourseCardSkeleton />
-              <CourseCardSkeleton />
-              <CourseCardSkeleton />
-              <CourseCardSkeleton />
-            </div>
-          ) : activeTab === "enrolled" ? (
-            enrolledError && courses.length === 0 ? null : filtered.length === 0 ? (
-              <div className="sc-empty">
-                <div className="sc-empty-icon"><BookOpen /></div>
-                <p className="sc-empty-title">No courses found</p>
-                <p className="sc-empty-sub">
-                  {query ? "Try a different search term." : "You are not enrolled in any courses yet."}
-                </p>
-              </div>
-            ) : (
-              <div className="sc-grid">
-                {filtered.map((course) => (
-                  <div key={course.bookingId} className="sc-card">
-                    <div className="sc-card-top">
-                      <h2 className="sc-card-title">{course.title}</h2>
-                      {course.classCancelled ? (
-                        <span className="status-badge status-failed">Class cancelled</span>
-                      ) : course.rescheduled ? (
-                        <span className="status-badge status-pending">Rescheduled</span>
-                      ) : (
-                        <span className="status-badge status-pending">Result unavailable</span>
-                      )}
-                    </div>
-
-                    <p className="sc-card-desc">{course.description || "No description provided."}</p>
-
-                    {course.schedule && (
-                      <div className="sc-meta-row">
-                        <span className="sc-meta" style={course.classCancelled ? { textDecoration: "line-through" } : undefined}><CalendarDays />{course.schedule}</span>
-                        {course.location && <span className="sc-meta"><MapPin />{course.location}</span>}
-                      </div>
-                    )}
-                    {course.classCancelled && (
-                      <p className="sc-meta" role="note" style={{ color: "#DC2626" }}>
-                        This class was cancelled{course.cancellationReason ? `: ${course.cancellationReason}` : ""}. Your booking and payment are kept while a refund is arranged.
-                      </p>
-                    )}
-
-                    <div className="sc-meta-row">
-                      <span className="sc-meta"><User />{course.instructor}</span>
-                      <span className="sc-meta">R {course.price.toLocaleString()}</span>
-                    </div>
-                    {course.bookingStatus === "Pending" && course.holdExpiresAt && (
-                      <p className="sc-meta" role="note">Seat held until {formatHoldExpiry(course.holdExpiresAt)}. Pay before then to keep it.</p>
-                    )}
-
-                    <div className="sc-card-footer">
-                      <span style={{ fontSize: 11, color: "var(--s-text-3)", background: "var(--s-bg)", border: "1px solid var(--s-border)", padding: "2px 9px", borderRadius: 20, fontWeight: 500 }}>
-                        Payment status: {course.paymentStatus}
-                      </span>
-                      <span className="booking-actions">
-                        {course.bookingStatus === "Pending" && course.holdExpiresAt && <PayButton bookingId={course.bookingId} amount={course.price} />}
-                        {course.courseId && (
-                          <button
-                            className="sc-enrol-btn"
-                            onClick={() => navigate(`/courses/${course.courseId}`, { state: { course } })}
-                          >
-                            View course
-                          </button>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )
-          ) : (
-            catalogError && catalog.length === 0 ? null : filteredCatalog.length === 0 ? (
-              <div className="sc-empty">
-                <div className="sc-empty-icon"><BookOpen /></div>
-                <p className="sc-empty-title">No catalog courses found</p>
-                <p className="sc-empty-sub">Try searching for another topic or course title.</p>
-              </div>
-            ) : (
-              <div className="sc-grid">
-                {filteredCatalog.map((course) => (
-                  <div key={course.id} className="sc-card">
-                    <div className="sc-card-top">
-                      <h2 className="sc-card-title">{course.course_title}</h2>
-                    </div>
-
-                    <p className="sc-card-desc">{course.course_description || "No description provided."}</p>
-
-                    <div className="sc-meta-row">
-                      <span className="sc-meta">R {Number(course.course_price || 0).toLocaleString()}</span>
-                    </div>
-
-                    <div className="sc-card-footer">
-                      <span style={{ fontSize: 11, color: "var(--s-teal-mid)", background: "var(--s-teal-soft)", border: "1px solid rgba(43,191,170,0.2)", padding: "2px 9px", borderRadius: 20, fontWeight: 600 }}>
-                        Curriculum
-                      </span>
-                      <button
-                        className="sc-enrol-btn"
-                        onClick={() => navigate(`/courses/${course.id}`, { state: { course: { courseId: course.id, title: course.course_title, description: course.course_description ?? "" } } })}
-                      >
-                        Explore details
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )
-          )}
-        </main>
-    </>
+      {loading ? (
+        <div className="sc-grid">
+          <CourseCardSkeleton />
+          <CourseCardSkeleton />
+          <CourseCardSkeleton />
+        </div>
+      ) : activeTab === "bookings" ? (
+        shownHistory.length > 0 ? (
+          <div className="sc-grid">
+            {shownHistory.map((booking) => (
+              <BookingCard key={booking.bookingId} booking={booking} history={history} bookableCourseIds={bookableCourseIds} />
+            ))}
+          </div>
+        ) : !historyError && (
+          <Empty title="No bookings found" sub={query ? "Try a different search term." : "Book a class from the catalogue to see it here."} />
+        )
+      ) : shownCatalogue.length > 0 ? (
+        <div className="sc-grid">
+          {shownCatalogue.map((course) => <CatalogueCard key={course.id} course={course} />)}
+        </div>
+      ) : !catalogueError && (
+        <Empty title="No courses found" sub={query ? "Try a different search term." : "No courses are open for booking right now."} />
+      )}
+    </main>
   );
 }

@@ -3,6 +3,36 @@ import { supabase } from "../supabaseClient";
 export const CLASS_CANCELLED = "Class Cancelled";
 export const SEAT_HOLDING_OR_CLASS_CANCELLED = `holds_seat.is.true,booking_status.eq.${CLASS_CANCELLED}`;
 
+export type BookingState = "held" | "confirmed" | "completed" | "review" | "class_cancelled" | "failed" | "expired" | "cancelled";
+
+export const BOOKING_STATE_LABEL: Record<BookingState, string> = {
+  held: "Seat held",
+  confirmed: "Confirmed",
+  completed: "Completed",
+  review: "Under review",
+  class_cancelled: "Class cancelled",
+  failed: "Payment failed",
+  expired: "Expired",
+  cancelled: "Cancelled",
+};
+
+export type BookingFacts = {
+  bookingStatus: string;
+  holdsSeat: boolean;
+  expiresAt: string | null;
+  attemptStatuses: string[];
+};
+
+export function bookingState({ bookingStatus, holdsSeat, expiresAt, attemptStatuses }: BookingFacts, now = Date.now()): BookingState {
+  if (bookingStatus === "Confirmed") return "confirmed";
+  if (bookingStatus === "Completed") return "completed";
+  if (bookingStatus === CLASS_CANCELLED) return "class_cancelled";
+  if (attemptStatuses.includes("paid")) return "review";
+  if (bookingStatus === "Pending") return holdsSeat ? "held" : "expired";
+  if (bookingStatus === "Expired") return expiresAt && Date.parse(expiresAt) > now ? "failed" : "expired";
+  return "cancelled";
+}
+
 export type SeatBooking = {
   id: string;
   classId: string;

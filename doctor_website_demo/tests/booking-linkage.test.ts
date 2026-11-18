@@ -38,7 +38,7 @@ beforeEach(() => {
 });
 
 describe("fetchStudentCourses", () => {
-  it("shows the booked class, its instructor and the latest payment attempt", async () => {
+  it("shows the booked class, its instructor and its verified payment", async () => {
     responses.set("bookings", {
       error: null,
       data: [
@@ -67,7 +67,7 @@ describe("fetchStudentCourses", () => {
         sessionDate: "2027-03-02",
         title: "Wound Care",
         instructor: "Thandi Mokoena",
-        paymentStatus: "Paid",
+        payment: "paid",
         price: 1500,
       }),
     ]);
@@ -87,7 +87,7 @@ describe("fetchStudentCourses", () => {
   it("keeps a booking that awaits session review visible without a course link", async () => {
     responses.set("bookings", {
       error: null,
-      data: [{ id: "booking-2", booking_status: "Pending", total_amount: 900, course_sessions: null, payments: [] }],
+      data: [{ id: "booking-2", booking_status: "Pending", holds_seat: true, total_amount: 900, course_sessions: null, payments: [] }],
     });
 
     const { courses } = await fetchStudentCourses("student-1");
@@ -99,7 +99,8 @@ describe("fetchStudentCourses", () => {
         sessionId: null,
         title: "Class to be confirmed",
         price: 900,
-        paymentStatus: "Pending",
+        state: "held",
+        payment: "unpaid",
       }),
     ]);
   });
