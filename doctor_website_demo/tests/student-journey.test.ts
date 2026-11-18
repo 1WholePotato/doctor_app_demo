@@ -159,7 +159,17 @@ describe("next action", () => {
     ["failed", { booking_status: "Expired", holds_seat: false, expires_at: hold(10) }, "book_again"],
     ["cancelled", { booking_status: "Cancelled", holds_seat: false }, "book_again"],
     ["confirmed", { booking_status: "Confirmed", holds_seat: true }, null],
-    ["class cancelled", { booking_status: "Class Cancelled", holds_seat: false }, null],
+    ["class cancelled after payment", { booking_status: "Class Cancelled", holds_seat: false, payments: [{ amount: "250.00", payment_statuses: { name: "Paid" } }] }, null],
+    ["class cancelled before payment", { booking_status: "Class Cancelled", holds_seat: false }, "book_again"],
+    [
+      "class cancelled and refunded",
+      {
+        booking_status: "Class Cancelled",
+        holds_seat: false,
+        payments: [{ amount: "250.00", payment_statuses: { name: "Paid" } }, { amount: "250.00", payment_statuses: { name: "Refunded" } }],
+      },
+      "book_again",
+    ],
     ["under review", { booking_status: "Expired", holds_seat: false, expires_at: hold(-1), payment_attempts: [{ status: "paid" }] }, null],
     ["investigated", { booking_status: "Pending", holds_seat: true, expires_at: null, payment_attempts: [{ status: "investigating" }] }, null],
     ["lapsed investigated", { booking_status: "Pending", holds_seat: false, expires_at: hold(-1), payment_attempts: [{ status: "investigating" }] }, null],
@@ -183,12 +193,14 @@ describe("next action", () => {
     expect(nextAction(rows[0], rows, new Set())).toBeNull();
   });
 
-  it("still offers Book again when the student is confirmed in another class of the course", async () => {
+  it.each([["Confirmed"], ["Completed"]])("offers nothing for old bookings while the student holds a %s seat on the course", async (status) => {
     const rows = await history([
-      booking("paid", { booking_status: "Confirmed", holds_seat: true }),
-      booking("old", { booking_status: "Expired", holds_seat: false, expires_at: hold(-1) }),
+      booking("seat", { booking_status: status, holds_seat: status === "Confirmed" }),
+      booking("expired", { booking_status: "Expired", holds_seat: false, expires_at: hold(-1) }),
+      booking("cancelled", { booking_status: "Cancelled", holds_seat: false }),
+      booking("class-cancelled", { booking_status: "Class Cancelled", holds_seat: false }),
     ]);
-    expect(rows.map((row) => nextAction(row, rows, bookable))).toEqual([null, "book_again"]);
+    expect(rows.map((row) => nextAction(row, rows, bookable))).toEqual([null, null, null, null]);
   });
 
   it("offers nothing for a lapsed booking once the student holds another unpaid seat on the course", async () => {

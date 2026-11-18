@@ -11,6 +11,7 @@ import {
   nextAction,
   PAYMENT_LABEL,
   type CatalogueCourse,
+  type PaymentRecord,
   type StudentCourseRow,
 } from "../lib/studentCourses";
 import { CourseCardSkeleton } from "../components/Skeleton";
@@ -26,6 +27,15 @@ const STATE_TONE: Record<BookingState, string> = {
   expired: "status-failed",
   cancelled: "status-failed",
   refunded: "status-failed",
+};
+
+const CLASS_CANCELLED_PAYMENT_NOTE: Record<PaymentRecord, string> = {
+  unpaid: "Nothing was charged.",
+  awaiting: "If Ozow confirms a payment, an administrator will refund it.",
+  investigating: "If your bank confirms the payment, an administrator will refund it.",
+  paid: "Your booking and payment are kept while a refund is arranged.",
+  partly_refunded: "Part of your payment was refunded. The rest is kept while a refund is arranged.",
+  refunded: "Your payment was refunded.",
 };
 
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -65,7 +75,7 @@ function StateNote({ booking }: { booking: StudentCourseRow }) {
       return (
         <p className="sc-meta sc-note-alert" role="note">
           This class was cancelled{booking.cancellationReason ? `: ${booking.cancellationReason}` : ""}.{" "}
-          {booking.payment === "refunded" ? "Your payment was refunded." : "Your booking and payment are kept while a refund is arranged."}
+          {CLASS_CANCELLED_PAYMENT_NOTE[booking.payment]}
         </p>
       );
     default:

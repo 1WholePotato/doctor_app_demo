@@ -179,13 +179,19 @@ export async function fetchBookingHistory(userId: string): Promise<StudentCourse
 }
 
 const REBOOKABLE: BookingState[] = ["expired", "failed", "cancelled", "refunded"];
-const AWAITS_STUDENT_OR_ADMIN: BookingState[] = ["held", "investigating", "review"];
+const NOTHING_HELD_FOR_STUDENT: PaymentRecord[] = ["unpaid", "refunded"];
+const SEATED_OR_AWAITING: BookingState[] = ["held", "investigating", "review", "confirmed", "completed"];
+
+function rebookable(row: StudentCourseRow): boolean {
+  if (row.state === "class_cancelled") return NOTHING_HELD_FOR_STUDENT.includes(row.payment);
+  return REBOOKABLE.includes(row.state);
+}
 
 export function nextAction(row: StudentCourseRow, history: StudentCourseRow[], bookableCourseIds: ReadonlySet<string>): NextAction {
   if (row.state === "held") return "pay";
-  if (!REBOOKABLE.includes(row.state) || !row.courseId || !bookableCourseIds.has(row.courseId)) return null;
-  const pending = history.some((other) => other.courseId === row.courseId && AWAITS_STUDENT_OR_ADMIN.includes(other.state));
-  return pending ? null : "book_again";
+  if (!rebookable(row) || !row.courseId || !bookableCourseIds.has(row.courseId)) return null;
+  const blocked = history.some((other) => other.courseId === row.courseId && SEATED_OR_AWAITING.includes(other.state));
+  return blocked ? null : "book_again";
 }
 
 export function nextBookedSession(rows: StudentCourseRow[], today: string): StudentCourseRow | null {
