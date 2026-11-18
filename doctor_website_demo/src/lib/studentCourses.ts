@@ -1,6 +1,6 @@
 import { supabase } from "../supabaseClient";
 import { ACTIVE_BOOKING_STATUSES } from "./bookings";
-import { instructorName } from "./instructors";
+import { SESSION_INSTRUCTORS_EMBED, instructorNames } from "./instructors";
 
 export type CourseStatus = "passed" | "failed" | "unavailable";
 
@@ -43,7 +43,6 @@ function latestPaymentStatus(payments: unknown): string {
 function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
   const session = asRecord(record.course_sessions);
   const course = session ? asRecord(session.courses) : null;
-  const instructor = session ? asRecord(session.instructors) : null;
   const shared = {
     bookingId: readString(record, ["id"]),
     bookingStatus: readString(record, ["booking_status"], "Pending"),
@@ -72,13 +71,7 @@ function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
     title: readString(course, ["course_title"], "Untitled course"),
     description: readString(course, ["course_description"]),
     price: Number(course.course_price) || 0,
-    instructor: instructor
-      ? instructorName({
-          first_name: readString(instructor, ["first_name"]),
-          last_name: readString(instructor, ["last_name"]),
-          email: readString(instructor, ["email"]),
-        })
-      : "TBD",
+    instructor: instructorNames(session.instructors, "TBD"),
   };
 }
 
@@ -89,7 +82,7 @@ export async function fetchStudentCourses(userId: string): Promise<{
   const { data, error } = await supabase
     .from("bookings")
     .select(
-      "id, booking_status, total_amount, course_sessions ( id, start_date, courses ( id, course_title, course_description, course_price ), instructors ( first_name, last_name, email ) ), payments ( created_at, payment_statuses ( name ) )",
+      `id, booking_status, total_amount, course_sessions ( id, start_date, courses ( id, course_title, course_description, course_price ), ${SESSION_INSTRUCTORS_EMBED} ), payments ( created_at, payment_statuses ( name ) )`,
     )
     .eq("user_id", userId)
     .in("booking_status", [...ACTIVE_BOOKING_STATUSES])
@@ -176,7 +169,7 @@ export async function fetchStudentCourseDetail(courseId: string): Promise<{
   const { data: sessionRows, error: sessionsError } = await supabase
     .from("course_sessions")
     .select(
-      "id, start_date, start_time, end_time, active, instructors ( first_name, last_name, email ), locations ( name, address )",
+      `id, start_date, start_time, end_time, active, ${SESSION_INSTRUCTORS_EMBED}, locations ( name, address )`,
     )
     .eq("course_id", courseId)
     .eq("active", true)
@@ -191,18 +184,11 @@ export async function fetchStudentCourseDetail(courseId: string): Promise<{
     .map((row) => {
       const record = asRecord(row);
       if (!record) return null;
-      const instructor = asRecord(record.instructors);
       return {
         id: readString(record, ["id"]),
         date: formatSessionDate(readString(record, ["start_date"], "Upcoming")),
         location: readLocation(record),
-        instructor: instructor
-          ? instructorName({
-              first_name: readString(instructor, ["first_name"]),
-              last_name: readString(instructor, ["last_name"]),
-              email: readString(instructor, ["email"]),
-            })
-          : "TBD",
+        instructor: instructorNames(record.instructors, "TBD"),
         duration: formatSessionDuration(
           typeof record.start_time === "string" ? record.start_time : null,
           typeof record.end_time === "string" ? record.end_time : null,

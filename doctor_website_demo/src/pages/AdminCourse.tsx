@@ -2,8 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, Plus, X, AlertCircle } from "lucide-react";
 import { supabase } from "../supabaseClient";
-import { fetchInstructors, instructorName, type Instructor } from "../lib/instructors";
-import { grantInstructorCourse } from "../lib/instructorCourses";
+import { SESSION_INSTRUCTORS_EMBED, fetchInstructors, instructorName, instructorNames, type Instructor } from "../lib/instructors";
+import { grantInstructorCourse, setSessionInstructors } from "../lib/instructorCourses";
 import { fetchLocations, type LocationRow } from "../lib/locations";
 import { CourseCardSkeleton } from "../components/Skeleton";
 
@@ -254,7 +254,7 @@ export default function AdminCourses() {
     if (courseIds.length > 0) {
       const { data: rows, error: sessionsQueryError } = await supabase
         .from("course_sessions")
-        .select("course_id, instructors ( first_name, last_name, email )")
+        .select(`course_id, ${SESSION_INSTRUCTORS_EMBED}`)
         .in("course_id", courseIds)
         .eq("active", true);
       sessionError = sessionsQueryError?.message ?? null;
@@ -262,10 +262,10 @@ export default function AdminCourses() {
     }
 
     const teacherByCourse = new Map<string, string>();
-    for (const row of sessionRows ?? []) {
-      const instructor = Array.isArray(row.instructors) ? row.instructors[0] : row.instructors;
-      if (!row.course_id || !instructor || teacherByCourse.has(row.course_id)) continue;
-      teacherByCourse.set(row.course_id, instructorName(instructor));
+    for (const row of sessionRows) {
+      const names = instructorNames(row.instructors, "");
+      if (!row.course_id || !names || teacherByCourse.has(row.course_id)) continue;
+      teacherByCourse.set(row.course_id, names);
     }
 
     if (instructorResult.error || locationResult.error || sessionError) {
@@ -343,7 +343,6 @@ export default function AdminCourses() {
 
     const sessionValues = {
       course_id: courseId,
-      instructor_id: course.instructorId,
       location_id: course.locationId,
       start_date: course.startDate,
       end_date: course.endDate,
@@ -352,43 +351,48 @@ export default function AdminCourses() {
       max_students: course.maxStudents,
     };
 
-    if (!setupRef.current.sessionId) {
+    let sessionId = setupRef.current.sessionId;
+    if (!sessionId) {
       // A previous request may have committed while its response was lost.
       // Look for that exact first-session draft before attempting another insert.
       const { data: existing, error: lookupError } = await supabase
         .from("course_sessions")
         .select("id")
         .eq("course_id", courseId)
-        .eq("instructor_id", course.instructorId)
         .eq("location_id", course.locationId)
         .eq("start_date", course.startDate)
         .eq("end_date", course.endDate)
         .eq("start_time", sessionValues.start_time)
         .eq("end_time", sessionValues.end_time)
         .eq("max_students", course.maxStudents)
-        .maybeSingle();
+        .maybeSingle<{ id: string }>();
       if (lookupError) {
         return fail(`Course draft ${courseId} is saved, but its first session could not be checked: ${lookupError.message}. Retry to resume setup.`);
       }
-      setupRef.current.sessionId = existing?.id;
+      sessionId = existing?.id;
 
-      if (!setupRef.current.sessionId) {
+      if (!sessionId) {
         const { data: session, error: sessionError } = await supabase
           .from("course_sessions")
           .insert({ ...sessionValues, active: false })
           .select("id")
-          .single();
+          .single<{ id: string }>();
         if (sessionError || !session) {
           return fail(`Course draft ${courseId} is saved, but its first session was not confirmed: ${sessionError?.message ?? "No session record was returned"}. Retry to resume setup.`);
         }
-        setupRef.current.sessionId = session.id;
+        sessionId = session.id;
       }
+      setupRef.current.sessionId = sessionId;
     }
 
-    const sessionId = setupRef.current.sessionId;
     const grantError = await grantInstructorCourse(course.instructorId, courseId);
     if (grantError) {
       return fail(`Course draft ${courseId} and its first session are saved but remain inactive because instructor assignment failed: ${grantError}. Retry to resume setup.`);
+    }
+
+    const assignError = await setSessionInstructors(sessionId, [course.instructorId]);
+    if (assignError) {
+      return fail(`Course draft ${courseId} and its first session are saved but remain inactive because the teacher could not be assigned to the session: ${assignError}. Retry to resume setup.`);
     }
 
     const { error: sessionActivationError } = await supabase
