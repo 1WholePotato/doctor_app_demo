@@ -85,7 +85,6 @@ async function setup({ hash, existingSession = false }: { hash?: string; existin
         if (url.pathname === "/auth/v1/logout") return new Response(null, { status: 204 });
         if (url.pathname === "/rest/v1/roles") return response([{ id: "student", name: "Student" }]);
         if (url.pathname === "/rest/v1/users") {
-          if (init?.method === "POST") return response({ message: "Profile unavailable", code: "42501" }, 403);
           const id = url.searchParams.get("id")?.slice(3);
           if (!id) throw new Error("Missing profile subject");
           return backend.profile(id);

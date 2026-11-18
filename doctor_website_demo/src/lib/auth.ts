@@ -1,5 +1,5 @@
 import { supabase } from "../supabaseClient";
-import { isAdminRole, loadRoles, resolveStudentRoleId } from "./roles";
+import { isAdminRole, loadRoles } from "./roles";
 
 export function authErrorMessage(error: { message?: string; code?: string }): string {
   const message = error.message?.toLowerCase() ?? "";
@@ -12,6 +12,9 @@ export function authErrorMessage(error: { message?: string; code?: string }): st
   }
   if (message.includes("user already registered") || message.includes("already been registered")) {
     return "An account with this email already exists. Sign in or reset your password.";
+  }
+  if (message.includes("database error saving new user")) {
+    return "We couldn't create your student profile. Check your details and try again.";
   }
   if (message.includes("password should be at least") || message.includes("weak_password")) {
     return "Choose a stronger password that meets the password requirements.";
@@ -42,6 +45,37 @@ export type AppUser = {
   active: boolean;
 };
 
+export type Registration = {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  birth_date: string;
+  cell_num: string;
+  sanc_num: string;
+  identity: { kind: "id"; id_num: string } | { kind: "passport"; passport_num: string };
+};
+
+export async function registerStudent({ email, password, identity, ...profile }: Registration): Promise<"signed_in" | "confirm_email"> {
+  const { data, error } = await supabase.auth.signUp({
+    email: email.trim(),
+    password,
+    options: {
+      data: {
+        first_name: profile.first_name.trim(),
+        last_name: profile.last_name.trim(),
+        birth_date: profile.birth_date,
+        cell_num: profile.cell_num.trim(),
+        sanc_num: profile.sanc_num.trim() || null,
+        id_num: identity.kind === "id" ? identity.id_num.trim() : null,
+        passport_num: identity.kind === "passport" ? identity.passport_num.trim() : null,
+      },
+    },
+  });
+  if (error) throw error;
+  return data.session ? "signed_in" : "confirm_email";
+}
+
 export async function getSessionUser(): Promise<AppUser | null> {
   const { data: sessionData, error: sessionError } = await supabase.auth.getUser();
   if (sessionError) {
@@ -62,40 +96,9 @@ export async function getSessionUser(): Promise<AppUser | null> {
     )
     .eq("id", authUser.id)
     .single();
-  let { data, error } = profile;
+  const { data, error } = profile;
   if (profile.status === 401 || profile.status === 403) return null;
   if (error && error.code !== "PGRST116") throw error;
-
-  // Repair missing profiles with the configured student role; editable metadata is never authoritative.
-  if (!data && (!error || error.code === "PGRST116") && authUser.user_metadata) {
-    const meta = authUser.user_metadata;
-    const studentRoleId = await resolveStudentRoleId();
-
-    if (studentRoleId) {
-      const { data: inserted, error: insertError } = await supabase
-        .from("users")
-        .upsert({
-          id: authUser.id,
-          email: authUser.email ?? "",
-          role_id: studentRoleId,
-          first_name: (meta.first_name as string) ?? "",
-          last_name: (meta.last_name as string) ?? "",
-          birth_date: (meta.birth_date as string) ?? null,
-          id_num: (meta.id_num as string) ?? null,
-          passport_num: (meta.passport_num as string) ?? null,
-          cell_num: (meta.cell_num as string) ?? null,
-          sanc_num: (meta.sanc_num as string) ?? null,
-          active: true,
-        })
-        .select()
-        .single();
-
-      if (!insertError && inserted) {
-        data = inserted;
-        error = null;
-      }
-    }
-  }
 
   if (error || !data || !data.active) return null;
 

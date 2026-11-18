@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'doctor_website_demo/supabase/**'
+      - 'doctor_website_demo/scripts/test-registration-local.mjs'
       - '.github/workflows/local-database.yml'
 
 permissions:
@@ -17,6 +18,12 @@ jobs:
         working-directory: doctor_website_demo
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: doctor_website_demo/package-lock.json
+      - run: npm ci
       - uses: supabase/setup-cli@v1
         with:
           version: '3.0.0'
@@ -41,3 +48,18 @@ jobs:
           SQL
           )"
           test "$result" = 'student@example.test|Fixture Clinical Skills|100.00|FIXTURE-B01-001'
+      - run: supabase test db
+      - name: Register students with an immediate session
+        run: |
+          set -a
+          eval "$(supabase status -o env | grep -E '^[A-Z_]+=')"
+          set +a
+          EXPECT_EMAIL_CONFIRMATION=false node --test scripts/test-registration-local.mjs
+      - name: Register students with email confirmation
+        run: |
+          supabase stop
+          SUPABASE_AUTH_EMAIL_ENABLE_CONFIRMATIONS=true supabase start
+          set -a
+          eval "$(supabase status -o env | grep -E '^[A-Z_]+=')"
+          set +a
+          EXPECT_EMAIL_CONFIRMATION=true node --test scripts/test-registration-local.mjs
