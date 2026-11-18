@@ -27,14 +27,15 @@ from (values
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
-  confirmation_token, recovery_token, email_change_token_new, email_change
+  confirmation_token, recovery_token, email_change_token_new, email_change, email_change_sent_at
 )
+-- The registrant has requested an email change that is still waiting for confirmation.
 values ('00000000-0000-0000-0000-000000000000', 'b0100000-0000-4000-8000-000000000014', 'authenticated',
         'authenticated', 'registrant@example.test',
         extensions.crypt('LocalDemo-B01!', extensions.gen_salt('bf')),
         now(), '{"provider":"email","providers":["email"]}'::jsonb,
         '{"first_name":"Fixture","last_name":"Registrant","birth_date":"1995-05-05","passport_num":"TEST-B01-REGISTRANT","cell_num":"0000000014"}'::jsonb,
-        now(), now(), '', '', '', '');
+        now(), now(), '', '', '', 'registrant.next@example.test', now());
 
 insert into auth.identities (
   id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at
