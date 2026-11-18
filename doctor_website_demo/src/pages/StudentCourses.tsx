@@ -165,12 +165,14 @@ export default function StudentCourses() {
                       <span style={{ fontSize: 11, color: "var(--s-text-3)", background: "var(--s-bg)", border: "1px solid var(--s-border)", padding: "2px 9px", borderRadius: 20, fontWeight: 500 }}>
                         Payment status: {course.paymentStatus}
                       </span>
-                      <button
-                        className="sc-enrol-btn"
-                        onClick={() => navigate(`/courses/${course.courseId}`, { state: { course } })}
-                      >
-                        View course
-                      </button>
+                      {course.courseId && (
+                        <button
+                          className="sc-enrol-btn"
+                          onClick={() => navigate(`/courses/${course.courseId}`, { state: { course } })}
+                        >
+                          View course
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

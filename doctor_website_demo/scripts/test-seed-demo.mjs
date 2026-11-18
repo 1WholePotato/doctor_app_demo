@@ -24,6 +24,7 @@ function fakeSupabase({ roles = [], failRole } = {}) {
     course_sessions: [],
     bookings: [],
     payments: [],
+    payment_statuses: [{ id: randomUUID(), name: "Paid" }],
     instructor_courses: [],
   };
   const authUsers = [];
@@ -60,7 +61,9 @@ function fakeSupabase({ roles = [], failRole } = {}) {
     const rows = tables[table];
     assert.ok(rows, `Unexpected table ${table}`);
     const matches = rows.filter((row) => Object.entries(query).every(([key, value]) => {
-      return !value.startsWith("eq.") || String(row[key]) === value.slice(3);
+      if (value.startsWith("eq.")) return String(row[key]) === value.slice(3);
+      if (value.startsWith("in.(")) return value.slice(4, -1).split(",").includes(String(row[key]));
+      return true;
     }));
     let result = matches;
     if (method === "POST") {
@@ -126,18 +129,21 @@ test("fresh seed resolves roles before accounts and writes the app's booking con
     assert.equal(session.start_time, "09:00:00");
     assert.equal(session.end_time, "12:00:00");
   }
-  assert.deepEqual(api.tables.bookings.map((row) => row.payment_status), ["paid", "passed", "failed"]);
+  assert.deepEqual(api.tables.bookings.map((row) => row.booking_status), ["Confirmed", "Confirmed", "Confirmed"]);
   for (const [index, booking] of api.tables.bookings.entries()) {
-    assert.equal(booking.course_session_id, api.tables.courses[index].id);
+    assert.equal(booking.course_session_id, api.tables.course_sessions[index].id);
+    assert.equal(api.tables.course_sessions[index].course_id, api.tables.courses[index].id);
+    assert.equal("payment_status" in booking, false);
     assert.equal(booking.total_amount, api.tables.courses[index].course_price);
     assert.equal(booking.material_fee, 0);
     assert.equal("course_id" in booking, false);
   }
   const lookups = api.requests.filter((r) => r.path === "/rest/v1/bookings" && r.method === "GET");
-  assert.deepEqual(lookups.map((r) => r.query.course_session_id), api.tables.courses.map((row) => `eq.${row.id}`));
+  assert.deepEqual(lookups.map((r) => r.query.course_session_id), api.tables.course_sessions.map((row) => `eq.${row.id}`));
   assert.ok(lookups.every((r) => !("course_id" in r.query)));
   assert.equal(api.tables.payments.length, 1);
   assert.equal(api.tables.payments[0].booking_id, api.tables.bookings[0].id);
+  assert.equal(api.tables.payments[0].payment_status_id, api.tables.payment_statuses[0].id);
   assert.equal(api.tables.instructor_courses.length, 5);
 });
 
@@ -149,7 +155,7 @@ test("rerun reuses mixed-case roles and fixtures and moves historical sessions t
     session.start_date = "2026-10-14";
     session.end_date = "2026-10-14";
   }
-  api.tables.bookings[0].payment_status = "pending";
+  api.tables.bookings[0].booking_status = "Pending";
   api.requests.length = 0;
   await seedDemo({ env: { ...env, SEED_SESSION_DATE: "2028-02-29" }, now, fetch: api.fetch });
 
@@ -158,7 +164,7 @@ test("rerun reuses mixed-case roles and fixtures and moves historical sessions t
   assert.ok(api.tables.course_sessions.every((row) => row.start_date === "2028-02-29" && row.end_date === "2028-02-29"));
   assert.equal(api.requests.filter((r) => r.path === "/rest/v1/course_sessions" && r.method === "PATCH").length, 3);
   assert.equal(api.requests.filter((r) => r.method === "POST").length, 0);
-  assert.equal(api.tables.bookings[0].payment_status, "paid");
+  assert.equal(api.tables.bookings[0].booking_status, "Confirmed");
   for (const user of api.tables.users) {
     assert.equal(user.role_id, api.tables.roles.find((row) => row.name.toLowerCase() === user.last_name.toLowerCase()).id);
   }

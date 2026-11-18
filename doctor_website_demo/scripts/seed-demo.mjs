@@ -269,26 +269,27 @@ async function ensureSession(supabase, courseId, instructorId, locationId, sessi
   return data.id;
 }
 
-async function ensureBooking(supabase, userId, courseId, paymentStatus, totalAmount) {
+async function ensureBooking(supabase, userId, sessionId, totalAmount) {
   const { data: existing, error: fetchError } = await supabase
     .from("bookings")
-    .select("id, payment_status")
+    .select("id, booking_status")
     .eq("user_id", userId)
-    .eq("course_session_id", courseId)
+    .eq("course_session_id", sessionId)
+    .in("booking_status", ["Pending", "Confirmed", "Completed"])
     .maybeSingle();
 
   if (fetchError) throw new Error(`Booking lookup failed: ${fetchError.message}`);
 
   if (existing) {
-    if (existing.payment_status !== paymentStatus) {
+    if (existing.booking_status !== "Confirmed") {
       const { error } = await supabase
         .from("bookings")
-        .update({ payment_status: paymentStatus, total_amount: totalAmount })
+        .update({ booking_status: "Confirmed", total_amount: totalAmount })
         .eq("id", existing.id);
       if (error) throw new Error(`Booking update failed: ${error.message}`);
-      logOk(`Updated booking payment_status → ${paymentStatus}`);
+      logOk(`Confirmed booking for session ${sessionId}`);
     } else {
-      logOk(`Booking exists (${paymentStatus}) for course ${courseId}`);
+      logOk(`Booking exists for session ${sessionId}`);
     }
     return existing.id;
   }
@@ -297,8 +298,8 @@ async function ensureBooking(supabase, userId, courseId, paymentStatus, totalAmo
     .from("bookings")
     .insert({
       user_id: userId,
-      course_session_id: courseId,
-      payment_status: paymentStatus,
+      course_session_id: sessionId,
+      booking_status: "Confirmed",
       material_fee: 0,
       total_amount: totalAmount,
     })
@@ -306,11 +307,19 @@ async function ensureBooking(supabase, userId, courseId, paymentStatus, totalAmo
     .single();
 
   if (error) throw new Error(`Booking insert failed: ${error.message}`);
-  logOk(`Inserted booking (${paymentStatus}) for course ${courseId}`);
+  logOk(`Inserted booking for session ${sessionId}`);
   return data.id;
 }
 
 async function ensurePayment(supabase, bookingId, amount) {
+  const { data: paid, error: statusError } = await supabase
+    .from("payment_statuses")
+    .select("id")
+    .eq("name", "Paid")
+    .single();
+
+  if (statusError) throw new Error(`Payment status lookup failed: ${statusError.message}`);
+
   const { data: existing, error: fetchError } = await supabase
     .from("payments")
     .select("id")
@@ -329,7 +338,7 @@ async function ensurePayment(supabase, bookingId, amount) {
 
   const { data, error } = await supabase
     .from("payments")
-    .insert({ booking_id: bookingId, amount })
+    .insert({ booking_id: bookingId, amount, payment_status_id: paid.id })
     .select("id")
     .single();
 
@@ -378,10 +387,11 @@ async function seedCatalog(supabase, studentId, sessionDate) {
   ];
 
   const courseIds = [];
+  const sessionIds = [];
   for (let i = 0; i < courseDefs.length; i++) {
     const courseId = await ensureCourse(supabase, courseDefs[i]);
     courseIds.push(courseId);
-    await ensureSession(supabase, courseId, instructorIds[i % instructorIds.length], locationId, sessionDate);
+    sessionIds.push(await ensureSession(supabase, courseId, instructorIds[i % instructorIds.length], locationId, sessionDate));
   }
 
   if (!studentId) {
@@ -389,10 +399,11 @@ async function seedCatalog(supabase, studentId, sessionDate) {
     return { courseIds, instructorIds };
   }
 
-  const paidBookingId = await ensureBooking(supabase, studentId, courseIds[0], "paid", courseDefs[0].course_price);
-  await ensureBooking(supabase, studentId, courseIds[1], "passed", courseDefs[1].course_price);
-  await ensureBooking(supabase, studentId, courseIds[2], "failed", courseDefs[2].course_price);
-  await ensurePayment(supabase, paidBookingId, courseDefs[0].course_price);
+  const bookingIds = [];
+  for (let i = 0; i < sessionIds.length; i++) {
+    bookingIds.push(await ensureBooking(supabase, studentId, sessionIds[i], courseDefs[i].course_price));
+  }
+  await ensurePayment(supabase, bookingIds[0], courseDefs[0].course_price);
   return { courseIds, instructorIds };
 }
 
