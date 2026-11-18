@@ -2,7 +2,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(42);
+select plan(44);
 
 insert into auth.users (instance_id, id, aud, role, email)
 select '00000000-0000-0000-0000-000000000000', id, 'authenticated', 'authenticated', email
@@ -32,7 +32,9 @@ values ('b1000000-0000-4000-8000-000000000011', 'b0100000-0000-4000-8000-0000000
        ('b1000000-0000-4000-8000-000000000013', 'b1000000-0000-4000-8000-000000000020', 'b0100000-0000-4000-8000-000000000022',
         current_date + 40, current_date + 40, '09:00', '12:00', 10),
        ('b1000000-0000-4000-8000-000000000014', 'b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000022',
-        current_date, current_date, '18:00', '20:00', 10);
+        current_date, current_date, '18:00', '20:00', 10),
+       ('b1000000-0000-4000-8000-000000000015', 'b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000022',
+        current_date + 41, current_date + 41, '09:00', '12:00', 1);
 
 create temporary table reserved (label text primary key, booking public.bookings) on commit drop;
 grant all on reserved to authenticated;
@@ -222,6 +224,25 @@ select bag_eq(
            ('b1000000-0000-4000-8000-000000000032'::uuid, 'Class Cancelled'),
            ((select (booking).id from reserved where label = 'today'), 'Class Cancelled')$$,
   'the expired hold is left for cleanup instead of being reported as cancelled');
+
+insert into public.bookings (id, user_id, course_session_id, material_type_id, booking_status)
+values ('b1000000-0000-4000-8000-000000000041', 'b1000000-0000-4000-8000-000000000001', 'b1000000-0000-4000-8000-000000000015',
+        'b0100000-0000-4000-8000-000000000033', 'Pending');
+update public.bookings set expires_at = now() - interval '1 second' where id = 'b1000000-0000-4000-8000-000000000041';
+insert into public.bookings (id, user_id, course_session_id, material_type_id, booking_status)
+values ('b1000000-0000-4000-8000-000000000042', 'b1000000-0000-4000-8000-000000000002', 'b1000000-0000-4000-8000-000000000015',
+        'b0100000-0000-4000-8000-000000000033', 'Pending');
+alter table public.bookings disable trigger check_booking_seat;
+update public.bookings set expires_at = clock_timestamp() where id = 'b1000000-0000-4000-8000-000000000041';
+alter table public.bookings enable trigger check_booking_seat;
+select pg_sleep(0.01);
+
+select ok(
+  (select public.holds_seat(b) and b.expires_at < clock_timestamp() from public.bookings b where id = 'b1000000-0000-4000-8000-000000000041'),
+  'a hold that lapsed after this transaction began still looks live to it');
+select throws_ok(
+  $$update public.bookings set booking_status = 'Confirmed' where id = 'b1000000-0000-4000-8000-000000000041'$$,
+  '23514', null, 'confirming that hold is refused once another student has taken its seat');
 
 create temporary table lapsed on commit drop as
 select id from public.bookings where booking_status = 'Pending' and expires_at <= now();
