@@ -151,13 +151,13 @@ export async function fetchBookingHistory(userId: string): Promise<{
 }
 
 const REBOOKABLE: BookingState[] = ["expired", "failed", "cancelled"];
-const KEEPS_PLACE: BookingState[] = ["held", "confirmed", "review"];
+const AWAITS_STUDENT_OR_ADMIN: BookingState[] = ["held", "review"];
 
 export function nextAction(row: StudentCourseRow, history: StudentCourseRow[], bookableCourseIds: ReadonlySet<string>): NextAction {
   if (row.state === "held") return "pay";
   if (!REBOOKABLE.includes(row.state) || !row.courseId || !bookableCourseIds.has(row.courseId)) return null;
-  const alreadyPlaced = history.some((other) => other.courseId === row.courseId && KEEPS_PLACE.includes(other.state));
-  return alreadyPlaced ? null : "book_again";
+  const pending = history.some((other) => other.courseId === row.courseId && AWAITS_STUDENT_OR_ADMIN.includes(other.state));
+  return pending ? null : "book_again";
 }
 
 export function nextBookedSession(rows: StudentCourseRow[], today: string): StudentCourseRow | null {

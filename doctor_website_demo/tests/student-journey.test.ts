@@ -131,7 +131,15 @@ describe("next action", () => {
     expect(nextAction(rows[0], rows, new Set())).toBeNull();
   });
 
-  it("offers nothing for a lapsed booking once the student holds another seat on the course", async () => {
+  it("still offers Book again when the student is confirmed in another class of the course", async () => {
+    const rows = await history([
+      booking("paid", { booking_status: "Confirmed", holds_seat: true }),
+      booking("old", { booking_status: "Expired", holds_seat: false, expires_at: hold(-1) }),
+    ]);
+    expect(rows.map((row) => nextAction(row, rows, bookable))).toEqual([null, "book_again"]);
+  });
+
+  it("offers nothing for a lapsed booking once the student holds another unpaid seat on the course", async () => {
     const rows = await history([
       booking("new", { booking_status: "Pending", holds_seat: true, expires_at: hold(70) }),
       booking("old", { booking_status: "Expired", holds_seat: false, expires_at: hold(-1) }),
