@@ -98,9 +98,10 @@ describe("class administration calls", () => {
 });
 
 describe("student view of class changes", () => {
-  const booking = (id: string, status: string, session: Record<string, unknown>) => ({
+  const booking = (id: string, status: string, session: Record<string, unknown>, createdAt = "2026-11-01T08:00:00.000001") => ({
     id,
     booking_status: status,
+    created_at: createdAt,
     total_amount: 100,
     payments: [],
     course_sessions: {
@@ -133,6 +134,20 @@ describe("student view of class changes", () => {
       rescheduled: true,
       classCancelled: false,
     });
+  });
+
+  it("does not call a class rescheduled for a student who booked after it moved", async () => {
+    responses.set("bookings", {
+      error: null,
+      data: [
+        booking("before", "Confirmed", { rescheduled_at: "2026-11-18T10:00:00.5+00:00" }, "2026-11-18T09:59:59"),
+        booking("after", "Confirmed", { rescheduled_at: "2026-11-18T10:00:00.5+00:00" }, "2026-11-18T10:00:01"),
+      ],
+    });
+
+    const { courses } = await fetchStudentCourses("student-1");
+
+    expect(courses.map((course) => [course.bookingId, course.rescheduled])).toEqual([["before", true], ["after", false]]);
   });
 
   it("shows a cancelled class with its reason and never offers it as the next session", async () => {

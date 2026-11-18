@@ -46,6 +46,17 @@ function latestPaymentStatus(payments: unknown): string {
   return status ? readString(status, ["name"], "Pending") : "Pending";
 }
 
+function utcInstant(timestamp: string): number {
+  return Date.parse(/(Z|[+-]\d\d:?\d\d)$/i.test(timestamp) ? timestamp : `${timestamp}Z`);
+}
+
+function movedAfterBooking(session: Record<string, unknown>, booking: Record<string, unknown>): boolean {
+  const rescheduledAt = readString(session, ["rescheduled_at"]);
+  const bookedAt = readString(booking, ["created_at"]);
+  if (!rescheduledAt) return false;
+  return !bookedAt || utcInstant(rescheduledAt) > utcInstant(bookedAt);
+}
+
 function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
   const session = asRecord(record.course_sessions);
   const course = session ? asRecord(session.courses) : null;
@@ -81,7 +92,7 @@ function toStudentCourseRow(record: Record<string, unknown>): StudentCourseRow {
     sessionDate: readString(session, ["start_date"]) || null,
     schedule: formatSchedule(session),
     location: readLocation(session),
-    rescheduled: Boolean(readString(session, ["rescheduled_at"])),
+    rescheduled: movedAfterBooking(session, record),
     cancellationReason: readString(session, ["cancellation_reason"]) || null,
     title: readString(course, ["course_title"], "Untitled course"),
     description: readString(course, ["course_description"]),
@@ -97,7 +108,7 @@ export async function fetchStudentCourses(userId: string): Promise<{
   const { data, error } = await supabase
     .from("bookings")
     .select(
-      `id, booking_status, total_amount, course_sessions ( id, start_date, end_date, start_time, end_time, rescheduled_at, cancellation_reason, locations ( name, address ), courses ( id, course_title, course_description, course_price ), ${SESSION_INSTRUCTORS_EMBED} ), payments ( created_at, payment_statuses ( name ) )`,
+      `id, booking_status, total_amount, created_at, course_sessions ( id, start_date, end_date, start_time, end_time, rescheduled_at, cancellation_reason, locations ( name, address ), courses ( id, course_title, course_description, course_price ), ${SESSION_INSTRUCTORS_EMBED} ), payments ( created_at, payment_statuses ( name ) )`,
     )
     .eq("user_id", userId)
     .in("booking_status", [...ACTIVE_BOOKING_STATUSES, CLASS_CANCELLED])
