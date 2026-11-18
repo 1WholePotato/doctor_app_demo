@@ -43,10 +43,10 @@ export function ozowClient(config: OzowConfig, fetchImpl: typeof fetch = fetch) 
   const apiOrigin = new URL(config.apiUrl).origin;
   const timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-  async function call<T>(url: string, init: RequestInit, read: (response: Response) => Promise<T>): Promise<T> {
+  async function call(url: string, init: RequestInit) {
     try {
       const response = await fetchImpl(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
-      return await read(response);
+      return { response, body: await response.json().catch(() => null) };
     } catch (failure) {
       if (failure instanceof DOMException && failure.name === "TimeoutError") {
         throw new OzowError(504, `no answer within ${timeoutMs} ms from ${new URL(url).pathname}`);
@@ -54,8 +54,6 @@ export function ozowClient(config: OzowConfig, fetchImpl: typeof fetch = fetch) 
       throw failure;
     }
   }
-
-  const answer = async (response: Response) => ({ response, body: await response.json().catch(() => null) });
 
   async function accessToken(): Promise<string> {
     if (token && token.expiresAt - TOKEN_REFRESH_MARGIN_MS > Date.now()) return token.value;
@@ -68,7 +66,7 @@ export function ozowClient(config: OzowConfig, fetchImpl: typeof fetch = fetch) 
         scope: "payments",
         grant_type: "client_credentials",
       }),
-    }, answer);
+    });
     if (!response.ok || typeof body?.access_token !== "string") {
       throw new OzowError(response.status, body?.detail ?? "no access token");
     }
@@ -78,7 +76,7 @@ export function ozowClient(config: OzowConfig, fetchImpl: typeof fetch = fetch) 
 
   async function authorized(url: string, init: RequestInit) {
     const send = async () =>
-      call(url, { ...init, headers: { ...init.headers, Authorization: `Bearer ${await accessToken()}` } }, answer);
+      call(url, { ...init, headers: { ...init.headers, Authorization: `Bearer ${await accessToken()}` } });
     const first = await send();
     if (first.response.status !== 401) return first;
     token = null;
