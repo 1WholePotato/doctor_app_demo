@@ -115,7 +115,7 @@ function EditTeachersModal({
         <button className="modal-close" onClick={onClose} disabled={pending} aria-label="Close"><X /></button>
         <p className="modal-eyebrow">{session.startDate}</p>
         <h2 id="teachers-modal-title">Class teachers</h2>
-        <fieldset className="field" style={{ border: "none", padding: 0, margin: 0 }}>
+        <fieldset style={{ border: "none", padding: 0, margin: "0 0 18px" }}>
           <legend className="readonly-label" style={{ marginBottom: 6 }}>Teachers</legend>
           <InstructorChecklist instructors={instructors} selected={instructorIds} onChange={(ids) => { setInstructorIds(ids); setError(""); }} />
         </fieldset>
@@ -188,7 +188,7 @@ function AddSessionModal({
         <p className="modal-eyebrow">Schedule</p>
         <h2 id="session-modal-title">Add a class session</h2>
 
-        <fieldset className="field" style={{ border: "none", padding: 0, margin: 0 }}>
+        <fieldset style={{ border: "none", padding: 0, margin: "0 0 18px" }}>
           <legend className="readonly-label" style={{ marginBottom: 6 }}>Teachers</legend>
           <InstructorChecklist instructors={instructors} selected={instructorIds} onChange={(ids) => { setInstructorIds(ids); setError(""); }} />
           {error && <span className="field-error" role="alert"><AlertCircle />{error}</span>}
