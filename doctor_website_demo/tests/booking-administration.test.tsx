@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 type Result = { data: unknown; error: { message: string; code?: string } | null };
 const calls: { table: string; method: string; args: unknown[] }[] = [];
 let tableResult: Result = { data: [], error: null };
+const tableResults = new Map<string, Result>();
 let rpcResult: Result = { data: null, error: null };
 
 vi.mock("../src/supabaseClient", () => ({
@@ -13,10 +15,10 @@ vi.mock("../src/supabaseClient", () => ({
     from(table: string) {
       const query = {
         then(resolve: (value: unknown) => unknown) {
-          return Promise.resolve(tableResult).then(resolve);
+          return Promise.resolve(tableResults.get(table) ?? tableResult).then(resolve);
         },
       } as Record<string, unknown>;
-      for (const method of ["select", "eq", "in", "like", "order"]) {
+      for (const method of ["select", "eq", "in", "like", "order", "single"]) {
         query[method] = (...args: unknown[]) => {
           calls.push({ table, method, args });
           return query;
@@ -40,12 +42,15 @@ const {
   searchPattern,
 } = await import("../src/lib/adminBookings");
 const { default: RefundModal } = await import("../src/components/RefundModal");
+const { default: AdminBookings } = await import("../src/pages/AdminBookings");
+const { default: AdminReviewQueue } = await import("../src/pages/AdminReviewQueue");
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 beforeEach(() => {
   calls.length = 0;
   tableResult = { data: [], error: null };
+  tableResults.clear();
   rpcResult = { data: null, error: null };
 });
 
@@ -126,6 +131,7 @@ describe("refund form", () => {
 describe("review reasons", () => {
   it("labels known reasons and readable fallbacks for new ones", () => {
     expect(reviewReasonLabel("late_payment")).toBe("Late payment");
+    expect(reviewReasonLabel("payment_investigation")).toBe("Bank investigating payment");
     expect(reviewReasonLabel("PendingInvestigation")).toBe("Pending Investigation");
   });
 });
@@ -195,5 +201,84 @@ describe("refund dialog", () => {
     await submit();
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("still refundable");
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe("payments under bank investigation", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  const overviewRow = {
+    id: "b-1", created_at: "2026-11-18T08:00:00", booking_status: "Pending", student_name: "Fixture Student", student_email: "s@example.test",
+    class_start_date: "2027-03-02", class_status: "scheduled", course_title: "Wound Care", material_name: "Printed",
+    total_amount: "250.00", paid_amount: "0", refunded_amount: "0", payment_state: "investigating", documents_withdrawn: false,
+  };
+  const flag = (id: string, reason: string, resolved: Partial<{ resolved_at: string; resolution_note: string | null }> = {}) => ({
+    id, booking_id: "b-1", reason, details: {}, flagged_at: "2026-11-18T09:00:00", resolved_at: null, resolution_note: null, ...resolved,
+  });
+
+  async function render(element: React.ReactNode, path: string) {
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    await act(async () => root.render(<MemoryRouter initialEntries={[path]}>{element}</MemoryRouter>));
+    await act(async () => {});
+  }
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it("shows each Ozow event's reason and holds back refunds while the bank checks a payment", async () => {
+    tableResults.set("admin_booking_overview", { data: [overviewRow], error: null });
+    tableResults.set("bookings", {
+      error: null,
+      data: {
+        payments: [{ id: "p-1", amount: "250.00", payment_date: "2026-11-18T08:00:00", ozow_transaction_id: null, payment_statuses: { name: "Paid" } }],
+        payment_attempts: [{
+          id: "a-1", reference: "DA1", amount: "250.00", status: "investigating", created_at: "2026-11-18T08:00:00", expires_at: "2026-11-18T09:00:00",
+          payment_events: [
+            { ozow_transaction_id: "tx-1", ozow_status: "Pending", ozow_reason: "Pending", outcome: "noted", recorded_at: "2026-11-18T08:01:00" },
+            { ozow_transaction_id: "tx-1", ozow_status: "Pending", ozow_reason: "PendingInvestigation", outcome: "investigating", recorded_at: "2026-11-18T08:02:00" },
+          ],
+        }],
+        refunds: [],
+      },
+    });
+    rpcResult = { data: [], error: null };
+
+    await render(<AdminBookings />, "/admin/bookings?open=b-1");
+
+    expect(container.textContent).toContain("Bank investigating");
+    expect(container.textContent).toContain("Pending (Pending) → noted");
+    expect(container.textContent).toContain("Pending (PendingInvestigation) → investigating");
+    expect(container.textContent).toContain("Ozow is checking a payment with the bank. Record refunds once Ozow decides.");
+    expect([...container.querySelectorAll("button")].some((button) => button.textContent === "Record refund")).toBe(false);
+  });
+
+  it("lets settlement close an investigation flag instead of an admin", async () => {
+    tableResults.set("admin_booking_overview", { data: [overviewRow], error: null });
+    rpcResult = {
+      error: null,
+      data: [
+        flag("f-1", "payment_investigation"),
+        flag("f-2", "late_payment"),
+        flag("f-3", "payment_investigation", { resolved_at: "2026-11-18T10:00:00" }),
+      ],
+    };
+
+    await render(<AdminReviewQueue />, "/admin/review");
+
+    const cards = [...container.querySelectorAll(".flag-card")];
+    expect(cards.map((card) => [card.querySelector(".badge")?.textContent, card.querySelector("textarea") !== null])).toEqual([
+      ["Bank investigating payment", false],
+      ["Late payment", true],
+    ]);
+    expect(cards[0].textContent).toContain("The flag closes itself when Ozow confirms or fails the payment.");
+
+    const resolvedTab = [...container.querySelectorAll("button")].find((button) => button.textContent?.startsWith("Resolved"));
+    await act(async () => resolvedTab?.click());
+    expect(container.querySelector(".resolution")?.textContent).toContain("Ozow finished checking the payment, so the flag closed itself.");
   });
 });

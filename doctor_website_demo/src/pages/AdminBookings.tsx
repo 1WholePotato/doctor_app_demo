@@ -14,6 +14,7 @@ import {
   formatRand,
   recordRefund,
   refundablePayments,
+  resolutionNote,
   reviewReasonLabel,
   type BookingDetail,
   type BookingFilters,
@@ -28,6 +29,7 @@ const PAYMENT_BADGE: Record<PaymentState, string> = {
   paid: "badge-paid",
   partly_refunded: "badge-pending",
   refunded: "badge-muted",
+  investigating: "badge-pending",
   awaiting: "badge-pending",
   unpaid: "badge-muted",
 };
@@ -66,6 +68,7 @@ function BookingDetailPanel({
   if (!detail) return <p className="readonly-sub">Loading payments…</p>;
 
   const refundable = refundablePayments(detail);
+  const investigating = detail.attempts.some((attempt) => attempt.status === "investigating");
 
   return (
     <div className="booking-detail">
@@ -74,7 +77,9 @@ function BookingDetailPanel({
           Course {formatRand(booking.totalAmount)} · Paid {formatRand(booking.paidAmount)} · Refunded {formatRand(booking.refundedAmount)}
           {booking.documentsWithdrawn ? " · Course documents withdrawn" : ""}
         </p>
-        {refundable.length > 0 && (
+        {investigating ? (
+          <p className="readonly-sub" role="note">Ozow is checking a payment with the bank. Record refunds once Ozow decides.</p>
+        ) : refundable.length > 0 && (
           <button type="button" className="btn-primary" onClick={() => setRefunding(true)}><ReceiptText />Record refund</button>
         )}
       </div>
@@ -112,8 +117,8 @@ function BookingDetailPanel({
                   <td>{formatDateTime(attempt.createdAt)}</td>
                   <td>
                     {attempt.events.length === 0 ? "None" : attempt.events.map((event) => (
-                      <div key={`${event.ozowTransactionId}-${event.ozowStatus}`}>
-                        {event.ozowStatus} → {event.outcome} <span className="muted-dash">{formatDateTime(event.recordedAt)}</span>
+                      <div key={`${event.ozowTransactionId}-${event.ozowStatus}-${event.ozowReason}`}>
+                        {event.ozowStatus}{event.ozowReason ? ` (${event.ozowReason})` : ""} → {event.outcome} <span className="muted-dash">{formatDateTime(event.recordedAt)}</span>
                       </div>
                     ))}
                   </td>
@@ -151,7 +156,7 @@ function BookingDetailPanel({
             {flags.map((flag) => (
               <li key={flag.id}>
                 <strong>{reviewReasonLabel(flag.reason)}</strong> flagged {formatDateTime(flag.flaggedAt)} ·{" "}
-                {flag.resolvedAt ? `resolved ${formatDateTime(flag.resolvedAt)}: ${flag.resolutionNote}` : <Link to="/admin/review">open in the review queue</Link>}
+                {flag.resolvedAt ? `resolved ${formatDateTime(flag.resolvedAt)}: ${resolutionNote(flag)}` : <Link to="/admin/review">open in the review queue</Link>}
               </li>
             ))}
           </ul>

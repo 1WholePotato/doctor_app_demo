@@ -8,7 +8,9 @@ import {
   formatDate,
   formatDateTime,
   formatRand,
+  resolutionNote,
   resolveReviewFlag,
+  resolvesItself,
   reviewReasonLabel,
   type BookingOverviewRow,
   type ReviewFlag,
@@ -119,7 +121,9 @@ export default function AdminReviewQueue() {
                 <p className="readonly-sub">{flagSummary(flag.details)}</p>
                 <Link to={`/admin/bookings?open=${flag.bookingId}`}>Open booking and payments</Link>
                 {flag.resolvedAt ? (
-                  <p className="resolution">Resolved {formatDateTime(flag.resolvedAt)}: {flag.resolutionNote}</p>
+                  <p className="resolution">Resolved {formatDateTime(flag.resolvedAt)}: {resolutionNote(flag)}</p>
+                ) : resolvesItself(flag) ? (
+                  <p className="readonly-sub" role="note">Ozow is checking this payment with the bank. The flag closes itself when Ozow confirms or fails the payment.</p>
                 ) : (
                   <ResolveForm flag={flag} onResolved={load} />
                 )}

@@ -1,11 +1,12 @@
 import { supabase } from "../supabaseClient";
 
-export type PaymentState = "refunded" | "partly_refunded" | "paid" | "awaiting" | "unpaid";
+export type PaymentState = "refunded" | "partly_refunded" | "paid" | "investigating" | "awaiting" | "unpaid";
 
 export const PAYMENT_STATE_LABEL: Record<PaymentState, string> = {
   paid: "Paid",
   partly_refunded: "Partly refunded",
   refunded: "Refunded",
+  investigating: "Bank investigating",
   awaiting: "Awaiting Ozow",
   unpaid: "Not paid",
 };
@@ -118,6 +119,7 @@ export type PaymentRow = {
 export type PaymentEventRow = {
   ozowTransactionId: string;
   ozowStatus: string;
+  ozowReason: string | null;
   outcome: string;
   recordedAt: string;
 };
@@ -158,7 +160,7 @@ type DetailRecord = {
     status: string;
     created_at: string;
     expires_at: string;
-    payment_events: { ozow_transaction_id: string; ozow_status: string; outcome: string; recorded_at: string }[];
+    payment_events: { ozow_transaction_id: string; ozow_status: string; ozow_reason: string | null; outcome: string; recorded_at: string }[];
   }[];
   refunds: {
     id: string;
@@ -173,7 +175,7 @@ type DetailRecord = {
 };
 
 const DETAIL_COLUMNS = `payments ( id, amount, payment_date, ozow_transaction_id, payment_statuses ( name ) ),
-  payment_attempts ( id, reference, amount, status, created_at, expires_at, payment_events ( ozow_transaction_id, ozow_status, outcome, recorded_at ) ),
+  payment_attempts ( id, reference, amount, status, created_at, expires_at, payment_events ( ozow_transaction_id, ozow_status, ozow_reason, outcome, recorded_at ) ),
   refunds ( id, payment_id, amount, reason, external_reference, keeps_document_access, recorded_at, users ( first_name, last_name ) )`;
 
 const byTime = <T>(key: (row: T) => string | null) => (a: T, b: T) => (key(a) ?? "").localeCompare(key(b) ?? "");
@@ -205,6 +207,7 @@ export async function fetchBookingDetail(bookingId: string): Promise<{ detail: B
             .map((event) => ({
               ozowTransactionId: event.ozow_transaction_id,
               ozowStatus: event.ozow_status,
+              ozowReason: event.ozow_reason,
               outcome: event.outcome,
               recordedAt: event.recorded_at,
             }))
@@ -317,6 +320,7 @@ const REVIEW_REASON_LABEL: Record<string, string> = {
   late_payment: "Late payment",
   duplicate_payment: "Duplicate payment",
   payment_mismatch: "Payment mismatch",
+  payment_investigation: "Bank investigating payment",
   ambiguous_session: "Class unknown",
   duplicate_active_booking: "Duplicate booking",
   unverified_payment_status: "Unverified payment status",
@@ -324,6 +328,14 @@ const REVIEW_REASON_LABEL: Record<string, string> = {
 
 export function reviewReasonLabel(reason: string): string {
   return REVIEW_REASON_LABEL[reason] ?? reason.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+}
+
+export function resolutionNote(flag: ReviewFlag): string {
+  return flag.resolutionNote ?? "Ozow finished checking the payment, so the flag closed itself.";
+}
+
+export function resolvesItself(flag: ReviewFlag): boolean {
+  return flag.reason === "payment_investigation";
 }
 
 export async function fetchReviewFlags(): Promise<{ flags: ReviewFlag[]; error: string | null }> {
