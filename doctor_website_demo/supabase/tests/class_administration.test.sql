@@ -2,7 +2,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(46);
+select plan(50);
 
 select hasnt_column('public', 'course_sessions', 'active', 'class lifecycle lives in course_sessions.status');
 select col_not_null('public', 'course_sessions', 'status', 'every class has a lifecycle status');
@@ -184,6 +184,9 @@ select throws_ok(
   $$select public.reschedule_class('b0100000-0000-4000-8000-000000000052', 'b0100000-0000-4000-8000-000000000022', current_date + 70, current_date + 70, '10:00', '13:00', 3)$$,
   '23514', null, 'a cancelled class cannot be rescheduled');
 select throws_ok(
+  $$select public.set_session_instructors('b0100000-0000-4000-8000-000000000052', array['b0100000-0000-4000-8000-000000000021']::uuid[])$$,
+  '23514', 'This class is cancelled, so its teachers cannot be changed', 'a cancelled class keeps its teachers');
+select throws_ok(
   $$update public.bookings set booking_status = 'Confirmed'
     where user_id = 'b0700000-0000-4000-8000-000000000001' and course_session_id = 'b0100000-0000-4000-8000-000000000052'$$,
   '23514', null, 'a booking in a cancelled class cannot be reactivated');
@@ -196,6 +199,20 @@ select throws_ok(
   $$insert into public.bookings (user_id, course_session_id, total_amount, booking_status)
     values ('b0700000-0000-4000-8000-000000000001', 'b0100000-0000-4000-8000-000000000053', 100, 'Pending')$$,
   '23514', null, 'a cancelled class takes no new bookings');
+select throws_ok(
+  $$insert into public.session_instructors (course_session_id, instructor_id)
+    values ('b0100000-0000-4000-8000-000000000053', 'b0100000-0000-4000-8000-000000000021')$$,
+  '23514', null, 'a cancelled class takes no new teachers, even by direct insert');
+select throws_ok(
+  $$delete from public.session_instructors where course_session_id = 'b0100000-0000-4000-8000-000000000053'$$,
+  '23514', null, 'a cancelled class keeps its teachers, even by direct delete');
+select results_eq(
+  $$select course_session_id, instructor_id from public.session_instructors
+    where course_session_id in ('b0100000-0000-4000-8000-000000000052', 'b0100000-0000-4000-8000-000000000053')
+    order by course_session_id$$,
+  $$values ('b0100000-0000-4000-8000-000000000052'::uuid, 'b0100000-0000-4000-8000-000000000044'::uuid),
+           ('b0100000-0000-4000-8000-000000000053'::uuid, 'b0100000-0000-4000-8000-000000000044'::uuid)$$,
+  'cancelled classes keep the teachers they had');
 
 select * from finish();
 rollback;

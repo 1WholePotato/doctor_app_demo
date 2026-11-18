@@ -2,6 +2,7 @@
 set -euo pipefail
 
 class=b0700000-0000-4000-8000-0000000000c1
+cancelled_class=b0700000-0000-4000-8000-0000000000c2
 admin=b0100000-0000-4000-8000-000000000011
 student=b0100000-0000-4000-8000-000000000012
 instructor=b0100000-0000-4000-8000-000000000013
@@ -45,3 +46,11 @@ result="$(sql "select max_students || '|' || (select count(*) from public.bookin
 sql "delete from public.bookings where course_session_id = '$class'; delete from public.course_sessions where id = '$class';"
 test "$result" = '2|2' || { echo "FAIL: expected capacity 2 with 2 bookings, got $result" >&2; exit 1; }
 echo "ok: occupancy never exceeded capacity"
+
+sql "insert into public.course_sessions (id, course_id, location_id, start_date, end_date, start_time, end_time, max_students)
+     values ('$cancelled_class', 'b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000022', current_date + 90, current_date + 90, '09:00', '12:00', 1);"
+expect_blocked_failure "update public.course_sessions set status = 'cancelled', cancelled_at = now() where id = '$cancelled_class';" \
+  "insert into public.session_instructors (course_session_id, instructor_id) values ('$cancelled_class', 'b0100000-0000-4000-8000-000000000021');" \
+  "its teachers cannot be changed" \
+  "a teacher added while the class is being cancelled waits and is rejected"
+sql "delete from public.course_sessions where id = '$cancelled_class';"

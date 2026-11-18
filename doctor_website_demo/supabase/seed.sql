@@ -70,13 +70,17 @@ values ('b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-0000000
        ('b0100000-0000-4000-8000-000000000052', 'b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000051',
         current_date + 45, current_date + 46, '08:30', '16:00', 2, 'scheduled', null, null),
        ('b0100000-0000-4000-8000-000000000053', 'b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000022',
-        current_date + 20, current_date + 20, '13:00', '16:00', 12, 'cancelled', now(), 'Fixture venue unavailable');
+        current_date + 20, current_date + 20, '13:00', '16:00', 12, 'scheduled', null, null);
 
 insert into public.session_instructors (course_session_id, instructor_id)
 values ('b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000021'),
        ('b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000041'),
        ('b0100000-0000-4000-8000-000000000052', 'b0100000-0000-4000-8000-000000000044'),
        ('b0100000-0000-4000-8000-000000000053', 'b0100000-0000-4000-8000-000000000044');
+
+update public.course_sessions
+set status = 'cancelled', cancelled_at = now(), cancellation_reason = 'Fixture venue unavailable'
+where id = 'b0100000-0000-4000-8000-000000000053';
 
 insert into public.material_types (id, name, fee) values ('b0100000-0000-4000-8000-000000000033', 'digital', 0);
 

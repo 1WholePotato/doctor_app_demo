@@ -106,6 +106,36 @@ create trigger check_course_session_update
   before update on public.course_sessions
   for each row execute function public.check_course_session_update();
 
+create function public.check_session_instructor_class_open()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_cancelled boolean;
+begin
+  select coalesce(bool_or(status = 'cancelled'), false) into v_cancelled
+  from (
+    select status
+    from public.course_sessions
+    where id in (
+      case when tg_op <> 'INSERT' then old.course_session_id end,
+      case when tg_op <> 'DELETE' then new.course_session_id end)
+    for share
+  ) classes;
+
+  if v_cancelled then
+    raise exception 'This class is cancelled, so its teachers cannot be changed' using errcode = 'check_violation';
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+
+create trigger check_session_instructor_class_open
+  before insert or update or delete on public.session_instructors
+  for each row execute function public.check_session_instructor_class_open();
+
 create function public.check_booking_seat()
 returns trigger
 language plpgsql
@@ -333,6 +363,7 @@ $$;
 revoke execute on function public.booking_holds_seat(text) from public, anon, authenticated;
 revoke execute on function public.check_course_session_update() from public, anon, authenticated;
 revoke execute on function public.check_booking_seat() from public, anon, authenticated;
+revoke execute on function public.check_session_instructor_class_open() from public, anon, authenticated;
 revoke execute on function public.require_admin(text) from public, anon, authenticated;
 revoke execute on function public.schedule_class(uuid, uuid, date, date, time, time, integer, uuid[]) from public, anon;
 revoke execute on function public.reschedule_class(uuid, uuid, date, date, time, time, integer) from public, anon;
