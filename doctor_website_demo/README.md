@@ -22,7 +22,7 @@ Every `VITE_*` value is public browser configuration. Keep `.env.local` out of G
 
 The app expects an existing schema with `users`, `roles`, `courses`, `course_sessions`, `bookings`, `instructors`, `locations`, and `instructor_courses`. The seed script also uses `payments`. The repository does not provide a complete database bootstrap migration. Confirm the target schema and role rows with the project owner before connecting the app.
 
-The current source treats `bookings.course_session_id` as a course relationship. The prior investigation reported that it references `courses.id`, despite its name. That mapping has not been rechecked against a live database in this documentation pass. It cannot identify an individual session for capacity or attendance.
+`bookings.course_session_id` references `course_sessions.id`, so each booking names the exact class. Bookings that could not be linked automatically are listed in `booking_review_flags`; see [docs/local-database.md](docs/local-database.md) for resolving them.
 
 Do not run `scripts/production-rls-policies.sql` as a setup step. It is a draft with unresolved authorization gaps. `scripts/ensure-instructor-courses.sql` is a development helper that enables RLS on that table and grants broad authenticated access. It is not a production security migration. Review any SQL separately before applying it to an explicitly selected disposable project.
 
@@ -82,6 +82,6 @@ Run it only against a disposable project after reviewing its schema assumptions.
 
 Set `SEED_CONFIRM_URL` to exactly match `VITE_SUPABASE_URL`. Missing or mismatched confirmation stops the seed before any request. This confirms your chosen target; it cannot determine whether that project is disposable. The seed resolves or creates admin, student, and instructor roles before account writes.
 
-Optionally set `SEED_SESSION_DATE` to a valid future UTC date in `YYYY-MM-DD` format. The default is seven days ahead. Rerunning updates matching demo session dates. The seed uses `bookings.course_session_id` with the course ID to match the current app contract. A seeded, already-confirmed account does not test email confirmation.
+Optionally set `SEED_SESSION_DATE` to a valid future UTC date in `YYYY-MM-DD` format. The default is seven days ahead. Rerunning updates matching demo session dates. The seed books each demo student into a specific class through `bookings.course_session_id`. A seeded, already-confirmed account does not test email confirmation.
 
 Use the [release checklist](RELEASE_CHECKLIST.md) for remaining gates and evidence. The [V1 implementation plan](V1_IMPLEMENTATION_PLAN.md) preserves the RAD work and deferred findings. `PRELIMINARY_PLAN.md`, `AUDIT_REPORT.md`, and root `IMPLEMENTATION.md` describe earlier snapshots.
