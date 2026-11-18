@@ -142,4 +142,14 @@ values ('b0100000-0000-4000-8000-000000000053', 'cancelled',
 insert into public.certificates (id, booking_id, certificate_number, issue_date)
 values ('b0100000-0000-4000-8000-000000000036', 'b0100000-0000-4000-8000-000000000034', 'FIXTURE-B01-001', current_date);
 
+-- One open flag for the admin review queue and one an admin already resolved.
+insert into public.booking_review_flags (id, booking_id, reason, details, flagged_at, resolved_at, resolved_by, resolution_note)
+values ('b0100000-0000-4000-8000-000000000101', 'b0100000-0000-4000-8000-000000000071', 'payment_mismatch',
+        '{"payment_attempt_id": "b0100000-0000-4000-8000-000000000081", "reference": "DAFIXTURE01", "amount": 250, "booking_total": 250, "transaction": {"id": "fixture-mismatch", "merchantReference": "DAFIXTURE01", "amount": {"currency": "ZAR", "value": 1}, "status": "Successful"}}',
+        now() - interval '3 hours', null, null, null),
+       ('b0100000-0000-4000-8000-000000000102', 'b0100000-0000-4000-8000-000000000037', 'unverified_payment_status',
+        '{"legacy_payment_status": "paid", "payment_ids": ["b0100000-0000-4000-8000-000000000038"]}',
+        now() - interval '5 days', now() - interval '4 days', 'b0100000-0000-4000-8000-000000000011',
+        'Bank statement shows no payment; the student was told to pay again.');
+
 commit;
