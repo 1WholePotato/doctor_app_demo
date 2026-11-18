@@ -22,12 +22,25 @@ export function reconcileHandler({ db, ozow, serviceRoleKey }: ReconcileDeps) {
     if (!(await isServiceRole(req, serviceRoleKey))) return Response.json({ error: "Only the service role can reconcile payments." }, { status: 401 });
     if (!ozow) return Response.json({ error: "Ozow is not configured." }, { status: 503 });
 
-    const lateSince = new Date(Date.now() - LATE_PAYMENT_WINDOW_MS).toISOString();
+    const now = Date.now();
+    const { data: closed, error: closeError } = await db
+      .from("payment_attempts")
+      .update({ status: "failed" })
+      .eq("status", "open")
+      .is("ozow_payment_id", null)
+      .lte("expires_at", new Date(now).toISOString())
+      .select("reference");
+    if (closeError) {
+      console.error("closing abandoned payment attempts failed", closeError);
+      return Response.json({ error: "Could not close abandoned payment attempts." }, { status: 500 });
+    }
+
+    const lateSince = new Date(now - LATE_PAYMENT_WINDOW_MS).toISOString();
     const { data, error } = await db
       .from("payment_attempts")
       .select("reference, ozow_payment_id, created_at")
       .not("ozow_payment_id", "is", null)
-      .or(`status.eq.open,and(status.eq.failed,expires_at.gt.${lateSince})`)
+      .or(`status.in.(open,investigating),and(status.eq.failed,expires_at.gt.${lateSince})`)
       .order("created_at");
     if (error) {
       console.error("listing payment attempts failed", error);
@@ -44,6 +57,8 @@ export function reconcileHandler({ db, ozow, serviceRoleKey }: ReconcileDeps) {
         failed.push(attempt.reference);
       }
     }
-    return Response.json({ checked: data.length, settled, failed }, { status: failed.length ? 502 : 200 });
+    return Response.json({ checked: data.length, settled, failed, closed: closed.map((attempt) => attempt.reference) }, {
+      status: failed.length ? 502 : 200,
+    });
   };
 }

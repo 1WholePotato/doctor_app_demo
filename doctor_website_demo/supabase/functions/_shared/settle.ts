@@ -5,7 +5,7 @@ export type SettleDeps = { db: SupabaseClient; ozow: OzowClient };
 
 export type SettleableAttempt = { reference: string; ozow_payment_id: string; created_at: string };
 
-export type SettleOutcome = "paid" | "late_paid" | "review" | "mismatch" | "failed" | "unchanged";
+export type SettleOutcome = "paid" | "late_paid" | "review" | "mismatch" | "investigating" | "failed" | "unchanged";
 
 export async function settleAttempt({ db, ozow }: SettleDeps, attempt: SettleableAttempt): Promise<SettleOutcome> {
   const transactions = await ozow.paymentTransactions(attempt.ozow_payment_id, new Date(attempt.created_at));

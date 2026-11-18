@@ -48,7 +48,7 @@ async function lapseHold(bookingId: string, status: "Pending" | "Expired") {
 
 Deno.test("ozow-notify and ozow-reconcile act only on what Ozow's API confirms", async (t) => {
   const mock = startOzowMock({ port: Number(env("OZOW_MOCK_PORT")), hostname: "0.0.0.0", notifyUrl: NOTIFY_URL });
-  const classes = Array.from({ length: 6 }, () => crypto.randomUUID());
+  const classes = Array.from({ length: 9 }, () => crypto.randomUUID());
   const { error: classError } = await admin.from("course_sessions").insert(classes.map((id, n) => ({
     id, course_id: COURSE, location_id: LOCATION, start_date: `2027-06-${String(n + 10)}`, end_date: `2027-06-${String(n + 10)}`,
     start_time: "09:00", end_time: "12:00", max_students: n === 1 ? 1 : 10,
@@ -65,6 +65,10 @@ Deno.test("ozow-notify and ozow-reconcile act only on what Ozow's API confirms",
     const [attempt] = await attempts(held.id);
     return { held, attempt };
   }
+
+  const reconcile = (key: string) => fetch(`${supabaseUrl}/functions/v1/ozow-reconcile`, {
+    method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: "{}",
+  });
 
   async function finishOnOzow(paymentId: string, outcome: TransactionOutcome) {
     const response = await fetch(`${mock.url.replace("/v1", "")}/${paymentId}/secure/${outcome}`, { redirect: "manual" });
@@ -223,9 +227,6 @@ Deno.test("ozow-notify and ozow-reconcile act only on what Ozow's API confirms",
     await t.step("reconciliation confirms a payment whose notification never arrived", async () => {
       const { held: silent, attempt: silentAttempt } = await heldAndStarted(student, classes[5]);
       mock.addTransaction(silentAttempt.ozow_payment_id, "Complete");
-      const reconcile = (key: string) => fetch(`${supabaseUrl}/functions/v1/ozow-reconcile`, {
-        method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: "{}",
-      });
 
       const refused = await reconcile(anonKey);
       await refused.body?.cancel();
@@ -242,6 +243,85 @@ Deno.test("ozow-notify and ozow-reconcile act only on what Ozow's API confirms",
       const again = await reconcile(serviceRoleKey).then((rerun) => rerun.json());
       assertEquals(again.settled[silentAttempt.reference], undefined);
       assertEquals((await paidPayments(silent.id)).length, 1);
+    });
+
+    await t.step("a payment the bank must investigate keeps the seat, credits nothing and goes to review", async () => {
+      const { held: checked, attempt: checkedAttempt } = await heldAndStarted(student, classes[6]);
+      const pending = mock.addTransaction(checkedAttempt.ozow_payment_id, "Pending");
+      assertEquals((await mock.notify(pending, "Pending", NOTIFY_URL).then((response) => response.json())).outcome, "unchanged");
+
+      const investigated = mock.addTransaction(checkedAttempt.ozow_payment_id, "PendingInvestigation", { id: pending.id });
+      const notified = await mock.notify(investigated, "PendingInvestigation", NOTIFY_URL).then((response) => response.json());
+
+      assertEquals(notified.outcome, "investigating");
+      assertEquals(await booking(checked.id), { booking_status: "Pending", expires_at: null, holds_seat: true });
+      assertEquals((await attempts(checked.id)).map((row) => row.status), ["investigating"]);
+      assertEquals(await paidPayments(checked.id), []);
+      assertEquals(await reviewReasons(checked.id), ["payment_investigation"]);
+      const { data: events } = await admin.from("payment_events").select("ozow_status, ozow_reason, outcome")
+        .eq("ozow_transaction_id", pending.id).order("recorded_at");
+      assertEquals(events, [
+        { ozow_status: "Pending", ozow_reason: "Pending", outcome: "noted" },
+        { ozow_status: "Pending", ozow_reason: "PendingInvestigation", outcome: "investigating" },
+      ]);
+      const again = await pay(student.token, { bookingId: checked.id });
+      assertEquals([again.status, again.body.error], [409, `A payment on booking ${checked.id} is under investigation with the bank`]);
+
+      const completed = mock.addTransaction(checkedAttempt.ozow_payment_id, "Complete", { id: pending.id });
+      assertEquals((await mock.notify(completed, "Complete", NOTIFY_URL).then((response) => response.json())).outcome, "paid");
+      assertEquals((await booking(checked.id)).booking_status, "Confirmed");
+      assertEquals(await paidPayments(checked.id), [[250, pending.id, "Paid"]]);
+    });
+
+    await t.step("an investigation Ozow later fails is picked up by reconciliation and frees the seat", async () => {
+      const { held: checked, attempt: checkedAttempt } = await heldAndStarted(second, classes[6]);
+      await finishOnOzow(checkedAttempt.ozow_payment_id, "PendingInvestigation");
+      assertEquals((await attempts(checked.id)).map((row) => row.status), ["investigating"]);
+      assertEquals(await seatsTaken(classes[6]), 2);
+
+      const [investigated] = mock.transactions.get(checkedAttempt.ozow_payment_id)!;
+      mock.addTransaction(checkedAttempt.ozow_payment_id, "Error", { id: investigated.id });
+      const body = await reconcile(serviceRoleKey).then((response) => response.json());
+
+      assertEquals(body.settled[checkedAttempt.reference], "failed");
+      assertEquals((await booking(checked.id)).booking_status, "Expired");
+      assertEquals(await seatsTaken(classes[6]), 1);
+      assertEquals(await paidPayments(checked.id), []);
+    });
+
+    await t.step("an old attempt past its own expiry is closed without ending the booking's renewed hold", async () => {
+      const { held: renewed, attempt: oldAttempt } = await heldAndStarted(second, classes[7]);
+      const { error } = await admin.from("payment_attempts")
+        .update({ expires_at: new Date(Date.now() - 60_000).toISOString() }).eq("id", oldAttempt.id);
+      if (error) throw error;
+
+      const body = await reconcile(serviceRoleKey).then((response) => response.json());
+
+      assertEquals(body.settled[oldAttempt.reference], "failed");
+      assertEquals(await booking(renewed.id), { booking_status: "Pending", expires_at: renewed.expires_at, holds_seat: true });
+      assertEquals(await seatsTaken(classes[7]), 1);
+    });
+
+    await t.step("an attempt that never reached Ozow is closed once it expires", async () => {
+      const held = await reserve(student, classes[8]);
+      const { data: stranded, error } = await admin.from("payment_attempts")
+        .insert({ booking_id: held.id, amount: 250, expires_at: new Date(Date.now() - 60_000).toISOString() }).select().single();
+      if (error) throw error;
+
+      const body = await reconcile(serviceRoleKey).then((response) => response.json());
+
+      assert(body.closed.includes(stranded.reference), "reconciliation reports the closed attempt");
+      assertEquals((await attempts(held.id)).map((row) => row.status), ["failed"]);
+      assertEquals((await booking(held.id)).holds_seat, true);
+    });
+
+    await t.step("the pg_net queue that carries the service role key is not reachable through the API", async () => {
+      for (const key of [anonKey, student.token]) {
+        const response = await fetch(`${supabaseUrl}/rest/v1/http_request_queue?select=headers`, {
+          headers: { apikey: anonKey, Authorization: `Bearer ${key}`, "Accept-Profile": "net" },
+        });
+        assertEquals([response.status, (await response.json()).code], [406, "PGRST106"]);
+      }
     });
   } finally {
     await mock.close();
