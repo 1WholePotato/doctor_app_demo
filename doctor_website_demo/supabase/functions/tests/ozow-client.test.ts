@@ -123,12 +123,17 @@ Deno.test("lists a payment's transactions across pages, sending the dates Ozow r
   try {
     const client = clientFor(mock);
     const payment = await client.createPayment(request);
-    const sent = ["Created", "Cancelled", "Complete"].map((outcome) => mock.addTransaction(payment.id, outcome as "Created"));
+    const sent = (["Created", "Cancelled", "Complete", "PendingInvestigation"] as const).map((outcome) => mock.addTransaction(payment.id, outcome));
 
     const listed = await client.paymentTransactions(payment.id, new Date());
 
     assertEquals(listed.map((transaction) => [transaction.id, transaction.status]), sent.map((transaction) => [transaction.id, transaction.status]));
-    assertEquals(listed.map((transaction) => transaction.status), ["Incomplete", "Error", "Successful"]);
+    assertEquals(listed.map((transaction) => [transaction.status, transaction.reason]), [
+      ["Incomplete", "Created"],
+      ["Error", "Cancelled"],
+      ["Successful", "Complete"],
+      ["Pending", "PendingInvestigation"],
+    ]);
     assertEquals(listed[2].amount, { currency: "ZAR", value: 250 });
     assertEquals(listed[2].merchantReference, request.reference);
   } finally {
@@ -171,6 +176,41 @@ Deno.test("a lookup Ozow refuses surfaces as OzowError", async () => {
   } finally {
     await mock.close();
   }
+});
+
+function scriptedOzow(pages: (url: URL) => Response | null) {
+  const requested: string[] = [];
+  const fetchImpl = (input: string | URL | Request, init?: RequestInit) => {
+    const url = new URL(input instanceof Request ? input.url : input);
+    requested.push(url.origin + url.pathname);
+    if (url.pathname.endsWith("/token")) return Promise.resolve(Response.json({ access_token: "token", expires_in: "14400" }));
+    const page = pages(url);
+    if (page) return Promise.resolve(page);
+    return new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal!.reason)));
+  };
+  return { requested, fetchImpl: fetchImpl as typeof fetch };
+}
+
+Deno.test("an Ozow call that does not answer in time fails closed", async () => {
+  const silent = scriptedOzow(() => null);
+  const client = ozowClient({ apiUrl: "https://one.example.test/v1", ...MOCK_CREDENTIALS, timeoutMs: 50 }, silent.fetchImpl);
+
+  const lookup = await assertRejects(() => client.paymentTransactions("p-1", new Date()), OzowError);
+  const payment = await assertRejects(() => client.createPayment(request), OzowError);
+
+  assertEquals([lookup.status, payment.status], [504, 504]);
+});
+
+Deno.test("a transactions page link outside Ozow's API is never followed with the token", async () => {
+  const ozow = scriptedOzow((url) =>
+    url.origin === "https://one.example.test"
+      ? Response.json({ results: [], links: { next: "https://collector.example.test/v1/payments/p-1/transactions?offset=50" } })
+      : Response.json({ results: [], links: {} })
+  );
+  const client = ozowClient({ apiUrl: "https://one.example.test/v1", ...MOCK_CREDENTIALS }, ozow.fetchImpl);
+
+  await assertRejects(() => client.paymentTransactions("p-1", new Date()), OzowError);
+  assertEquals(ozow.requested, ["https://one.example.test/v1/token", "https://one.example.test/v1/payments/p-1/transactions"]);
 });
 
 Deno.test("notify and reconcile refuse what they cannot act on", async () => {

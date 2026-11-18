@@ -19,14 +19,24 @@ export type MockTransaction = {
   completedDate?: string;
 };
 
-export type TransactionOutcome = "Complete" | "Cancelled" | "Abandoned" | "Error" | "Pending" | "Created";
+export type TransactionOutcome =
+  | "Complete"
+  | "Cancelled"
+  | "Abandoned"
+  | "Voided"
+  | "Error"
+  | "Pending"
+  | "PendingInvestigation"
+  | "Created";
 
 const ONE_API_STATUS: Record<TransactionOutcome, MockTransaction["status"]> = {
   Complete: "Successful",
   Cancelled: "Error",
   Abandoned: "Error",
+  Voided: "Error",
   Error: "Error",
   Pending: "Pending",
+  PendingInvestigation: "Pending",
   Created: "Incomplete",
 };
 
@@ -87,6 +97,7 @@ function paymentPage(payment: RecordedPayment): Response {
 .pay{background:#0f766e;color:#fff}.cancel{border:1px solid #cbd5e1;color:#334155}</style></head>
 <body><p>Mock Ozow payment page</p><h1>Pay R ${amount.value.toFixed(2)}</h1><p>Reference ${payment.body.merchantReference}</p>
 <a class="pay" href="/${payment.id}/secure/Complete">Simulate a completed payment</a>
+<a class="cancel" href="/${payment.id}/secure/PendingInvestigation">Simulate a payment the bank must investigate</a>
 <a class="cancel" href="/${payment.id}/secure/Cancelled">Cancel</a></body></html>`;
   return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
@@ -230,7 +241,7 @@ export function startOzowMock({
       siteCode: String(payment.body.siteCode),
       institution: "Mock Bank",
       status: ONE_API_STATUS[outcome],
-      ...(outcome === "Complete" || outcome === "Created" ? {} : { reason: outcome }),
+      reason: outcome,
       createdDate: now,
       ...(outcome === "Created" ? {} : { completedDate: now }),
       ...overrides,
@@ -269,7 +280,7 @@ export function startOzowMock({
     if (req.method === "POST" && pathname === "/v1/payments") return createPayment(req);
     const listing = pathname.match(/^\/v1\/payments\/([^/]+)\/transactions$/);
     if (req.method === "GET" && listing) return listTransactions(req, decodeURIComponent(listing[1]));
-    const page = pathname.match(/^\/([0-9a-f-]{36})\/secure(?:\/(Complete|Cancelled))?$/);
+    const page = pathname.match(/^\/([0-9a-f-]{36})\/secure(?:\/(Complete|Cancelled|PendingInvestigation))?$/);
     const payment = page && payments.get(page[1]);
     if (req.method === "GET" && payment && page[2]) return finishPayment(payment, page[2] as TransactionOutcome);
     if (req.method === "GET" && payment) return paymentPage(payment);
