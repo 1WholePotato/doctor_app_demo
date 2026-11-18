@@ -93,6 +93,7 @@ record_refund(payment, amount, reason, reference, keeps_document_access)   admin
   reference already recorded (ignoring case)
     same payment, amount, reason and decision -> return that refund, nothing new
     anything different                        -> 23505
+  a payment on the booking under investigation -> 23514 (Ozow may still settle it; refund after Ozow decides)
   payment not Paid -> 23514 · amount above what is left on the payment or the booking -> 23514
   insert a Refunded payments row for the amount, next to the untouched Paid row
   insert the refunds row (reason, reference, decision, recorded_by)
@@ -101,11 +102,11 @@ record_refund(payment, amount, reason, reference, keeps_document_access)   admin
   append admin_audit_log
 ```
 
-Partial refunds are allowed, up to what is still refundable on that payment and on the booking. A booking reads `paid`, `partly_refunded` or `refunded` from the sum of its `Paid` and `Refunded` payments rows, in `admin_booking_overview` and in the student's history. `refunds` and `admin_audit_log` are append-only. Students read the refunds on their own bookings. Admins read all of them.
+Partial refunds are allowed, up to what is still refundable on that payment and on the booking. A booking reads `paid`, `partly_refunded` or `refunded` from the sum of its `Paid` and `Refunded` payments rows, in `admin_booking_overview` and in the student's history. With no money recorded, the overview reads `investigating` while Ozow checks a payment with the bank, `awaiting` while an attempt is open, and `unpaid` otherwise. In the student's history, a fully refunded booking that would otherwise read under review, cancelled, expired or failed reads **Refunded** and offers Book again. `refunds` and `admin_audit_log` are append-only. Students read the refunds on their own bookings. Admins read all of them.
 
 `documents_withdrawn(bookings)` is true when the latest refund on a booking withdrew access to course documents. It is a PostgREST computed field, so the PDF delivery in #32 can select it with the booking.
 
-**Review queue** (`/admin/review`) lists the flags `settle_payment_attempt` and the B03 reconciliation raise, such as `late_payment`, `duplicate_payment` and `payment_mismatch`. Admins read them through `review_flags()` and close them through `resolve_review_flag(flag, note)`, which records who resolved it, when and why, and appends to `admin_audit_log`. Signed-in users still have no grant on `booking_review_flags` itself. A flag is unique per booking and reason, so when the same problem is raised again after it was resolved, the row reopens with the new details. The queue also lists paid bookings on cancelled classes that still await a refund.
+**Review queue** (`/admin/review`) lists the flags `settle_payment_attempt` and the B03 reconciliation raise, such as `late_payment`, `duplicate_payment`, `payment_mismatch` and `payment_investigation`. Admins read them through `review_flags()` and close them through `resolve_review_flag(flag, note)`, which records who resolved it, when and why, and appends to `admin_audit_log`. Signed-in users still have no grant on `booking_review_flags` itself. A flag is unique per booking and reason, so when the same problem is raised again after it was resolved, the row reopens with the new details. A `payment_investigation` flag closes itself: `settle_payment_attempt` resolves it when Ozow confirms or fails the payment, with no `resolved_by` or note, and `resolve_review_flag` refuses it (23514) while the attempt is still investigating. The queue shows it without a resolve form. The expanded booking lists each Ozow event with its status and reason. The queue also lists paid bookings on cancelled classes that still await a refund.
 
 **Printed material** (`/admin/printed-material`) reads `printed_material_demand`: for each upcoming scheduled class, the printed bookings that are `Confirmed` or still hold a seat as `Pending`.
 
