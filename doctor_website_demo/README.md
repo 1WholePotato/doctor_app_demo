@@ -30,15 +30,15 @@ Do not run `scripts/production-rls-policies.sql` as a setup step. It is a draft 
 
 In the demo project's Supabase Auth URL configuration, set the Site URL to the app origin you are using. For local development, the configured origin is `http://localhost:5178`. For a hosted demo, use its HTTPS origin.
 
-Add the exact recovery return URL for each origin to the redirect allowlist:
+Add the exact password-recovery (`/reset`) and email-change (`/profile`) return URLs for each origin to the redirect allowlist:
 
-- `http://localhost:5178/reset` for the configured development port.
-- `http://localhost:4173/reset` if you test the default Vite preview origin.
-- `https://your-demo-host.example/reset` for your actual hosted demo domain.
+- `http://localhost:5178/reset` and `http://localhost:5178/profile` for the configured development port.
+- `http://localhost:4173/reset` and `http://localhost:4173/profile` if you test the default Vite preview origin.
+- `https://your-demo-host.example/reset` and `https://your-demo-host.example/profile` for your actual hosted demo domain.
 
 Use the port printed by Vite if a configured port is occupied. An origin using `127.0.0.1` differs from one using `localhost`. Add only the return URLs for origins you use.
 
-`ForgotPassword.tsx` requests `${window.location.origin}/reset`, and `App.tsx` handles `/reset`. Registration and profile email changes do not set an explicit email redirect URL. Check the project's Site URL, confirmation settings, and email templates for those flows. Use a reachable test mailbox and verify signup confirmation, password recovery, and email changes end to end. Source inspection and the current unit tests do not verify email delivery or hosted callback behavior.
+`ForgotPassword.tsx` requests `${window.location.origin}/reset`, and profile email changes request `${window.location.origin}/profile`. If a return URL is missing from the allowlist, Auth falls back to the Site URL root and the confirmation messages on those pages never appear. Registration does not set an explicit email redirect URL. Check the project's Site URL, confirmation settings, and email templates for those flows. Use a reachable test mailbox and verify signup confirmation, password recovery, and email changes end to end. Source inspection and the current unit tests do not verify email delivery or hosted callback behavior.
 
 ## Run and check
 

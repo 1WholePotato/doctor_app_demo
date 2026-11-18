@@ -1,11 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { Skeleton } from "../components/Skeleton";
-import { type AppUser } from "../lib/auth";
+import { authErrorMessage, authLinkOutcome, requestEmailChange, type AppUser, type AuthLinkOutcome } from "../lib/auth";
 import { useAuth } from "../context/useAuth";
 import { loadRoles, roleLabel } from "../lib/roles";
-import { authErrorMessage } from "../lib/auth";
+
+type Banner = { type: "err" | "ok"; text: string };
+
+const LINK_BANNERS: Record<NonNullable<AuthLinkOutcome>, Banner> = {
+  failed: { type: "err", text: "This email confirmation link is invalid, has expired, or was already used. The email below is your current sign-in email. To change it, save a new email and we will send a fresh link." },
+  "awaiting-other-link": { type: "ok", text: "Confirmation link accepted. Open the link we sent to your other email address to finish the change. Until then you sign in with the email below." },
+};
 
 export default function StudentProfile() {
   const navigate = useNavigate();
@@ -16,7 +22,11 @@ export default function StudentProfile() {
   const [profile, setProfile] = useState<AppUser | null>(null);
   const [roleName, setRoleName] = useState("Student");
   const [originalEmail, setOriginalEmail] = useState("");
-  const [banner, setBanner] = useState<{ type: "err" | "ok"; text: string } | null>(null);
+  const [banner, setBanner] = useState<Banner | null>(() => {
+    const outcome = authLinkOutcome(window.location);
+    return outcome ? LINK_BANNERS[outcome] : null;
+  });
+  const bannerRef = useRef<HTMLDivElement>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [first_name, setFirstname] = useState("");
@@ -62,6 +72,10 @@ export default function StudentProfile() {
     };
   }, [user, authLoading, navigate]);
 
+  useEffect(() => {
+    bannerRef.current?.scrollIntoView({ block: "nearest" });
+  }, [banner, loading]);
+
   const clearErr = (key: string) =>
     setErrors((p) => {
       const n = { ...p };
@@ -106,27 +120,16 @@ export default function StudentProfile() {
       if (updateError) throw updateError;
 
       if (requestedEmail !== originalEmail) {
-        const { data, error: authError } = await supabase.auth.updateUser({ email: requestedEmail });
-        if (authError) {
-          setBanner({ type: "err", text: `Profile details saved, but the email was not changed: ${authErrorMessage(authError)}` });
+        try {
+          if (await requestEmailChange(requestedEmail) === "pending") {
+            setEmail(originalEmail);
+            setBanner({ type: "ok", text: `Profile details saved. Open the confirmation link we sent to ${requestedEmail}, and the one sent to ${originalEmail} if you received it. Your sign-in email stays ${originalEmail} until the change is confirmed.` });
+            return;
+          }
+        } catch (authError) {
+          setBanner({ type: "err", text: `Profile details saved, but the email was not changed: ${authErrorMessage(authError instanceof Error ? authError : {})}` });
           return;
         }
-
-        if (data.user?.email?.toLowerCase() !== requestedEmail.toLowerCase()) {
-          setBanner({ type: "ok", text: "Profile details saved. Confirm the email change using the link sent to your new address; the current email remains active until then." });
-          return;
-        }
-
-        const { error: emailError } = await supabase.from("users").update({ email: requestedEmail }).eq("id", profile.id);
-        if (emailError) {
-          const { error: rollbackError } = await supabase.auth.updateUser({ email: originalEmail });
-          setBanner({
-            type: "err",
-            text: `Profile details saved, but the email sync failed: ${authErrorMessage(emailError)}${rollbackError ? " The Auth email rollback also failed; contact support." : " The Auth email change was reverted."}`,
-          });
-          return;
-        }
-        setOriginalEmail(requestedEmail);
       }
 
       await refreshUser();
@@ -169,7 +172,7 @@ export default function StudentProfile() {
 
           <div className="sp-card">
             {banner && (
-              <div className={`sp-banner ${banner.type}`}>{banner.text}</div>
+              <div ref={bannerRef} className={`sp-banner ${banner.type}`} role={banner.type === "err" ? "alert" : "status"}>{banner.text}</div>
             )}
 
             <form onSubmit={handleSave}>

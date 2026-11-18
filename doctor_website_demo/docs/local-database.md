@@ -39,6 +39,18 @@ EXPECT_EMAIL_CONFIRMATION=false node --test scripts/test-registration-local.mjs
 
 For the confirmation flow, restart with `SUPABASE_AUTH_EMAIL_ENABLE_CONFIRMATIONS=true supabase start` and run the script with `EXPECT_EMAIL_CONFIRMATION=true`. It confirms each account through the local Mailpit inbox.
 
+## Password recovery and email changes
+
+Auth owns the login email. A trigger on `auth.users` copies each confirmed email change to `public.users.email` in the same transaction, and clients cannot write that column. A requested change leaves both emails on the old address until Auth confirms it. With email confirmations on, Auth waits for the links sent to both the old and the new address. If the profile cannot take the new address, the confirmation fails and both stay unchanged.
+
+To exercise reset links and email changes against the running stack, load its keys as above and run:
+
+```sh
+node --test scripts/test-recovery-email-local.mjs
+```
+
+It follows valid, reused, tampered and expired recovery links and confirmed email changes through the local Mailpit inbox. It marks a link expired by backdating `auth.users.recovery_sent_at` through `psql`, so `DB_URL` must point at the local database.
+
 ## Backup and recovery preparation
 
 For a disposable local database, recover with `supabase db reset --local` and rerun the verification query. If local changes matter, save a PostgreSQL logical backup to a private path outside the repository before resetting, then rehearse its restore into a separate disposable local database.
