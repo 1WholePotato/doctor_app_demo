@@ -82,13 +82,13 @@ export default function RefundModal({
         <label htmlFor="refund-reference">Refund reference</label>
         <input id="refund-reference" placeholder="Bank or Ozow reference" value={draft.reference} onChange={(e) => change({ reference: e.target.value })} />
       </div>
-      <fieldset className="field refund-access">
+      <fieldset className="refund-access">
         <legend>Course documents</legend>
-        <label className="course-option">
+        <label>
           <input type="radio" name="refund-access" checked={draft.keepsDocumentAccess === true} onChange={() => change({ keepsDocumentAccess: true })} />
           Student keeps access to course documents
         </label>
-        <label className="course-option">
+        <label>
           <input type="radio" name="refund-access" checked={draft.keepsDocumentAccess === false} onChange={() => change({ keepsDocumentAccess: false })} />
           Withdraw access to course documents
         </label>

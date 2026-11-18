@@ -7,6 +7,7 @@
 .bookings-table tbody tr.row-detail:hover { background: #FAFAF8; }
 .row-toggle { background: none; border: none; cursor: pointer; color: var(--text-2); display: flex; }
 .row-toggle svg { width: 16px; height: 16px; }
+.bookings-table td:nth-child(5), .bookings-table td:nth-child(8) { white-space: nowrap; }
 .flag-note { margin-top: 4px; font-size: 12px; color: #9A6500; }
 .badge-muted { background: #F0EFEC; color: var(--text-2); }
 
@@ -20,8 +21,10 @@
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; word-break: break-all; }
 .flag-list { list-style: none; padding: 0; margin: 0; font-size: 13px; display: flex; flex-direction: column; gap: 6px; }
 
-.refund-access { border: none; padding: 0; }
+.refund-access { border: none; padding: 0; margin: 0 0 18px; display: flex; flex-direction: column; gap: 8px; text-align: left; }
 .refund-access legend { font-size: 12px; font-weight: 500; color: var(--text-2); letter-spacing: .04em; text-transform: uppercase; margin-bottom: 6px; }
+.refund-access label { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text-1); cursor: pointer; }
+.refund-access input { width: 16px; height: 16px; accent-color: var(--text-1); margin: 0; }
 
 .flag-cards { display: flex; flex-direction: column; gap: 14px; margin-bottom: 32px; }
 .flag-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }

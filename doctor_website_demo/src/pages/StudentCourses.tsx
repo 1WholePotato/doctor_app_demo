@@ -61,7 +61,8 @@ function StateNote({ booking }: { booking: StudentCourseRow }) {
     case "class_cancelled":
       return (
         <p className="sc-meta sc-note-alert" role="note">
-          This class was cancelled{booking.cancellationReason ? `: ${booking.cancellationReason}` : ""}. Your booking and payment are kept while a refund is arranged.
+          This class was cancelled{booking.cancellationReason ? `: ${booking.cancellationReason}` : ""}.{" "}
+          {booking.payment === "refunded" ? "Your payment was refunded." : "Your booking and payment are kept while a refund is arranged."}
         </p>
       );
     default:
