@@ -29,7 +29,7 @@ Use synthetic accounts and data in an approved disposable project. These checks 
 - [ ] Confirm the project's schema, role IDs, and booking FK mapping. Record the actual relationships rather than inferring them from column names.
 - [ ] Configure build-time public `VITE_*` values and the host's app root, build command, and publish directory from the [setup guide](README.md).
 - [ ] Verify HTTPS and SPA fallback on the deployed host. Directly open and refresh `/login`, `/reset`, `/admin/users`, and a real `/courses/:id` path. Confirm that static assets load and client routing handles access.
-- [ ] Confirm the Supabase Site URL, exact `/reset` redirect URLs, email settings, and templates for this origin. Test real email delivery with a test mailbox.
+- [ ] Confirm the Supabase Site URL, exact `/reset` and `/profile` redirect URLs, email settings, and templates for this origin. Test real email delivery with a test mailbox.
 - [ ] Test registration with email confirmation required, confirmation return, sign in, wrong credentials, and duplicate signup. Verify that Auth and `users` profile state remain consistent when profile creation fails.
 - [ ] Test password recovery through the received email, password update, and sign in with the new password. Test expired and reused links and direct `/reset` access without recovery state.
 - [ ] Test profile edits and email changes through confirmation. Confirm that the Auth email and profile email converge. Check the visible result of a failed profile write or email update.
