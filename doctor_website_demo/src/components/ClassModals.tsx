@@ -124,78 +124,51 @@ export function EditTeachersModal({
   );
 }
 
+type LocationChoice =
+  | { kind: "existing"; id: string }
+  | { kind: "new"; name: string; address: string };
+
 function LocationPicker({
   locations,
   value,
   onChange,
-  onCreated,
 }: {
   locations: LocationRow[];
-  value: string;
-  onChange: (id: string) => void;
-  onCreated: (location: LocationRow) => void;
+  value: LocationChoice;
+  onChange: (choice: LocationChoice) => void;
 }) {
-  const [adding, setAdding] = useState(locations.length === 0);
-  const [name, setName] = useState("");
-  const [address, setAddress] = useState("");
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    if (!name.trim()) {
-      setError("Give the location a name.");
-      return;
-    }
-    setSaving(true);
-    const { location, error: saveError } = await createLocation(name, address);
-    setSaving(false);
-    if (!location) {
-      setError(saveError ?? "The location was not saved.");
-      return;
-    }
-    onCreated(location);
-    onChange(location.id);
-    setAdding(false);
-    setName("");
-    setAddress("");
-    setError("");
-  };
-
   return (
     <>
       <div className="field">
         <label htmlFor="class-location">Location</label>
         <select
           id="class-location"
-          value={adding ? NEW_LOCATION : value}
-          onChange={(e) => {
-            if (e.target.value === NEW_LOCATION) setAdding(true);
-            else {
-              setAdding(false);
-              onChange(e.target.value);
-            }
-          }}
+          value={value.kind === "new" ? NEW_LOCATION : value.id}
+          onChange={(e) => onChange(e.target.value === NEW_LOCATION ? { kind: "new", name: "", address: "" } : { kind: "existing", id: e.target.value })}
         >
           {locations.map((location) => <option key={location.id} value={location.id}>{locationLabel(location)}</option>)}
           <option value={NEW_LOCATION}>Add a new location…</option>
         </select>
       </div>
-      {adding && (
+      {value.kind === "new" && (
         <div className="field-row">
           <div className="field">
             <label htmlFor="new-location-name">New location name</label>
-            <input id="new-location-name" type="text" value={name} onChange={(e) => { setName(e.target.value); setError(""); }} />
+            <input id="new-location-name" type="text" value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} />
           </div>
           <div className="field">
             <label htmlFor="new-location-address">Address</label>
-            <input id="new-location-address" type="text" value={address} onChange={(e) => setAddress(e.target.value)} />
+            <input id="new-location-address" type="text" value={value.address} onChange={(e) => onChange({ ...value, address: e.target.value })} />
           </div>
-          <button type="button" className="btn-link" onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save location"}</button>
         </div>
       )}
-      {error && <span className="field-error" role="alert"><AlertCircle />{error}</span>}
     </>
   );
+}
+
+function sameSchedule(a: ClassSchedule, b: ClassSchedule): boolean {
+  return a.locationId === b.locationId && a.startDate === b.startDate && a.endDate === b.endDate
+    && a.startTime === b.startTime && a.endTime === b.endTime && a.maxStudents === b.maxStudents;
 }
 
 type ClassFormMode =
@@ -218,7 +191,10 @@ export function ClassFormModal({
   onSubmit: (schedule: ClassSchedule, instructorIds: string[]) => Promise<string | null>;
 }) {
   const initial = mode.kind === "reschedule" ? mode.initial : null;
-  const [locationId, setLocationId] = useState(initial?.locationId ?? locations[0]?.id ?? "");
+  const [location, setLocation] = useState<LocationChoice>(() => {
+    const id = initial?.locationId ?? locations[0]?.id;
+    return id ? { kind: "existing", id } : { kind: "new", name: "", address: "" };
+  });
   const [startDate, setStartDate] = useState(initial?.startDate ?? "");
   const [endDate, setEndDate] = useState(initial?.endDate ?? "");
   const [startTime, setStartTime] = useState(initial?.startTime ?? "09:00");
@@ -230,17 +206,38 @@ export function ClassFormModal({
 
   const handleSubmit = async () => {
     if (pending) return;
-    const schedule: ClassSchedule = { locationId, startDate, endDate, startTime, endTime, maxStudents: Number(maxStudents) };
-    const problem = scheduleProblem(schedule)
+    const schedule: ClassSchedule = {
+      locationId: location.kind === "existing" ? location.id : NEW_LOCATION,
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+      maxStudents: Number(maxStudents),
+    };
+    const problem = (location.kind === "new" && !location.name.trim() ? "Give the new location a name, or choose an existing one." : null)
+      ?? scheduleProblem(schedule)
       ?? (mode.kind === "schedule" && instructorIds.length === 0 ? "Select at least one teacher." : null)
-      ?? (mode.kind === "reschedule" && schedule.maxStudents < mode.booked ? `Capacity cannot be below the ${mode.booked} students already booked.` : null);
+      ?? (mode.kind === "reschedule" && schedule.maxStudents < mode.booked ? `Capacity cannot be below the ${mode.booked} students already booked.` : null)
+      ?? (mode.kind === "reschedule" && sameSchedule(schedule, mode.initial) ? "Nothing changed. Change the location, dates, times or capacity, or close this dialog." : null);
     if (problem) {
       setError(problem);
       return;
     }
     setPending(true);
     setError("");
-    const submitError = await onSubmit(schedule, instructorIds);
+    let locationId = schedule.locationId;
+    if (location.kind === "new") {
+      const { location: created, error: locationError } = await createLocation(location.name, location.address);
+      if (!created) {
+        setPending(false);
+        setError(locationError ?? "The location was not saved.");
+        return;
+      }
+      onLocationCreated(created);
+      setLocation({ kind: "existing", id: created.id });
+      locationId = created.id;
+    }
+    const submitError = await onSubmit({ ...schedule, locationId }, instructorIds);
     setPending(false);
     if (submitError) setError(submitError);
     else onClose();
@@ -263,7 +260,7 @@ export function ClassFormModal({
         </fieldset>
       )}
 
-      <LocationPicker locations={locations} value={locationId} onChange={setLocationId} onCreated={onLocationCreated} />
+      <LocationPicker locations={locations} value={location} onChange={(choice) => { setLocation(choice); setError(""); }} />
       <div className="field-row">
         <div className="field"><label htmlFor="class-start-date">Start date</label><input id="class-start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></div>
         <div className="field"><label htmlFor="class-end-date">End date</label><input id="class-end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></div>

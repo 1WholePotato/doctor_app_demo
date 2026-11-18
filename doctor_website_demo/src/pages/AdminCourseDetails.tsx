@@ -147,7 +147,7 @@ export default function AdminCourseDetails() {
   }, [loadData]);
 
   const afterChange = async (error: string | null) => {
-    if (!error) await loadData();
+    await loadData();
     return error;
   };
 
