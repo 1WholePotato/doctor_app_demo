@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Plus, AlertCircle, User, ChevronLeft, Pencil } from "lucide-react";
 import { supabase } from "../supabaseClient";
-import { ACTIVE_BOOKING_STATUSES } from "../lib/bookings";
 import { cancelClass, rescheduleClass, scheduleClass, type ClassSchedule, type ClassStatus } from "../lib/classes";
 import { updateCourse, type CourseDraft } from "../lib/courses";
 import { SESSION_INSTRUCTORS_EMBED, instructorName, instructorNames, type Instructor } from "../lib/instructors";
@@ -35,7 +34,7 @@ type Dialog =
   | { kind: "cancel"; row: ClassRow };
 
 const CLASS_SELECT = `id, status, rescheduled_at, cancellation_reason, start_date, end_date, start_time, end_time, max_students, location_id,
-  locations ( name ), session_instructors ( instructor_id ), ${SESSION_INSTRUCTORS_EMBED}, bookings ( count )`;
+  locations ( name ), session_instructors ( instructor_id ), ${SESSION_INSTRUCTORS_EMBED}, seats_taken`;
 
 function classLabel(row: ClassRow): string {
   return row.endDate !== row.startDate ? `${row.startDate} – ${row.endDate}` : row.startDate;
@@ -59,7 +58,6 @@ function ClassStatusBadge({ row }: { row: ClassRow }) {
 function toClassRow(row: Record<string, unknown>): ClassRow {
   const location = row.locations as { name?: string } | null;
   const assignments = (row.session_instructors ?? []) as { instructor_id: string }[];
-  const bookings = (row.bookings ?? []) as { count?: number }[];
   return {
     id: String(row.id),
     status: row.status === "cancelled" ? "cancelled" : "scheduled",
@@ -74,7 +72,7 @@ function toClassRow(row: Record<string, unknown>): ClassRow {
     maxStudents: Number(row.max_students) || 0,
     instructorIds: assignments.map((assignment) => assignment.instructor_id),
     instructorNames: instructorNames(row.instructors, "Unassigned"),
-    booked: Number(bookings[0]?.count) || 0,
+    booked: Number(row.seats_taken) || 0,
   };
 }
 
@@ -105,7 +103,6 @@ export default function AdminCourseDetails() {
         .from("course_sessions")
         .select(CLASS_SELECT)
         .eq("course_id", id)
-        .in("bookings.booking_status", [...ACTIVE_BOOKING_STATUSES])
         .order("start_date")
         .order("start_time"),
       fetchInstructorsForCourse(id),

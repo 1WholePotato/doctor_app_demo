@@ -13,7 +13,7 @@ vi.mock("../src/supabaseClient", () => ({
           return Promise.resolve(responses.get(table) ?? { data: [], error: null }).then(resolve);
         },
       } as Record<string, unknown>;
-      for (const method of ["select", "eq", "in", "gte", "order", "update", "maybeSingle"]) {
+      for (const method of ["select", "eq", "in", "or", "gte", "order", "update", "maybeSingle"]) {
         query[method] = (...args: unknown[]) => {
           calls.push({ table, method, args });
           return query;
@@ -69,7 +69,7 @@ describe("student course detail", () => {
     responses.set("courses", { data: { id: "course-1", course_title: "Wound Care", course_description: "", active: true }, error: null });
     rpcResponse = { data: priceRows, error: null };
 
-    const { materials, error } = await fetchStudentCourseDetail("course-1");
+    const { materials, error } = await fetchStudentCourseDetail("course-1", "student-1");
 
     expect(error).toBeNull();
     expect(rpcCalls).toEqual([{ name: "course_material_prices", args: { p_course_id: "course-1" } }]);
@@ -83,10 +83,11 @@ describe("student course detail", () => {
     responses.set("courses", { data: { id: "course-1", course_title: "Wound Care", course_description: "", active: true }, error: null });
     rpcResponse = { data: null, error: { message: "permission denied for function course_material_prices" } };
 
-    await expect(fetchStudentCourseDetail("course-1")).resolves.toEqual({
+    await expect(fetchStudentCourseDetail("course-1", "student-1")).resolves.toEqual({
       course: null,
       sessions: [],
       materials: [],
+      bookings: [],
       error: "permission denied for function course_material_prices",
     });
   });

@@ -1,5 +1,5 @@
 import { supabase } from "../supabaseClient";
-import { ACTIVE_BOOKING_STATUSES, CLASS_CANCELLED } from "./bookings";
+import { CLASS_CANCELLED, SEAT_HOLDING_OR_CLASS_CANCELLED, fetchSeatBookings, type SeatBooking } from "./bookings";
 import { SESSION_INSTRUCTORS_EMBED, instructorNames } from "./instructors";
 import { locationLabel } from "./locations";
 import { fetchMaterialOptions, type MaterialOption } from "./materials";
@@ -111,7 +111,7 @@ export async function fetchStudentCourses(userId: string): Promise<{
       `id, booking_status, total_amount, created_at, course_sessions ( id, start_date, end_date, start_time, end_time, rescheduled_at, cancellation_reason, locations ( name, address ), courses ( id, course_title, course_description ), ${SESSION_INSTRUCTORS_EMBED} ), payments ( created_at, payment_statuses ( name ) )`,
     )
     .eq("user_id", userId)
-    .in("booking_status", [...ACTIVE_BOOKING_STATUSES, CLASS_CANCELLED])
+    .or(SEAT_HOLDING_OR_CLASS_CANCELLED)
     .order("created_at");
 
   if (error) {
@@ -139,6 +139,8 @@ export type StudentSessionRow = {
   location: string;
   instructor: string;
   duration: string;
+  capacity: number;
+  seatsLeft: number;
 };
 
 export type StudentCourseDetail = {
@@ -182,10 +184,11 @@ function formatSchedule(session: Record<string, unknown>): string | null {
   return `${dates}, ${formatSessionDuration(readString(session, ["start_time"]) || null, readString(session, ["end_time"]) || null)}`;
 }
 
-export async function fetchStudentCourseDetail(courseId: string): Promise<{
+export async function fetchStudentCourseDetail(courseId: string, userId: string): Promise<{
   course: StudentCourseDetail | null;
   sessions: StudentSessionRow[];
   materials: MaterialOption[];
+  bookings: SeatBooking[];
   error: string | null;
 }> {
   const { data: courseRow, error: courseError } = await supabase
@@ -195,17 +198,17 @@ export async function fetchStudentCourseDetail(courseId: string): Promise<{
     .maybeSingle();
 
   if (courseError) {
-    return { course: null, sessions: [], materials: [], error: courseError.message };
+    return { course: null, sessions: [], materials: [], bookings: [], error: courseError.message };
   }
   if (!courseRow?.active) {
-    return { course: null, sessions: [], materials: [], error: "Course not found" };
+    return { course: null, sessions: [], materials: [], bookings: [], error: "Course not found" };
   }
 
   const [{ data: sessionRows, error: sessionsError }, materialResult] = await Promise.all([
     supabase
       .from("course_sessions")
       .select(
-        `id, start_date, start_time, end_time, ${SESSION_INSTRUCTORS_EMBED}, locations ( name, address )`,
+        `id, start_date, start_time, end_time, max_students, seats_taken, ${SESSION_INSTRUCTORS_EMBED}, locations ( name, address )`,
       )
       .eq("course_id", courseId)
       .eq("status", "scheduled")
@@ -216,13 +219,14 @@ export async function fetchStudentCourseDetail(courseId: string): Promise<{
 
   const loadError = sessionsError?.message ?? materialResult.error;
   if (loadError) {
-    return { course: null, sessions: [], materials: [], error: loadError };
+    return { course: null, sessions: [], materials: [], bookings: [], error: loadError };
   }
 
   const sessions = (sessionRows ?? [])
     .map((row) => {
       const record = asRecord(row);
       if (!record) return null;
+      const capacity = Number(record.max_students) || 0;
       return {
         id: readString(record, ["id"]),
         date: formatSessionDate(readString(record, ["start_date"], "Upcoming")),
@@ -232,9 +236,16 @@ export async function fetchStudentCourseDetail(courseId: string): Promise<{
           typeof record.start_time === "string" ? record.start_time : null,
           typeof record.end_time === "string" ? record.end_time : null,
         ),
+        capacity,
+        seatsLeft: Math.max(0, capacity - (Number(record.seats_taken) || 0)),
       } satisfies StudentSessionRow;
     })
     .filter((row): row is StudentSessionRow => row !== null && Boolean(row.id));
+
+  const bookingResult = await fetchSeatBookings(userId, sessions.map((session) => session.id));
+  if (bookingResult.error) {
+    return { course: null, sessions: [], materials: [], bookings: [], error: bookingResult.error };
+  }
 
   const firstSession = sessions[0];
   return {
@@ -247,6 +258,7 @@ export async function fetchStudentCourseDetail(courseId: string): Promise<{
     },
     sessions,
     materials: materialResult.options,
+    bookings: bookingResult.bookings,
     error: null,
   };
 }
