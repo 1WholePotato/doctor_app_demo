@@ -19,12 +19,31 @@ Run the following against the loopback database after each reset. The query shou
 select u.email, c.course_title, p.amount, cert.certificate_number
 from public.bookings b
 join public.users u on u.id = b.user_id
-join public.courses c on c.id = b.course_session_id
+join public.course_sessions cs on cs.id = b.course_session_id
+join public.courses c on c.id = cs.course_id
 join public.payments p on p.booking_id = b.id
 join public.certificates cert on cert.booking_id = b.id;
 ```
 
-The migration captures the shared project's application tables, constraints, grants and existing RLS policies. The CLI supplies the platform schemas, Auth tables, and standard extensions. Application schema corrections, including the destination of the booking foreign key, and RLS hardening are tracked separately.
+The baseline migration captures the shared project's application tables, constraints, grants and existing RLS policies. The CLI supplies the platform schemas, Auth tables, and standard extensions. RLS hardening is tracked separately.
+
+## Bookings, sessions and review flags
+
+Each booking points at one scheduled class through `bookings.course_session_id`, which references `course_sessions`. Booking state is `bookings.booking_status`, a name from `booking_statuses`. Payment state lives only on `payments.payment_status_id`. A student can hold one `Pending`, `Confirmed` or `Completed` booking per session. Cancelled attempts stay as separate rows.
+
+The `20261118090000_booking_session_linkage` migration reconciled bookings created before this rule. Rows it could not resolve on its own sit in `booking_review_flags`, which only the service role can read. To resolve an `ambiguous_session` or `duplicate_active_booking` flag, set the booking's `course_session_id` (or cancel it after linking) and stamp `resolved_at`. Once no booking has a null session, run `alter table public.bookings validate constraint bookings_course_session_required;`.
+
+## Database tests
+
+`supabase test db` runs the pgTAP files in `supabase/tests/` against the seeded database. To rehearse the reconciliation on legacy-shaped rows, run:
+
+```sh
+supabase db reset --local --no-seed --version 20261117190000
+psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/checks/legacy_bookings.sql
+supabase migration up --local
+supabase test db supabase/checks/legacy_reconciliation.test.sql
+supabase db reset --local
+```
 
 ## Backup and recovery preparation
 
