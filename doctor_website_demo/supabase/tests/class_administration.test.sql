@@ -2,7 +2,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(45);
+select plan(46);
 
 select hasnt_column('public', 'course_sessions', 'active', 'class lifecycle lives in course_sessions.status');
 select col_not_null('public', 'course_sessions', 'status', 'every class has a lifecycle status');
@@ -104,6 +104,9 @@ select results_eq(
 select throws_ok(
   $$select public.schedule_class('b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000022', current_date + 5, current_date + 5, '09:00', '12:00', 10, array['b0100000-0000-4000-8000-000000000042']::uuid[])$$,
   '23514', null, 'scheduling with an unauthorized instructor fails');
+select throws_ok(
+  $$select public.schedule_class('b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000022', current_date + 5, current_date + 5, '09:00', '12:00', 10, array['b0100000-0000-4000-8000-000000000021', 'b0100000-0000-4000-8000-000000000043']::uuid[])$$,
+  '23514', null, 'one deactivated teacher refuses the whole class, including its valid teachers');
 select throws_ok(
   $$select public.schedule_class('b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000022', current_date + 5, current_date + 5, '09:00', '12:00', 10, array[]::uuid[])$$,
   '22023', 'A class needs at least one instructor', 'scheduling without instructors fails');
