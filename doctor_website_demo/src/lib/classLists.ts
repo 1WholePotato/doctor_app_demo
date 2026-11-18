@@ -1,6 +1,6 @@
 import { supabase } from "../supabaseClient";
 import { ACTIVE_BOOKING_STATUSES } from "./bookings";
-import { instructorName } from "./instructors";
+import { SESSION_INSTRUCTORS_EMBED, instructorNames } from "./instructors";
 
 export type UpcomingSession = {
   id: string;
@@ -39,7 +39,7 @@ export async function fetchUpcomingSessions(): Promise<FetchUpcomingSessionsResu
       id,
       start_date,
       courses ( id, course_title, active ),
-      instructors ( first_name, last_name, email ),
+      ${SESSION_INSTRUCTORS_EMBED},
       bookings ( count )
     `)
     .in("bookings.booking_status", [...ACTIVE_BOOKING_STATUSES])
@@ -67,18 +67,6 @@ export async function fetchUpcomingSessions(): Promise<FetchUpcomingSessionsResu
     const course = asRecord(row.courses);
     if (!course) continue;
 
-    const instructorValue = row.instructors;
-    const instructor = Array.isArray(instructorValue)
-      ? asRecord(instructorValue[0])
-      : asRecord(instructorValue);
-    const instName = instructor
-      ? instructorName({
-          first_name: readString(instructor, ["first_name"]),
-          last_name: readString(instructor, ["last_name"]),
-          email: readString(instructor, ["email"]),
-        })
-      : "Unassigned";
-
     const startDate = row.start_date ?? "";
     const bookings = Array.isArray(row.bookings) ? asRecord(row.bookings[0]) : null;
 
@@ -86,7 +74,7 @@ export async function fetchUpcomingSessions(): Promise<FetchUpcomingSessionsResu
       id: row.id,
       courseTitle: readString(course, ["course_title"], "Untitled Course"),
       displayDate: startDate || "Upcoming",
-      instructor: instName,
+      instructor: instructorNames(row.instructors, "Unassigned"),
       bookedCount: Number(bookings?.count) || 0,
     });
   }

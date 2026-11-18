@@ -26,6 +26,7 @@ function fakeSupabase({ roles = [], failRole } = {}) {
     payments: [],
     payment_statuses: [{ id: randomUUID(), name: "Paid" }],
     instructor_courses: [],
+    session_instructors: [],
   };
   const authUsers = [];
   const requests = [];
@@ -145,6 +146,14 @@ test("fresh seed resolves roles before accounts and writes the app's booking con
   assert.equal(api.tables.payments[0].booking_id, api.tables.bookings[0].id);
   assert.equal(api.tables.payments[0].payment_status_id, api.tables.payment_statuses[0].id);
   assert.equal(api.tables.instructor_courses.length, 5);
+  const authorized = new Set(api.tables.instructor_courses.map((row) => `${row.instructor_id}|${row.course_id}`));
+  assert.equal(api.tables.session_instructors.length, 4);
+  for (const session of api.tables.course_sessions) {
+    const assigned = api.tables.session_instructors.filter((row) => row.course_session_id === session.id);
+    assert.ok(assigned.length > 0, "every seeded class has an instructor");
+    for (const row of assigned) assert.ok(authorized.has(`${row.instructor_id}|${session.course_id}`), "seeded instructors are authorized for their class");
+  }
+  assert.ok(api.tables.course_sessions.every((row) => !("instructor_id" in row)));
 });
 
 test("rerun reuses mixed-case roles and fixtures and moves historical sessions to the configured date", async () => {

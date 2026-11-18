@@ -14,7 +14,7 @@ import {
   fetchAllowedCourseIds,
   fetchAllowedCourseIdsByInstructor,
   fetchCourseOptions,
-  findInstructorIdByEmail,
+  findInstructorIdForUser,
   isInstructorRole,
   setInstructorCourses,
   type CourseOption,
@@ -79,7 +79,7 @@ function ChangeRoleModal({
     let cancelled = false;
 
     async function loadAssigned() {
-      const instructor = await findInstructorIdByEmail(user.email);
+      const instructor = await findInstructorIdForUser(user);
       if (instructor.error) {
         if (!cancelled) {
           setError(instructor.error);
@@ -106,7 +106,7 @@ function ChangeRoleModal({
     return () => {
       cancelled = true;
     };
-  }, [user.email]);
+  }, [user]);
 
   useEffect(() => {
     dialogRef.current?.querySelector<HTMLElement>("#role-select")?.focus();
@@ -164,7 +164,7 @@ function ChangeRoleModal({
         return;
       }
     } else {
-      const instructor = await findInstructorIdByEmail(user.email);
+      const instructor = await findInstructorIdForUser(user);
       if (instructor.error) {
         setSaving(false);
         setError(instructor.error);
@@ -319,7 +319,7 @@ export default function AdminUsers() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [courses, setCourses] = useState<CourseOption[]>([]);
-  const [coursesByEmail, setCoursesByEmail] = useState<Map<string, string[]>>(new Map());
+  const [coursesByUserId, setCoursesByUserId] = useState<Map<string, string[]>>(new Map());
   const currentUserId = user?.id ?? "";
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [selected, setSelected] = useState<UserRow | null>(null);
@@ -333,7 +333,7 @@ export default function AdminUsers() {
         .order("last_name"),
       fetchCourseOptions(),
       fetchAllowedCourseIdsByInstructor(),
-      supabase.from("instructors").select("id, email"),
+      supabase.from("instructors").select("id, user_id, email"),
     ]);
 
     if (error) {
@@ -344,15 +344,16 @@ export default function AdminUsers() {
     setUsers((data ?? []) as UserRow[]);
     setCourses(courseResult.courses);
 
-    const emailByInstructorId = new Map(
-      (instructorsResult.data ?? []).map((row) => [row.id, row.email]),
+    const userIdByEmail = new Map((data ?? []).map((row) => [row.email, row.id]));
+    const userIdByInstructorId = new Map(
+      (instructorsResult.data ?? []).map((row) => [row.id, row.user_id ?? userIdByEmail.get(row.email)]),
     );
     const next = new Map<string, string[]>();
     for (const [instructorId, courseIds] of assignmentResult.byInstructorId) {
-      const email = emailByInstructorId.get(instructorId);
-      if (email) next.set(email, courseIds);
+      const userId = userIdByInstructorId.get(instructorId);
+      if (userId) next.set(userId, courseIds);
     }
-    setCoursesByEmail(next);
+    setCoursesByUserId(next);
 
     const messages = [
       courseResult.error,
@@ -460,7 +461,7 @@ export default function AdminUsers() {
                     </>
                   ) : filtered.map((u) => {
                     const assigned = isInstructorRole(u.role_id, roles)
-                      ? coursesByEmail.get(u.email) ?? []
+                      ? coursesByUserId.get(u.id) ?? []
                       : [];
                     return (
                       <tr key={u.id}>

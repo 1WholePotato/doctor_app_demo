@@ -29,7 +29,7 @@ const session = (id: string, courseId: string, title: string, date: string, inst
   id,
   start_date: date,
   courses: { id: courseId, course_title: title, course_description: `${title} description`, course_price: 1500 },
-  instructors: { first_name: instructor, last_name: "Mokoena", email: `${instructor}@example.test` },
+  instructors: [{ first_name: instructor, last_name: "Mokoena", email: `${instructor}@example.test` }],
 });
 
 beforeEach(() => {
@@ -130,6 +130,35 @@ describe("nextBookedSession", () => {
 });
 
 describe("fetchUpcomingSessions", () => {
+  it("names every instructor of a class and marks a class without one as unassigned", async () => {
+    responses.set("course_sessions", {
+      error: null,
+      data: [
+        {
+          id: "session-1",
+          start_date: "2026-12-01",
+          courses: { id: "course-1", course_title: "Wound Care", active: true },
+          instructors: [
+            { first_name: "Thandi", last_name: "Mokoena", email: "t@example.test" },
+            { first_name: "Anele", last_name: "Dube", email: "a@example.test" },
+          ],
+          bookings: [{ count: 0 }],
+        },
+        {
+          id: "session-2",
+          start_date: "2026-12-02",
+          courses: { id: "course-1", course_title: "Wound Care", active: true },
+          instructors: [],
+          bookings: [{ count: 0 }],
+        },
+      ],
+    });
+
+    const { sessions } = await fetchUpcomingSessions();
+
+    expect(sessions.map((session) => session.instructor)).toEqual(["Anele Dube, Thandi Mokoena", "Unassigned"]);
+  });
+
   it("counts only active bookings for each class", async () => {
     responses.set("course_sessions", {
       error: null,
@@ -138,7 +167,7 @@ describe("fetchUpcomingSessions", () => {
           id: "session-1",
           start_date: "2026-12-01",
           courses: { id: "course-1", course_title: "Wound Care", active: true },
-          instructors: { first_name: "Thandi", last_name: "Mokoena", email: "t@example.test" },
+          instructors: [{ first_name: "Thandi", last_name: "Mokoena", email: "t@example.test" }],
           bookings: [{ count: 2 }],
         },
       ],

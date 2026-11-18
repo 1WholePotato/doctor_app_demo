@@ -1,5 +1,5 @@
 import { supabase } from "../supabaseClient";
-import { fetchInstructors, type Instructor } from "./instructors";
+import type { Instructor } from "./instructors";
 import type { RoleOption } from "./roles";
 
 export type CourseOption = {
@@ -42,52 +42,49 @@ export async function fetchCourseOptions(): Promise<{ courses: CourseOption[]; e
   };
 }
 
-export async function findInstructorIdByEmail(email: string): Promise<{ id: string | null; error: string | null }> {
-  const { data, error } = await supabase
-    .from("instructors")
-    .select("id")
-    .eq("email", email)
-    .maybeSingle();
-
-  if (error) return { id: null, error: error.message };
-  return { id: data?.id ?? null, error: null };
-}
-
-export async function ensureInstructorRecord(user: {
+type InstructorAccount = {
+  id: string;
   first_name: string;
   last_name: string;
   email: string;
   cell_num: string | null;
-}): Promise<{ instructorId: string; error: string | null }> {
-  const existing = await findInstructorIdByEmail(user.email);
+};
+
+export async function findInstructorIdForUser(
+  user: Pick<InstructorAccount, "id" | "email">,
+): Promise<{ id: string | null; error: string | null }> {
+  const linked = await supabase.from("instructors").select("id").eq("user_id", user.id).maybeSingle();
+  if (linked.error) return { id: null, error: linked.error.message };
+  if (linked.data) return { id: linked.data.id, error: null };
+
+  const unlinked = await supabase
+    .from("instructors")
+    .select("id")
+    .is("user_id", null)
+    .eq("email", user.email)
+    .maybeSingle();
+  if (unlinked.error) return { id: null, error: unlinked.error.message };
+  return { id: unlinked.data?.id ?? null, error: null };
+}
+
+export async function ensureInstructorRecord(user: InstructorAccount): Promise<{ instructorId: string; error: string | null }> {
+  const existing = await findInstructorIdForUser(user);
   if (existing.error) return { instructorId: "", error: existing.error };
+  const profile = {
+    user_id: user.id,
+    first_name: user.first_name,
+    last_name: user.last_name,
+    email: user.email,
+    cell_num: user.cell_num || "0000000000",
+    active: true,
+  };
   const existingId = existing.id;
   if (existingId) {
-    const { error } = await supabase
-      .from("instructors")
-      .update({
-        first_name: user.first_name,
-        last_name: user.last_name,
-        cell_num: user.cell_num || "0000000000",
-        active: true,
-      })
-      .eq("id", existingId);
-
-    if (error) return { instructorId: existingId, error: error.message };
-    return { instructorId: existingId, error: null };
+    const { error } = await supabase.from("instructors").update(profile).eq("id", existingId);
+    return { instructorId: existingId, error: error?.message ?? null };
   }
 
-  const { data, error } = await supabase
-    .from("instructors")
-    .insert({
-      first_name: user.first_name,
-      last_name: user.last_name,
-      email: user.email,
-      cell_num: user.cell_num || "0000000000",
-      active: true,
-    })
-    .select("id")
-    .single();
+  const { data, error } = await supabase.from("instructors").insert(profile).select("id").single();
 
   if (error || !data) {
     return { instructorId: "", error: error?.message ?? "Could not create instructor" };
@@ -225,26 +222,24 @@ export async function fetchInstructorsForCourse(courseId: string): Promise<{
   instructors: Instructor[];
   error: string | null;
 }> {
-  const all = await fetchInstructors();
-  if (all.error) return all;
-
   const { data, error } = await supabase
-    .from("instructor_courses")
-    .select("instructor_id")
-    .eq("course_id", courseId);
+    .from("instructors")
+    .select("id, first_name, last_name, email, instructor_courses!inner ( course_id )")
+    .eq("active", true)
+    .eq("instructor_courses.course_id", courseId)
+    .order("last_name");
 
-  if (error) {
-    if (isMissingInstructorCoursesTable(error.message)) return all;
-    return { instructors: [], error: error.message };
-  }
-
-  const allowed = new Set((data ?? []).map((row) => row.instructor_id));
-  if (allowed.size === 0) {
-    return all;
-  }
-
+  if (error) return { instructors: [], error: error.message };
   return {
-    instructors: all.instructors.filter((instructor) => allowed.has(instructor.id)),
+    instructors: (data ?? []).map(({ id, first_name, last_name, email }) => ({ id, first_name, last_name, email })),
     error: null,
   };
+}
+
+export async function setSessionInstructors(sessionId: string, instructorIds: string[]): Promise<string | null> {
+  const { error } = await supabase.rpc("set_session_instructors", {
+    p_course_session_id: sessionId,
+    p_instructor_ids: instructorIds,
+  });
+  return error?.message ?? null;
 }

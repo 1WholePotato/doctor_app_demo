@@ -33,6 +33,12 @@ Each booking points at one scheduled class through `bookings.course_session_id`,
 
 The `20261118090000_booking_session_linkage` migration reconciled bookings created before this rule. Rows it could not resolve on its own sit in `booking_review_flags`, which only the service role can read. To resolve an `ambiguous_session` or `duplicate_active_booking` flag, set the booking's `course_session_id` (or cancel it after linking) and stamp `resolved_at`. Once no booking has a null session, run `alter table public.bookings validate constraint bookings_course_session_required;`.
 
+## Class instructors
+
+A scheduled class can have several instructors. Each assignment is a row in `session_instructors (course_session_id, instructor_id)`, and the primary key rejects assigning the same instructor twice. A trigger rejects an instructor who is inactive or has no `instructor_courses` row for the class's course. Admins change a class's instructors through `set_session_instructors(class_id, instructor_ids)`, which replaces the whole set in one transaction and refuses an empty set. Signed-in users can read assignments. Only that function and the service role write them.
+
+Deactivating an instructor or removing their course authorization keeps their existing assignments. `stale_session_instructors`, readable only by the service role, lists each kept assignment whose instructor is no longer active and authorized, with the reason. The `20261118100000_session_instructors` migration moved each class's single `course_sessions.instructor_id` into `session_instructors` before dropping that column, so legacy classes taught by an unauthorized instructor also appear there. It also linked `instructors.user_id` to the `users` row whose email matches ignoring case and spaces, so later email changes keep the instructor tied to the same account.
+
 ## Database tests
 
 `supabase test db` runs the pgTAP files in `supabase/tests/` against the seeded database. To rehearse the reconciliation on legacy-shaped rows, run:
@@ -40,8 +46,10 @@ The `20261118090000_booking_session_linkage` migration reconciled bookings creat
 ```sh
 supabase db reset --local --no-seed --version 20261117190000
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/checks/legacy_bookings.sql
+psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/checks/legacy_instructors.sql
 supabase migration up --local
 supabase test db supabase/checks/legacy_reconciliation.test.sql
+supabase test db supabase/checks/legacy_session_instructors.test.sql
 supabase db reset --local
 ```
 

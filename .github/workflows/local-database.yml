@@ -42,9 +42,9 @@ jobs:
           SQL
           )"
           test "$result" = 'student@example.test|Fixture Clinical Skills|100.00|FIXTURE-B01-001'
-      - name: Test booking constraints
+      - name: Test booking and class instructor constraints
         run: supabase test db
-      - name: Reconcile legacy bookings
+      - name: Reconcile legacy bookings and class instructors
         env:
           PGHOST: 127.0.0.1
           PGPORT: '54322'
@@ -54,5 +54,7 @@ jobs:
         run: |
           supabase db reset --local --no-seed --version 20261117190000
           psql -XAq -v ON_ERROR_STOP=1 -f supabase/checks/legacy_bookings.sql
+          psql -XAq -v ON_ERROR_STOP=1 -f supabase/checks/legacy_instructors.sql
           supabase migration up --local
           supabase test db supabase/checks/legacy_reconciliation.test.sql
+          supabase test db supabase/checks/legacy_session_instructors.test.sql

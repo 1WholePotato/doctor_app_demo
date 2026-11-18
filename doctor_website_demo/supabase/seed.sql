@@ -41,8 +41,12 @@ values
   ('b0100000-0000-4000-8000-000000000012', '4fd9e72e-f94b-4222-b5c1-95b447088d4d', 'Fixture', 'Student', '1990-01-01', 'TEST-B01-STUDENT', '0000000012', 'student@example.test', 'TEST-STUDENT'),
   ('b0100000-0000-4000-8000-000000000013', 'b0100000-0000-4000-8000-000000000003', 'Fixture', 'Instructor', '1990-01-01', 'TEST-B01-INSTRUCTOR', '0000000013', 'instructor@example.test', 'TEST-INSTRUCTOR');
 
-insert into public.instructors (id, first_name, last_name, email, cell_num)
-values ('b0100000-0000-4000-8000-000000000021', 'Fixture', 'Instructor', 'instructor@example.test', '0000000013');
+insert into public.instructors (id, user_id, first_name, last_name, email, cell_num, active)
+values ('b0100000-0000-4000-8000-000000000021', 'b0100000-0000-4000-8000-000000000013', 'Fixture', 'Instructor', 'instructor@example.test', '0000000013', true),
+       ('b0100000-0000-4000-8000-000000000041', null, 'Fixture', 'Co-Instructor', 'co-instructor@example.test', '0000000041', true),
+       ('b0100000-0000-4000-8000-000000000042', null, 'Fixture', 'Unauthorized', 'unauthorized-instructor@example.test', '0000000042', true),
+       ('b0100000-0000-4000-8000-000000000043', null, 'Fixture', 'Inactive', 'inactive-instructor@example.test', '0000000043', false),
+       ('b0100000-0000-4000-8000-000000000044', null, 'Fixture', 'Standby', 'standby-instructor@example.test', '0000000044', true);
 
 insert into public.locations (id, name, address)
 values ('b0100000-0000-4000-8000-000000000022', 'Fixture Training Room', '1 Example Way');
@@ -51,13 +55,20 @@ insert into public.courses (id, course_title, course_description, course_price)
 values ('b0100000-0000-4000-8000-000000000023', 'Fixture Clinical Skills', 'Synthetic course for local development.', 100.00);
 
 insert into public.instructor_courses (id, instructor_id, course_id)
-values ('b0100000-0000-4000-8000-000000000024', 'b0100000-0000-4000-8000-000000000021', 'b0100000-0000-4000-8000-000000000023');
+values ('b0100000-0000-4000-8000-000000000024', 'b0100000-0000-4000-8000-000000000021', 'b0100000-0000-4000-8000-000000000023'),
+       ('b0100000-0000-4000-8000-000000000045', 'b0100000-0000-4000-8000-000000000041', 'b0100000-0000-4000-8000-000000000023'),
+       ('b0100000-0000-4000-8000-000000000046', 'b0100000-0000-4000-8000-000000000043', 'b0100000-0000-4000-8000-000000000023'),
+       ('b0100000-0000-4000-8000-000000000047', 'b0100000-0000-4000-8000-000000000044', 'b0100000-0000-4000-8000-000000000023');
 
 insert into public.course_sessions (
-  id, course_id, instructor_id, location_id, start_date, end_date, start_time, end_time
+  id, course_id, location_id, start_date, end_date, start_time, end_time
 )
-values ('b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000021', 'b0100000-0000-4000-8000-000000000022',
+values ('b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000022',
         current_date + 30, current_date + 30, '09:00', '12:00');
+
+insert into public.session_instructors (course_session_id, instructor_id)
+values ('b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000021'),
+       ('b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000041');
 
 insert into public.material_types (id, name, fee) values ('b0100000-0000-4000-8000-000000000033', 'digital', 0);
 
