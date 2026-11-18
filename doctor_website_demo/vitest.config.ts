@@ -1,10 +1,11 @@
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
   envDir: false,
   test: {
+    exclude: [...configDefaults.exclude, 'supabase/functions/**'],
     env: {
       VITE_SUPABASE_URL: 'http://127.0.0.1:54321',
       VITE_SUPABASE_ANON_KEY: 'test-only-anon-key',
