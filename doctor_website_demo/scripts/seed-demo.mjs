@@ -175,6 +175,25 @@ async function ensureInstructorCourse(supabase, instructorId, courseId) {
   logOk(`Assigned instructor to course ${courseId}`);
 }
 
+async function ensureSessionInstructor(supabase, sessionId, instructorId) {
+  const { data: existing, error: fetchError } = await supabase
+    .from("session_instructors")
+    .select("instructor_id")
+    .eq("course_session_id", sessionId)
+    .eq("instructor_id", instructorId)
+    .maybeSingle();
+
+  if (fetchError) throw new Error(`session_instructors lookup failed: ${fetchError.message}`);
+  if (existing) return;
+
+  const { error } = await supabase
+    .from("session_instructors")
+    .insert({ course_session_id: sessionId, instructor_id: instructorId });
+
+  if (error) throw new Error(`session_instructors insert failed: ${error.message}`);
+  logOk(`Assigned instructor to session ${sessionId}`);
+}
+
 async function findByTitle(supabase, table, titleColumn, title) {
   const { data, error } = await supabase.from(table).select("id").eq(titleColumn, title).maybeSingle();
   if (error) throw new Error(`${table} lookup failed: ${error.message}`);
@@ -229,12 +248,14 @@ async function ensureLocation(supabase) {
   return data.id;
 }
 
-async function ensureSession(supabase, courseId, instructorId, locationId, sessionDate) {
+async function ensureSession(supabase, courseId, locationId, sessionDate) {
   const { data: existing, error: fetchError } = await supabase
     .from("course_sessions")
     .select("id")
     .eq("course_id", courseId)
-    .eq("instructor_id", instructorId)
+    .eq("location_id", locationId)
+    .order("created_at")
+    .limit(1)
     .maybeSingle();
 
   if (fetchError) throw new Error(`Session lookup failed: ${fetchError.message}`);
@@ -252,7 +273,6 @@ async function ensureSession(supabase, courseId, instructorId, locationId, sessi
     .from("course_sessions")
     .insert({
       course_id: courseId,
-      instructor_id: instructorId,
       location_id: locationId,
       start_date: sessionDate,
       end_date: sessionDate,
@@ -391,12 +411,12 @@ async function seedCatalog(supabase, studentId, sessionDate) {
   for (let i = 0; i < courseDefs.length; i++) {
     const courseId = await ensureCourse(supabase, courseDefs[i]);
     courseIds.push(courseId);
-    sessionIds.push(await ensureSession(supabase, courseId, instructorIds[i % instructorIds.length], locationId, sessionDate));
+    sessionIds.push(await ensureSession(supabase, courseId, locationId, sessionDate));
   }
 
   if (!studentId) {
     logWarn("Skipping bookings; student user id is not available");
-    return { courseIds, instructorIds };
+    return { courseIds, instructorIds, sessionIds };
   }
 
   const bookingIds = [];
@@ -404,7 +424,7 @@ async function seedCatalog(supabase, studentId, sessionDate) {
     bookingIds.push(await ensureBooking(supabase, studentId, sessionIds[i], courseDefs[i].course_price));
   }
   await ensurePayment(supabase, bookingIds[0], courseDefs[0].course_price);
-  return { courseIds, instructorIds };
+  return { courseIds, instructorIds, sessionIds };
 }
 
 async function seedUsers(supabase, roleIds) {
@@ -511,7 +531,7 @@ export async function seedDemo({ env, now = new Date(), fetch = globalThis.fetch
     instructor: await ensureRole(supabase, "instructor"),
   };
   const { studentId, demoTeacherId } = await seedUsers(supabase, roleIds);
-  const { courseIds, instructorIds } = await seedCatalog(supabase, studentId, sessionDate);
+  const { courseIds, instructorIds, sessionIds } = await seedCatalog(supabase, studentId, sessionDate);
 
   if (await instructorCoursesTableReady(supabase)) {
     await ensureInstructorCourse(supabase, instructorIds[0], courseIds[0]);
@@ -519,6 +539,10 @@ export async function seedDemo({ env, now = new Date(), fetch = globalThis.fetch
     await ensureInstructorCourse(supabase, instructorIds[2], courseIds[2]);
     await ensureInstructorCourse(supabase, demoTeacherId, courseIds[0]);
     await ensureInstructorCourse(supabase, demoTeacherId, courseIds[1]);
+    for (const [index, sessionId] of sessionIds.entries()) {
+      await ensureSessionInstructor(supabase, sessionId, instructorIds[index]);
+    }
+    await ensureSessionInstructor(supabase, sessionIds[0], demoTeacherId);
   }
 
   logOk("Demo seed finished. Confirm email can stay on.");
