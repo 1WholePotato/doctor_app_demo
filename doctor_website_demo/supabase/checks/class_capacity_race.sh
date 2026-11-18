@@ -8,7 +8,7 @@ student=b0100000-0000-4000-8000-000000000012
 instructor=b0100000-0000-4000-8000-000000000013
 
 sql() { psql -XAtq -v ON_ERROR_STOP=1 -c "$1"; }
-book() { echo "insert into public.bookings (user_id, course_session_id, total_amount) values ('$1', '$class', 100);"; }
+book() { echo "insert into public.bookings (user_id, course_session_id, material_type_id) values ('$1', '$class', 'b0100000-0000-4000-8000-000000000033');"; }
 
 expect_blocked_failure() {
   local holder="$1" contender="$2" expected="$3" label="$4"

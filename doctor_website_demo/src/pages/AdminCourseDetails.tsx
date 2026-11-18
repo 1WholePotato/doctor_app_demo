@@ -98,7 +98,7 @@ export default function AdminCourseDetails() {
     const [courseResult, classResult, instructorResult, locationResult] = await Promise.all([
       supabase
         .from("courses")
-        .select("id, course_title, course_description, course_price, active")
+        .select("id, course_title, course_description, course_price, printed_material_fee, active")
         .eq("id", id)
         .maybeSingle(),
       supabase
@@ -127,6 +127,7 @@ export default function AdminCourseDetails() {
       title: courseResult.data.course_title,
       description: courseResult.data.course_description ?? "",
       price: courseResult.data.course_price,
+      printedMaterialFee: courseResult.data.printed_material_fee,
       active: courseResult.data.active,
     });
     setClasses((classResult.data ?? []).map((row) => toClassRow(row as Record<string, unknown>)));
@@ -200,6 +201,7 @@ export default function AdminCourseDetails() {
               </span>
               <p className="hero-price-label">Course price</p>
               <p className="hero-price">R {course.price.toLocaleString()}</p>
+              <p className="hero-price-label">Printed material R {course.printedMaterialFee.toLocaleString()} · Electronic free</p>
               <button type="button" className="btn-link" onClick={() => setDialog({ kind: "course" })}><Pencil size={13} /> Edit course</button>
             </div>
           </div>

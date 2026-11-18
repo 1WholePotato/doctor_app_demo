@@ -14,13 +14,14 @@ export default function CourseFormModal({
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [price, setPrice] = useState(initial ? String(initial.price) : "");
+  const [printedMaterialFee, setPrintedMaterialFee] = useState(initial ? String(initial.printedMaterialFee) : "0");
   const [active, setActive] = useState(initial?.active ?? true);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
 
   const handleSubmit = async () => {
     if (pending) return;
-    const draft: CourseDraft = { title, description, price: Number(price), active };
+    const draft: CourseDraft = { title, description, price: Number(price), printedMaterialFee: Number(printedMaterialFee), active };
     const problem = courseProblem(draft);
     if (problem) {
       setError(problem);
@@ -52,6 +53,11 @@ export default function CourseFormModal({
         <div className="field">
           <label htmlFor="course-price">Price (R)</label>
           <input id="course-price" type="number" min="0" placeholder="e.g. 1499" value={price} onChange={(e) => setPrice(e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="course-printed-fee">Printed material fee (R)</label>
+          <input id="course-printed-fee" type="number" min="0" placeholder="e.g. 250" value={printedMaterialFee} onChange={(e) => setPrintedMaterialFee(e.target.value)} />
+          <span className="readonly-sub">Students pay this on top of the course price when they choose printed material. Electronic material is free. Existing bookings keep the price they were booked at.</span>
         </div>
         <label htmlFor="course-active" className="course-option" style={{ marginBottom: 18 }}>
           <input id="course-active" type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />

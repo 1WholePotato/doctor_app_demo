@@ -53,6 +53,14 @@ Capacity rules live in triggers, so they hold for direct writes too. A booking t
 
 `course_session_changes` logs each reschedule and cancellation with the previous and new values, the admin and the time. A cancellation also lists each affected booking and its previous status. Only the service role can read it.
 
+## Material fees and booking prices
+
+Each material type is `electronic` or `printed` (`material_types.kind`). Electronic material is free. Each course sets its own printed fee in `courses.printed_material_fee`, which admins edit with the course. `material_types.fee` is no longer used for pricing.
+
+A booking must choose an active material type. On insert, the `price_booking` trigger overwrites whatever the caller sent: `course_price` comes from the class's course, `material_fee` is zero for electronic material or the course's printed fee, and `total_amount` is their sum. Later edits to course prices, printed fees or material types leave existing bookings unchanged. Signed-in callers, admins included, and anonymous callers cannot change a booking's material or amounts afterwards. They can move a booking to another class of the same course, but not to a class of a different course, and they cannot give a class to a booking that has none. The service role and `security definer` functions can do all of these, which is how a flagged booking gets linked to its class, and a check keeps `total_amount = course_price + material_fee` for every row.
+
+The `20261118142400_material_fees` migration marked free material types `electronic` and paid ones `printed`, gave every course the fee of the active printed type (or zero), and set each existing booking's `course_price` to `total_amount - material_fee`, so no booking's amounts changed.
+
 ## Database tests
 
 `supabase test db` runs the pgTAP files in `supabase/tests/` against the seeded database. To rehearse the reconciliation on legacy-shaped rows, run:
@@ -61,9 +69,11 @@ Capacity rules live in triggers, so they hold for direct writes too. A booking t
 supabase db reset --local --no-seed --version 20261117190000
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/checks/legacy_bookings.sql
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/checks/legacy_instructors.sql
+psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/checks/legacy_material_types.sql
 supabase migration up --local
 supabase test db supabase/checks/legacy_reconciliation.test.sql
 supabase test db supabase/checks/legacy_session_instructors.test.sql
+supabase test db supabase/checks/legacy_material_fees.test.sql
 supabase db reset --local
 ```
 

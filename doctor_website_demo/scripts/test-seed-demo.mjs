@@ -22,6 +22,7 @@ function fakeSupabase({ roles = [], failRole } = {}) {
     locations: [],
     courses: [],
     course_sessions: [],
+    material_types: [],
     bookings: [],
     payments: [],
     payment_statuses: [{ id: randomUUID(), name: "Paid" }],
@@ -135,13 +136,14 @@ test("fresh seed resolves roles before accounts and writes the app's booking con
     assert.equal(booking.course_session_id, api.tables.course_sessions[index].id);
     assert.equal(api.tables.course_sessions[index].course_id, api.tables.courses[index].id);
     assert.equal("payment_status" in booking, false);
-    assert.equal(booking.total_amount, api.tables.courses[index].course_price);
-    assert.equal(booking.material_fee, 0);
+    assert.equal(booking.material_type_id, api.tables.material_types[0].id);
+    assert.equal("total_amount" in booking, false, "the database prices bookings");
     assert.equal("course_id" in booking, false);
   }
   const lookups = api.requests.filter((r) => r.path === "/rest/v1/bookings" && r.method === "GET");
   assert.deepEqual(lookups.map((r) => r.query.course_session_id), api.tables.course_sessions.map((row) => `eq.${row.id}`));
   assert.ok(lookups.every((r) => !("course_id" in r.query)));
+  assert.deepEqual(api.tables.material_types.map((row) => row.kind), ["electronic"]);
   assert.equal(api.tables.payments.length, 1);
   assert.equal(api.tables.payments[0].booking_id, api.tables.bookings[0].id);
   assert.equal(api.tables.payments[0].payment_status_id, api.tables.payment_statuses[0].id);

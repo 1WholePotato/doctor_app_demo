@@ -4,12 +4,14 @@ export type CourseDraft = {
   title: string;
   description: string;
   price: number;
+  printedMaterialFee: number;
   active: boolean;
 };
 
 export function courseProblem(draft: CourseDraft): string | null {
   if (!draft.title.trim()) return "Course title is required.";
   if (!Number.isFinite(draft.price) || draft.price <= 0) return "Enter a price above zero.";
+  if (!Number.isFinite(draft.printedMaterialFee) || draft.printedMaterialFee < 0) return "Enter a printed material fee of zero or more.";
   return null;
 }
 
@@ -18,6 +20,7 @@ function courseColumns(draft: CourseDraft) {
     course_title: draft.title.trim(),
     course_description: draft.description.trim(),
     course_price: draft.price,
+    printed_material_fee: draft.printedMaterialFee,
     active: draft.active,
   };
 }

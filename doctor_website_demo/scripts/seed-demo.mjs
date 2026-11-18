@@ -288,7 +288,34 @@ async function ensureSession(supabase, courseId, locationId, sessionDate) {
   return data.id;
 }
 
-async function ensureBooking(supabase, userId, sessionId, totalAmount) {
+async function ensureElectronicMaterial(supabase) {
+  const { data: existing, error: fetchError } = await supabase
+    .from("material_types")
+    .select("id")
+    .eq("kind", "electronic")
+    .eq("active", true)
+    .order("created_at")
+    .limit(1)
+    .maybeSingle();
+
+  if (fetchError) throw new Error(`Material type lookup failed: ${fetchError.message}`);
+  if (existing) {
+    logOk("Electronic material type exists");
+    return existing.id;
+  }
+
+  const { data, error } = await supabase
+    .from("material_types")
+    .insert({ name: "Electronic", kind: "electronic", fee: 0, active: true })
+    .select("id")
+    .single();
+
+  if (error) throw new Error(`Material type insert failed: ${error.message}`);
+  logOk("Inserted electronic material type");
+  return data.id;
+}
+
+async function ensureBooking(supabase, userId, sessionId, materialTypeId) {
   const { data: existing, error: fetchError } = await supabase
     .from("bookings")
     .select("id, booking_status")
@@ -303,7 +330,7 @@ async function ensureBooking(supabase, userId, sessionId, totalAmount) {
     if (existing.booking_status !== "Confirmed") {
       const { error } = await supabase
         .from("bookings")
-        .update({ booking_status: "Confirmed", total_amount: totalAmount })
+        .update({ booking_status: "Confirmed" })
         .eq("id", existing.id);
       if (error) throw new Error(`Booking update failed: ${error.message}`);
       logOk(`Confirmed booking for session ${sessionId}`);
@@ -319,8 +346,7 @@ async function ensureBooking(supabase, userId, sessionId, totalAmount) {
       user_id: userId,
       course_session_id: sessionId,
       booking_status: "Confirmed",
-      material_fee: 0,
-      total_amount: totalAmount,
+      material_type_id: materialTypeId,
     })
     .select("id")
     .single();
@@ -418,9 +444,10 @@ async function seedCatalog(supabase, studentId, sessionDate) {
     return { courseIds, instructorIds, sessionIds };
   }
 
+  const materialTypeId = await ensureElectronicMaterial(supabase);
   const bookingIds = [];
-  for (let i = 0; i < sessionIds.length; i++) {
-    bookingIds.push(await ensureBooking(supabase, studentId, sessionIds[i], courseDefs[i].course_price));
+  for (const sessionId of sessionIds) {
+    bookingIds.push(await ensureBooking(supabase, studentId, sessionId, materialTypeId));
   }
   await ensurePayment(supabase, bookingIds[0], courseDefs[0].course_price);
   return { courseIds, instructorIds, sessionIds };
