@@ -29,7 +29,6 @@ insert into auth.users (
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
   confirmation_token, recovery_token, email_change_token_new, email_change, email_change_sent_at
 )
--- The registrant has requested an email change that is still waiting for confirmation.
 values ('00000000-0000-0000-0000-000000000000', 'b0100000-0000-4000-8000-000000000014', 'authenticated',
         'authenticated', 'registrant@example.test',
         extensions.crypt('LocalDemo-B01!', extensions.gen_salt('bf')),
