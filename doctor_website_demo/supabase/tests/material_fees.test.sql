@@ -2,7 +2,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(32);
+select plan(37);
 
 select col_not_null('public', 'courses', 'printed_material_fee', 'every course has a printed material fee');
 select col_not_null('public', 'material_types', 'kind', 'every material type is electronic or printed');
@@ -32,6 +32,13 @@ values ('b0900000-0000-4000-8000-000000000010', 'Fixture Wound Care', 'Second co
 insert into public.course_sessions (id, course_id, location_id, start_date, end_date, start_time, end_time, max_students)
 values ('b0900000-0000-4000-8000-000000000011', 'b0900000-0000-4000-8000-000000000010', 'b0100000-0000-4000-8000-000000000022',
         current_date + 60, current_date + 60, '09:00', '12:00', 10);
+insert into public.courses (id, course_title, course_description, course_price)
+values ('b0900000-0000-4000-8000-000000000012', 'Fixture Advanced Surgery', 'Expensive course to move bookings onto.', 5000.00);
+insert into public.course_sessions (id, course_id, location_id, start_date, end_date, start_time, end_time, max_students)
+values ('b0900000-0000-4000-8000-000000000013', 'b0900000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000022',
+        current_date + 61, current_date + 61, '09:00', '12:00', 10),
+       ('b0900000-0000-4000-8000-000000000014', 'b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000022',
+        current_date + 62, current_date + 62, '09:00', '12:00', 10);
 
 select results_eq(
   $$select id, printed_material_fee from public.courses
@@ -83,6 +90,23 @@ select throws_ok(
 select throws_ok(
   $$update public.bookings set material_type_id = 'b0100000-0000-4000-8000-000000000033' where id = 'b0900000-0000-4000-8000-000000000022'$$,
   '42501', null, 'a student cannot switch material on an existing booking');
+select throws_ok(
+  $$update public.bookings set course_session_id = 'b0900000-0000-4000-8000-000000000013' where id = 'b0900000-0000-4000-8000-000000000021'$$,
+  '42501', null, 'a student cannot move a booking to a class of another course');
+select throws_ok(
+  $$insert into public.bookings (id, user_id, course_session_id, material_type_id)
+    values ('b0900000-0000-4000-8000-000000000021', 'b0900000-0000-4000-8000-000000000001', 'b0900000-0000-4000-8000-000000000013',
+            'b0100000-0000-4000-8000-000000000033')
+    on conflict (id) do update
+    set user_id = excluded.user_id, course_session_id = excluded.course_session_id, material_type_id = excluded.material_type_id$$,
+  '42501', null, 'an upsert cannot move an existing booking to a class of another course');
+select lives_ok(
+  $$update public.bookings set course_session_id = 'b0900000-0000-4000-8000-000000000014' where id = 'b0900000-0000-4000-8000-000000000021'$$,
+  'a student can move a booking to another class of the same course');
+select results_eq(
+  $$select course_session_id, course_price, material_fee, total_amount from public.bookings where id = 'b0900000-0000-4000-8000-000000000021'$$,
+  $$values ('b0900000-0000-4000-8000-000000000014'::uuid, 100.00::numeric, 0.00::numeric, 100.00::numeric)$$,
+  'a booking moved within its course keeps its snapshot');
 select lives_ok(
   $$update public.bookings set total_amount = 250, booking_status = 'Cancelled' where id = 'b0900000-0000-4000-8000-000000000022'$$,
   'rewriting a snapshot column with its stored value is not a change');
@@ -91,6 +115,9 @@ set local role anon;
 select throws_ok(
   $$update public.bookings set total_amount = 0 where id = 'b0900000-0000-4000-8000-000000000021'$$,
   '42501', null, 'an anonymous caller cannot change a booking total');
+select throws_ok(
+  $$update public.bookings set course_session_id = 'b0900000-0000-4000-8000-000000000013' where id = 'b0900000-0000-4000-8000-000000000021'$$,
+  '42501', null, 'an anonymous caller cannot move a booking to a class of another course');
 reset role;
 
 update public.material_types set active = false where id = 'b0100000-0000-4000-8000-000000000061';
