@@ -142,7 +142,6 @@ values ('b0100000-0000-4000-8000-000000000053', 'cancelled',
 insert into public.certificates (id, booking_id, certificate_number, issue_date)
 values ('b0100000-0000-4000-8000-000000000036', 'b0100000-0000-4000-8000-000000000034', 'FIXTURE-B01-001', current_date);
 
--- One open flag for the admin review queue and one an admin already resolved.
 insert into public.booking_review_flags (id, booking_id, reason, details, flagged_at, resolved_at, resolved_by, resolution_note)
 values ('b0100000-0000-4000-8000-000000000101', 'b0100000-0000-4000-8000-000000000071', 'payment_mismatch',
         '{"payment_attempt_id": "b0100000-0000-4000-8000-000000000081", "reference": "DAFIXTURE01", "amount": 250, "booking_total": 250, "transaction": {"id": "fixture-mismatch", "merchantReference": "DAFIXTURE01", "amount": {"currency": "ZAR", "value": 1}, "status": "Successful"}}',

@@ -27,15 +27,12 @@ export type BookingOverviewRow = {
   id: string;
   createdAt: string;
   bookingStatus: string;
-  holdsSeat: boolean;
-  expiresAt: string | null;
   studentName: string;
   studentEmail: string;
   classStartDate: string | null;
   classStatus: string | null;
   courseTitle: string | null;
   materialName: string | null;
-  materialKind: MaterialKind | null;
   totalAmount: number;
   paidAmount: number;
   refundedAmount: number;
@@ -47,15 +44,12 @@ type OverviewRecord = {
   id: string;
   created_at: string;
   booking_status: string;
-  holds_seat: boolean;
-  expires_at: string | null;
   student_name: string;
   student_email: string;
   class_start_date: string | null;
   class_status: string | null;
   course_title: string | null;
   material_name: string | null;
-  material_kind: MaterialKind | null;
   total_amount: number | string;
   paid_amount: number | string;
   refunded_amount: number | string;
@@ -64,22 +58,19 @@ type OverviewRecord = {
 };
 
 const OVERVIEW_COLUMNS =
-  "id, created_at, booking_status, holds_seat, expires_at, student_name, student_email, class_start_date, class_status, course_title, material_name, material_kind, total_amount, paid_amount, refunded_amount, payment_state, documents_withdrawn";
+  "id, created_at, booking_status, student_name, student_email, class_start_date, class_status, course_title, material_name, total_amount, paid_amount, refunded_amount, payment_state, documents_withdrawn";
 
 function toOverviewRow(record: OverviewRecord): BookingOverviewRow {
   return {
     id: record.id,
     createdAt: record.created_at,
     bookingStatus: record.booking_status,
-    holdsSeat: record.holds_seat,
-    expiresAt: record.expires_at,
     studentName: record.student_name,
     studentEmail: record.student_email,
     classStartDate: record.class_start_date,
     classStatus: record.class_status,
     courseTitle: record.course_title,
     materialName: record.material_name,
-    materialKind: record.material_kind,
     totalAmount: Number(record.total_amount),
     paidAmount: Number(record.paid_amount),
     refundedAmount: Number(record.refunded_amount),
@@ -89,8 +80,8 @@ function toOverviewRow(record: OverviewRecord): BookingOverviewRow {
 }
 
 export function searchPattern(search: string): string | null {
-  const words = search.trim().toLowerCase().replace(/[%_\\]/g, (c) => `\\${c}`);
-  return words ? `%${words}%` : null;
+  const escaped = search.trim().toLowerCase().replace(/[%_\\]/g, (c) => `\\${c}`);
+  return escaped ? `%${escaped}%` : null;
 }
 
 export async function fetchBookingOverview(filters: BookingFilters): Promise<{ rows: BookingOverviewRow[]; error: string | null }> {
@@ -185,7 +176,7 @@ const DETAIL_COLUMNS = `payments ( id, amount, payment_date, ozow_transaction_id
   payment_attempts ( id, reference, amount, status, created_at, expires_at, payment_events ( ozow_transaction_id, ozow_status, outcome, recorded_at ) ),
   refunds ( id, payment_id, amount, reason, external_reference, keeps_document_access, recorded_at, users ( first_name, last_name ) )`;
 
-const byTime = <T,>(key: (row: T) => string | null) => (a: T, b: T) => (key(a) ?? "").localeCompare(key(b) ?? "");
+const byTime = <T>(key: (row: T) => string | null) => (a: T, b: T) => (key(a) ?? "").localeCompare(key(b) ?? "");
 
 export async function fetchBookingDetail(bookingId: string): Promise<{ detail: BookingDetail | null; error: string | null }> {
   const { data, error } = await supabase.from("bookings").select(DETAIL_COLUMNS).eq("id", bookingId).single();
