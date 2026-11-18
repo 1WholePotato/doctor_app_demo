@@ -279,7 +279,6 @@ async function ensureSession(supabase, courseId, locationId, sessionDate) {
       start_time: "09:00:00",
       end_time: "12:00:00",
       max_students: 20,
-      active: true,
     })
     .select("id")
     .single();

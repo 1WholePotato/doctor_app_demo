@@ -42,8 +42,16 @@ jobs:
           SQL
           )"
           test "$result" = 'student@example.test|Fixture Clinical Skills|100.00|FIXTURE-B01-001'
-      - name: Test booking and class instructor constraints
+      - name: Test booking, class instructor and class administration constraints
         run: supabase test db
+      - name: Race bookings against class capacity changes
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '54322'
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: supabase/checks/class_capacity_race.sh
       - name: Reconcile legacy bookings and class instructors
         env:
           PGHOST: 127.0.0.1
@@ -58,3 +66,15 @@ jobs:
           supabase migration up --local
           supabase test db supabase/checks/legacy_reconciliation.test.sql
           supabase test db supabase/checks/legacy_session_instructors.test.sql
+      - name: Reconcile legacy inactive classes
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '54322'
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: |
+          supabase db reset --local --no-seed --version 20261118100000
+          psql -XAq -v ON_ERROR_STOP=1 -f supabase/checks/legacy_classes.sql
+          supabase migration up --local
+          supabase test db supabase/checks/legacy_classes.test.sql

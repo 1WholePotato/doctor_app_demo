@@ -12,7 +12,18 @@ export async function fetchLocations(): Promise<{ locations: LocationRow[]; erro
   return { locations: (data ?? []) as LocationRow[], error: null };
 }
 
-export async function firstLocationId(): Promise<string | null> {
-  const { locations } = await fetchLocations();
-  return locations[0]?.id ?? null;
+export async function createLocation(name: string, address: string): Promise<{ location: LocationRow | null; error: string | null }> {
+  const { data, error } = await supabase
+    .from("locations")
+    .insert({ name: name.trim(), address: address.trim() || null })
+    .select("id, name, address")
+    .single<LocationRow>();
+  if (error) {
+    return { location: null, error: error.code === "23505" ? `A location named "${name.trim()}" already exists.` : error.message };
+  }
+  return { location: data, error: null };
+}
+
+export function locationLabel(location: Pick<LocationRow, "name" | "address">): string {
+  return location.address ? `${location.name}, ${location.address}` : location.name;
 }

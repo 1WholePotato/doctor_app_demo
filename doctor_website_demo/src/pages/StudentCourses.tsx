@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, Search, User } from "lucide-react";
+import { BookOpen, CalendarDays, MapPin, Search, User } from "lucide-react";
 import { useAuth } from "../context/useAuth";
 import { fetchStudentCourses, type StudentCourseRow } from "../lib/studentCourses";
 import { supabase } from "../supabaseClient";
@@ -151,10 +151,28 @@ export default function StudentCourses() {
                   <div key={course.bookingId} className="sc-card">
                     <div className="sc-card-top">
                       <h2 className="sc-card-title">{course.title}</h2>
-                      <span className="status-badge status-pending">Result unavailable</span>
+                      {course.classCancelled ? (
+                        <span className="status-badge status-failed">Class cancelled</span>
+                      ) : course.rescheduled ? (
+                        <span className="status-badge status-pending">Rescheduled</span>
+                      ) : (
+                        <span className="status-badge status-pending">Result unavailable</span>
+                      )}
                     </div>
 
                     <p className="sc-card-desc">{course.description || "No description provided."}</p>
+
+                    {course.schedule && (
+                      <div className="sc-meta-row">
+                        <span className="sc-meta" style={course.classCancelled ? { textDecoration: "line-through" } : undefined}><CalendarDays />{course.schedule}</span>
+                        {course.location && <span className="sc-meta"><MapPin />{course.location}</span>}
+                      </div>
+                    )}
+                    {course.classCancelled && (
+                      <p className="sc-meta" role="note" style={{ color: "#DC2626" }}>
+                        This class was cancelled{course.cancellationReason ? `: ${course.cancellationReason}` : ""}. Your booking and payment are kept while a refund is arranged.
+                      </p>
+                    )}
 
                     <div className="sc-meta-row">
                       <span className="sc-meta"><User />{course.instructor}</span>

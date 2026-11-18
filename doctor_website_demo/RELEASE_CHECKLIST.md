@@ -62,7 +62,6 @@ Local builds and tests use the application source and synthetic backend fixtures
 
 The release cleanup identified these existing issues that still need a focused fix and browser verification:
 
-- The Add Course form freezes its values and dismissal after a setup failure. Its draft retry logic avoids duplicate writes, but a permanently invalid submission has no correction path. Preserve duplicate protection when adding editable recovery or cancellation.
-- Admin dialogs do not contain or restore keyboard focus consistently. Verify initial focus, Tab containment, Escape behavior, and focus restoration for Add Course, Add Session, and Change Role.
+- Admin dialogs do not contain or restore keyboard focus consistently. Verify initial focus, Tab containment, Escape behavior, and focus restoration for Add course, Edit course, Schedule class, Reschedule, Edit teachers, Cancel class, and Change Role.
 
 These issues are separate from the production authorization and transaction work above.

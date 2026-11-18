@@ -49,7 +49,8 @@ values ('b0100000-0000-4000-8000-000000000021', 'b0100000-0000-4000-8000-0000000
        ('b0100000-0000-4000-8000-000000000044', null, 'Fixture', 'Standby', 'standby-instructor@example.test', '0000000044', true);
 
 insert into public.locations (id, name, address)
-values ('b0100000-0000-4000-8000-000000000022', 'Fixture Training Room', '1 Example Way');
+values ('b0100000-0000-4000-8000-000000000022', 'Fixture Training Room', '1 Example Way'),
+       ('b0100000-0000-4000-8000-000000000051', 'Fixture Skills Lab', '2 Example Way');
 
 insert into public.courses (id, course_title, course_description, course_price)
 values ('b0100000-0000-4000-8000-000000000023', 'Fixture Clinical Skills', 'Synthetic course for local development.', 100.00);
@@ -61,14 +62,25 @@ values ('b0100000-0000-4000-8000-000000000024', 'b0100000-0000-4000-8000-0000000
        ('b0100000-0000-4000-8000-000000000047', 'b0100000-0000-4000-8000-000000000044', 'b0100000-0000-4000-8000-000000000023');
 
 insert into public.course_sessions (
-  id, course_id, location_id, start_date, end_date, start_time, end_time
+  id, course_id, location_id, start_date, end_date, start_time, end_time, max_students,
+  status, cancelled_at, cancellation_reason
 )
 values ('b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000022',
-        current_date + 30, current_date + 30, '09:00', '12:00');
+        current_date + 30, current_date + 30, '09:00', '12:00', 20, 'scheduled', null, null),
+       ('b0100000-0000-4000-8000-000000000052', 'b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000051',
+        current_date + 45, current_date + 46, '08:30', '16:00', 2, 'scheduled', null, null),
+       ('b0100000-0000-4000-8000-000000000053', 'b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000022',
+        current_date + 20, current_date + 20, '13:00', '16:00', 12, 'scheduled', null, null);
 
 insert into public.session_instructors (course_session_id, instructor_id)
 values ('b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000021'),
-       ('b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000041');
+       ('b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000041'),
+       ('b0100000-0000-4000-8000-000000000052', 'b0100000-0000-4000-8000-000000000044'),
+       ('b0100000-0000-4000-8000-000000000053', 'b0100000-0000-4000-8000-000000000044');
+
+update public.course_sessions
+set status = 'cancelled', cancelled_at = now(), cancellation_reason = 'Fixture venue unavailable'
+where id = 'b0100000-0000-4000-8000-000000000053';
 
 insert into public.material_types (id, name, fee) values ('b0100000-0000-4000-8000-000000000033', 'digital', 0);
 
@@ -76,15 +88,23 @@ insert into public.bookings (
   id, user_id, course_session_id, total_amount, material_type_id, booking_status, created_at
 )
 values ('b0100000-0000-4000-8000-000000000037', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 100.00, 'b0100000-0000-4000-8000-000000000033', 'Cancelled', now() - interval '2 days'),
-       ('b0100000-0000-4000-8000-000000000034', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 100.00, 'b0100000-0000-4000-8000-000000000033', 'Confirmed', now());
+       ('b0100000-0000-4000-8000-000000000034', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 100.00, 'b0100000-0000-4000-8000-000000000033', 'Confirmed', now()),
+       ('b0100000-0000-4000-8000-000000000054', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000053', 100.00, 'b0100000-0000-4000-8000-000000000033', 'Class Cancelled', now() - interval '1 day');
 
 insert into public.payments (id, booking_id, amount, payment_date, payment_status_id)
 select fixture.id, fixture.booking_id, 100.00, fixture.paid_at, ps.id
 from (values
   ('b0100000-0000-4000-8000-000000000038'::uuid, 'b0100000-0000-4000-8000-000000000037'::uuid, null::timestamp, 'Failed'),
-  ('b0100000-0000-4000-8000-000000000035'::uuid, 'b0100000-0000-4000-8000-000000000034'::uuid, now()::timestamp, 'Paid')
+  ('b0100000-0000-4000-8000-000000000035'::uuid, 'b0100000-0000-4000-8000-000000000034'::uuid, now()::timestamp, 'Paid'),
+  ('b0100000-0000-4000-8000-000000000055'::uuid, 'b0100000-0000-4000-8000-000000000054'::uuid, now()::timestamp, 'Paid')
 ) as fixture(id, booking_id, paid_at, status)
 join public.payment_statuses ps on ps.name = fixture.status;
+
+insert into public.course_session_changes (course_session_id, change, previous, current, changed_by)
+values ('b0100000-0000-4000-8000-000000000053', 'cancelled',
+        '{"status": "scheduled", "bookings": [{"booking_id": "b0100000-0000-4000-8000-000000000054", "booking_status": "Confirmed"}]}',
+        '{"status": "cancelled", "reason": "Fixture venue unavailable"}',
+        'b0100000-0000-4000-8000-000000000011');
 
 insert into public.certificates (id, booking_id, certificate_number, issue_date)
 values ('b0100000-0000-4000-8000-000000000036', 'b0100000-0000-4000-8000-000000000034', 'FIXTURE-B01-001', current_date);

@@ -58,7 +58,7 @@ export default function StudentLanding() {
             {nextSession?.sessionDate ? (
               <>
                 <p className="nb-title">{nextSession.title}</p>
-                <p className="nb-meta">{formatSessionDate(nextSession.sessionDate)} with {nextSession.instructor}</p>
+                <p className="nb-meta">{nextSession.schedule ?? formatSessionDate(nextSession.sessionDate)} with {nextSession.instructor}{nextSession.rescheduled ? " (rescheduled)" : ""}</p>
               </>
             ) : (
               <>
@@ -97,7 +97,7 @@ export default function StudentLanding() {
             >
               <span className="cc-date-badge">
                 <BookOpen />
-                {course.sessionDate ? formatSessionDate(course.sessionDate) : "Course booking"}
+                {course.classCancelled ? "Class cancelled" : course.sessionDate ? formatSessionDate(course.sessionDate) : "Course booking"}
               </span>
               <p className="cc-title">{course.title}</p>
               <p className="cc-meta"><Clock />{course.instructor}</p>

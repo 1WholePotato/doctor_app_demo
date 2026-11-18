@@ -39,6 +39,20 @@ A scheduled class can have several instructors. Each assignment is a row in `ses
 
 Deactivating an instructor or removing their course authorization keeps their existing assignments. `stale_session_instructors`, readable only by the service role, lists each kept assignment whose instructor is no longer active and authorized, with the reason. The `20261118100000_session_instructors` migration moved each class's single `course_sessions.instructor_id` into `session_instructors` before dropping that column, so legacy classes taught by an unauthorized instructor also appear there. It also linked `instructors.user_id` to the `users` row whose email matches ignoring case and spaces, so later email changes keep the instructor tied to the same account.
 
+## Classes
+
+A class is a `course_sessions` row with a location, start and end dates, daily start and end times, a capacity (`max_students`) and its teachers in `session_instructors`. Its `status` is `scheduled` or `cancelled`, and cancelled is final. A cancelled class records `cancelled_at` and `cancellation_reason`. A moved class records `rescheduled_at`. Students see "Rescheduled" only on bookings made before that move.
+
+Admins change classes through three functions, each one transaction:
+
+- `schedule_class` inserts the class and all its teachers, or nothing if any teacher is refused or a range is invalid. A class cannot start in the past.
+- `reschedule_class` changes location, dates, times or capacity. It refuses a cancelled class and a new start date in the past.
+- `cancel_class` needs a reason. It marks every active booking `Class Cancelled`, keeps bookings and payments for refunds, and returns how many bookings it changed. Cancelling twice changes nothing.
+
+Capacity rules live in triggers, so they hold for direct writes too. A booking takes a seat while it is `Pending`, `Confirmed` or `Completed`. A seat-taking booking locks its class row, then needs a scheduled class with a free seat. Capacity cannot drop below the seats taken. A class with active bookings cannot be marked cancelled directly, and a cancelled class refuses any update, new bookings and changes to its teachers. Only `cancel_class` moves those bookings out of the way first.
+
+`course_session_changes` logs each reschedule and cancellation with the previous and new values, the admin and the time. A cancellation also lists each affected booking and its previous status. Only the service role can read it.
+
 ## Database tests
 
 `supabase test db` runs the pgTAP files in `supabase/tests/` against the seeded database. To rehearse the reconciliation on legacy-shaped rows, run:
@@ -50,6 +64,18 @@ psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/check
 supabase migration up --local
 supabase test db supabase/checks/legacy_reconciliation.test.sql
 supabase test db supabase/checks/legacy_session_instructors.test.sql
+supabase db reset --local
+```
+
+`supabase/checks/class_capacity_race.sh` races two `psql` connections for the last seat and against a capacity cut, and fails if occupancy ever exceeds capacity. Run it against a freshly seeded database with the `PG*` variables pointing at the local stack, as `.github/workflows/local-database.yml` does.
+
+To rehearse the class migration on legacy rows, where `course_sessions.active = false` becomes a cancelled class and its active bookings become `Class Cancelled`, run:
+
+```sh
+supabase db reset --local --no-seed --version 20261118100000
+psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/checks/legacy_classes.sql
+supabase migration up --local
+supabase test db supabase/checks/legacy_classes.test.sql
 supabase db reset --local
 ```
 

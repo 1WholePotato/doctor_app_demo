@@ -50,7 +50,7 @@ export default function StudentGrades() {
         setLoadError(result.error);
       } else {
         setLoadError("");
-        setCourses(result.courses);
+        setCourses(result.courses.filter((course) => !course.classCancelled));
       }
       setDataLoading(false);
     }

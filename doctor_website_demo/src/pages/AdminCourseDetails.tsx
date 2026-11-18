@@ -1,242 +1,91 @@
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import {
-  Plus,
-  X,
-  AlertCircle,
-  User,
-  ChevronLeft,
-} from "lucide-react";
+import { Plus, AlertCircle, User, ChevronLeft, Pencil } from "lucide-react";
 import { supabase } from "../supabaseClient";
+import { ACTIVE_BOOKING_STATUSES } from "../lib/bookings";
+import { cancelClass, rescheduleClass, scheduleClass, type ClassSchedule, type ClassStatus } from "../lib/classes";
+import { updateCourse, type CourseDraft } from "../lib/courses";
 import { SESSION_INSTRUCTORS_EMBED, instructorName, instructorNames, type Instructor } from "../lib/instructors";
 import { fetchInstructorsForCourse, setSessionInstructors } from "../lib/instructorCourses";
 import { fetchLocations, type LocationRow } from "../lib/locations";
 import { Skeleton, TableRowSkeleton } from "../components/Skeleton";
+import CourseFormModal from "../components/CourseFormModal";
+import { CancelClassModal, ClassFormModal, EditTeachersModal } from "../components/ClassModals";
 
-interface CourseDetail {
+interface CourseDetail extends CourseDraft {
   id: string;
-  title: string;
-  description: string;
-  price: number;
 }
 
-interface SessionRow {
+interface ClassRow extends ClassSchedule {
   id: string;
+  status: ClassStatus;
+  rescheduled: boolean;
+  cancellationReason: string | null;
   instructorIds: string[];
   instructorNames: string;
-  active: boolean;
-  startDate: string;
-  endDate: string;
-  startTime: string;
-  endTime: string;
-  maxStudents: number;
-  locationId: string;
+  locationName: string;
+  booked: number;
 }
 
-type NewSession = Pick<SessionRow, "startDate" | "endDate" | "startTime" | "endTime" | "maxStudents" | "locationId" | "instructorIds">;
+type Dialog =
+  | { kind: "course" }
+  | { kind: "schedule" }
+  | { kind: "reschedule"; row: ClassRow }
+  | { kind: "teachers"; row: ClassRow }
+  | { kind: "cancel"; row: ClassRow };
 
-function ActiveBadge({ active }: { active: boolean }) {
+const CLASS_SELECT = `id, status, rescheduled_at, cancellation_reason, start_date, end_date, start_time, end_time, max_students, location_id,
+  locations ( name ), session_instructors ( instructor_id ), ${SESSION_INSTRUCTORS_EMBED}, bookings ( count )`;
+
+function classLabel(row: ClassRow): string {
+  return row.endDate !== row.startDate ? `${row.startDate} – ${row.endDate}` : row.startDate;
+}
+
+function ClassStatusBadge({ row }: { row: ClassRow }) {
+  if (row.status === "cancelled") {
+    return (
+      <span className="status-badge status-inactive" title={row.cancellationReason ?? undefined}>
+        <span className="status-dot" />Cancelled
+      </span>
+    );
+  }
   return (
-    <span className={`status-badge ${active ? "status-active" : "status-inactive"}`}>
-      <span className="status-dot" />
-      {active ? "Active" : "Inactive"}
+    <span className="status-badge status-active">
+      <span className="status-dot" />{row.rescheduled ? "Rescheduled" : "Scheduled"}
     </span>
   );
 }
 
-function InstructorChecklist({
-  instructors,
-  selected,
-  onChange,
-}: {
-  instructors: Instructor[];
-  selected: string[];
-  onChange: (ids: string[]) => void;
-}) {
-  if (instructors.length === 0) {
-    return <p className="readonly-sub">No active teachers are authorized for this course. Authorize one under Users first.</p>;
-  }
-  return (
-    <div className="course-list">
-      {instructors.map((instructor) => {
-        const inputId = `teacher-${instructor.id}`;
-        return (
-          <label key={instructor.id} htmlFor={inputId} className="course-option">
-            <input
-              id={inputId}
-              type="checkbox"
-              checked={selected.includes(instructor.id)}
-              onChange={() => onChange(
-                selected.includes(instructor.id)
-                  ? selected.filter((id) => id !== instructor.id)
-                  : [...selected, instructor.id],
-              )}
-            />
-            {instructorName(instructor)}
-          </label>
-        );
-      })}
-    </div>
-  );
-}
-
-function EditTeachersModal({
-  session,
-  instructors,
-  onClose,
-  onSave,
-}: {
-  session: SessionRow;
-  instructors: Instructor[];
-  onClose: () => void;
-  onSave: (instructorIds: string[]) => Promise<string | null>;
-}) {
-  const offered = new Set(instructors.map((instructor) => instructor.id));
-  const stillAuthorized = session.instructorIds.filter((id) => offered.has(id));
-  const unauthorizedCount = session.instructorIds.length - stillAuthorized.length;
-  const [instructorIds, setInstructorIds] = useState(stillAuthorized);
-  const [error, setError] = useState("");
-  const [pending, setPending] = useState(false);
-
-  const handleSubmit = async () => {
-    if (pending) return;
-    if (instructorIds.length === 0) {
-      setError("Select at least one teacher");
-      return;
-    }
-    setPending(true);
-    setError("");
-    const saveError = await onSave(instructorIds);
-    setPending(false);
-    if (saveError) setError(saveError);
-    else onClose();
+function toClassRow(row: Record<string, unknown>): ClassRow {
+  const location = row.locations as { name?: string } | null;
+  const assignments = (row.session_instructors ?? []) as { instructor_id: string }[];
+  const bookings = (row.bookings ?? []) as { count?: number }[];
+  return {
+    id: String(row.id),
+    status: row.status === "cancelled" ? "cancelled" : "scheduled",
+    rescheduled: Boolean(row.rescheduled_at),
+    cancellationReason: typeof row.cancellation_reason === "string" ? row.cancellation_reason : null,
+    locationId: String(row.location_id ?? ""),
+    locationName: location?.name ?? "Location TBD",
+    startDate: String(row.start_date ?? ""),
+    endDate: String(row.end_date ?? ""),
+    startTime: String(row.start_time ?? "").slice(0, 5),
+    endTime: String(row.end_time ?? "").slice(0, 5),
+    maxStudents: Number(row.max_students) || 0,
+    instructorIds: assignments.map((assignment) => assignment.instructor_id),
+    instructorNames: instructorNames(row.instructors, "Unassigned"),
+    booked: Number(bookings[0]?.count) || 0,
   };
-
-  return (
-    <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget && !pending) onClose(); }}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="teachers-modal-title">
-        <button className="modal-close" onClick={onClose} disabled={pending} aria-label="Close"><X /></button>
-        <p className="modal-eyebrow">{session.startDate}</p>
-        <h2 id="teachers-modal-title">Class teachers</h2>
-        {unauthorizedCount > 0 && (
-          <p className="course-help">
-            {unauthorizedCount === 1 ? "One current teacher is" : `${unauthorizedCount} current teachers are`} no longer active or authorized for this course and will be removed when you save.
-          </p>
-        )}
-        <fieldset style={{ border: "none", padding: 0, margin: "0 0 18px" }}>
-          <legend className="readonly-label" style={{ marginBottom: 6 }}>Teachers</legend>
-          <InstructorChecklist instructors={instructors} selected={instructorIds} onChange={(ids) => { setInstructorIds(ids); setError(""); }} />
-        </fieldset>
-        {error && <span className="field-error" role="alert"><AlertCircle />{error}</span>}
-        <button className="btn-submit" onClick={handleSubmit} disabled={pending}>{pending ? "Saving…" : "Save teachers"}</button>
-      </div>
-    </div>
-  );
-}
-
-function AddSessionModal({
-  onClose,
-  onAdd,
-  instructors,
-  locations,
-}: {
-  onClose: () => void;
-  onAdd: (session: NewSession) => Promise<string | null>;
-  instructors: Instructor[];
-  locations: LocationRow[];
-}) {
-  const [instructorIds, setInstructorIds] = useState<string[]>([]);
-  const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("12:00");
-  const [maxStudents, setMaxStudents] = useState("20");
-  const [error, setError] = useState("");
-  const [pending, setPending] = useState(false);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !pending) onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, pending]);
-
-  const handleSubmit = async () => {
-    if (pending) return;
-    if (instructorIds.length === 0) {
-      setError("Select at least one teacher");
-      return;
-    }
-    if (!locationId || !startDate || !endDate || endDate < startDate || !startTime || !endTime || endTime <= startTime || !Number.isInteger(Number(maxStudents)) || Number(maxStudents) < 1) {
-      setError("Enter a location, valid date and time range, and capacity of at least one.");
-      return;
-    }
-    setPending(true);
-    setError("");
-    try {
-      const addError = await onAdd({ instructorIds, locationId, startDate, endDate, startTime, endTime, maxStudents: Number(maxStudents) });
-      if (addError) setError(addError);
-      else onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add session. Please try again.");
-    } finally {
-      setPending(false);
-    }
-  };
-
-  const stopProp = (e: React.MouseEvent) => e.stopPropagation();
-
-  return (
-    <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget && !pending) onClose(); }}>
-      <div className="modal" onClick={stopProp} role="dialog" aria-modal="true" aria-labelledby="session-modal-title">
-        <button className="modal-close" onClick={onClose} disabled={pending} aria-label="Close"><X /></button>
-
-        <p className="modal-eyebrow">Schedule</p>
-        <h2 id="session-modal-title">Add a class session</h2>
-
-        <fieldset style={{ border: "none", padding: 0, margin: "0 0 18px" }}>
-          <legend className="readonly-label" style={{ marginBottom: 6 }}>Teachers</legend>
-          <InstructorChecklist instructors={instructors} selected={instructorIds} onChange={(ids) => { setInstructorIds(ids); setError(""); }} />
-          {error && <span className="field-error" role="alert"><AlertCircle />{error}</span>}
-        </fieldset>
-
-        <div className="field">
-          <label htmlFor="session-location">Location</label>
-          <select id="session-location" value={locationId} onChange={(e) => setLocationId(e.target.value)}>
-            {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
-          </select>
-        </div>
-        <div className="field-row">
-          <div className="field"><label htmlFor="session-start-date">Start date</label><input id="session-start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></div>
-          <div className="field"><label htmlFor="session-end-date">End date</label><input id="session-end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></div>
-        </div>
-        <div className="field-row">
-          <div className="field"><label htmlFor="session-start-time">Start time</label><input id="session-start-time" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} /></div>
-          <div className="field"><label htmlFor="session-end-time">End time</label><input id="session-end-time" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} /></div>
-        </div>
-        <div className="field">
-          <label htmlFor="session-capacity">Class capacity</label>
-          <input id="session-capacity" type="number" min="1" value={maxStudents} onChange={(e) => setMaxStudents(e.target.value)} />
-        </div>
-
-        <button className="btn-submit" onClick={handleSubmit} disabled={pending}>{pending ? "Adding session…" : "Add session"}</button>
-      </div>
-    </div>
-  );
 }
 
 export default function AdminCourseDetails() {
   const { id } = useParams<{ id: string }>();
   const [course, setCourse] = useState<CourseDetail | null>(null);
-  const [sessions, setSessions] = useState<SessionRow[]>([]);
+  const [classes, setClasses] = useState<ClassRow[]>([]);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [locations, setLocations] = useState<LocationRow[]>([]);
-  const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState<SessionRow | null>(null);
+  const [dialog, setDialog] = useState<Dialog | null>(null);
   const [loadError, setLoadError] = useState("");
-  const [actionError, setActionError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
@@ -246,16 +95,19 @@ export default function AdminCourseDetails() {
       return;
     }
 
-    const [courseResult, sessionResult, instructorResult, locationResult] = await Promise.all([
+    const [courseResult, classResult, instructorResult, locationResult] = await Promise.all([
       supabase
         .from("courses")
-        .select("id, course_title, course_description, course_price")
+        .select("id, course_title, course_description, course_price, active")
         .eq("id", id)
         .maybeSingle(),
       supabase
         .from("course_sessions")
-        .select(`id, active, start_date, end_date, start_time, end_time, max_students, location_id, session_instructors ( instructor_id ), ${SESSION_INSTRUCTORS_EMBED}`)
-        .eq("course_id", id),
+        .select(CLASS_SELECT)
+        .eq("course_id", id)
+        .in("bookings.booking_status", [...ACTIVE_BOOKING_STATUSES])
+        .order("start_date")
+        .order("start_time"),
       fetchInstructorsForCourse(id),
       fetchLocations(),
     ]);
@@ -263,44 +115,21 @@ export default function AdminCourseDetails() {
     setInstructors(instructorResult.instructors);
     setLocations(locationResult.locations);
 
-    if (courseResult.error) {
-      setLoadError(courseResult.error.message);
+    if (courseResult.error || !courseResult.data) {
+      setLoadError(courseResult.error?.message ?? "Course not found");
       setLoading(false);
       return;
     }
 
-    if (!courseResult.data) {
-      setLoadError("Course not found");
-      setLoading(false);
-      return;
-    }
-
-    setLoadError([sessionResult.error?.message, instructorResult.error, locationResult.error].filter(Boolean).join(" "));
-
+    setLoadError([classResult.error?.message, instructorResult.error, locationResult.error].filter(Boolean).join(" "));
     setCourse({
       id: courseResult.data.id,
       title: courseResult.data.course_title,
       description: courseResult.data.course_description ?? "",
       price: courseResult.data.course_price,
+      active: courseResult.data.active,
     });
-
-    setSessions(
-      (sessionResult.data ?? []).map((row) => {
-        return {
-          id: row.id,
-          instructorIds: (row.session_instructors ?? []).map((assignment) => assignment.instructor_id),
-          instructorNames: instructorNames(row.instructors, "Unassigned"),
-          active: row.active,
-          startDate: row.start_date ?? "",
-          endDate: row.end_date ?? "",
-          startTime: String(row.start_time ?? "").slice(0, 5),
-          endTime: String(row.end_time ?? "").slice(0, 5),
-          maxStudents: row.max_students ?? 0,
-          locationId: row.location_id ?? "",
-        };
-      }),
-    );
-
+    setClasses((classResult.data ?? []).map((row) => toClassRow(row as Record<string, unknown>)));
     setLoading(false);
   }, [id]);
 
@@ -317,39 +146,9 @@ export default function AdminCourseDetails() {
     };
   }, [loadData]);
 
-  const handleAdd = async (session: NewSession): Promise<string | null> => {
-    if (!id) return "Missing course id";
-    setActionError(null);
-
-    const { data: created, error } = await supabase.from("course_sessions").insert({
-      course_id: id,
-      location_id: session.locationId,
-      start_date: session.startDate,
-      end_date: session.endDate,
-      start_time: `${session.startTime}:00`,
-      end_time: `${session.endTime}:00`,
-      max_students: session.maxStudents,
-      active: true,
-    }).select("id").single();
-
-    if (error || !created) return error?.message ?? "No session record was returned";
-
-    const assignError = await setSessionInstructors(created.id, session.instructorIds);
-    if (assignError) setActionError(`Session was created, but its teachers could not be assigned: ${assignError}. Use Edit teachers to retry.`);
-
-    try {
-      await loadData();
-    } catch (err) {
-      setActionError((previous) => [previous, `Session was created, but refreshing the session list failed: ${err instanceof Error ? err.message : "Request failed"}`].filter(Boolean).join(" "));
-    }
-    return null;
-  };
-
-  const handleSaveTeachers = async (sessionId: string, instructorIds: string[]): Promise<string | null> => {
-    const saveError = await setSessionInstructors(sessionId, instructorIds);
-    if (saveError) return saveError;
+  const afterChange = async (error: string | null) => {
     await loadData();
-    return null;
+    return error;
   };
 
   if (loading) {
@@ -364,19 +163,13 @@ export default function AdminCourseDetails() {
           </div>
         </div>
         <div className="section-header" style={{ marginTop: 28 }}>
-          <p className="section-title">Class sessions</p>
+          <p className="section-title">Classes</p>
         </div>
         <div className="sessions-card">
           <table className="sessions-table">
-            <thead>
-              <tr>
-                <th>Teacher</th>
-                <th>Status</th>
-              </tr>
-            </thead>
             <tbody>
-              <TableRowSkeleton cols={5} />
-              <TableRowSkeleton cols={5} />
+              <TableRowSkeleton cols={7} />
+              <TableRowSkeleton cols={7} />
             </tbody>
           </table>
         </div>
@@ -386,93 +179,131 @@ export default function AdminCourseDetails() {
 
   return (
     <>
-
       <main className="acd-main">
-          <Link to="/admincourses" className="back-link"><ChevronLeft />Back to courses</Link>
+        <Link to="/admincourses" className="back-link"><ChevronLeft />Back to courses</Link>
 
-          {actionError && (
-            <p className="load-error" style={{ marginBottom: 16 }}><AlertCircle />{actionError}</p>
-          )}
-          {loadError && (
-            <p className="load-error"><AlertCircle />{loadError}</p>
-          )}
+        {loadError && <p className="load-error"><AlertCircle />{loadError}</p>}
 
-          {course && (
-            <div className="course-hero">
-              <div className="hero-left">
-                <p className="hero-eyebrow">Course detail</p>
-                <h1 className="hero-title">{course.title}</h1>
-                <p className="hero-desc">{course.description}</p>
-              </div>
-              <div className="hero-right">
-                <p className="hero-price-label">Course price</p>
-                <p className="hero-price">R {course.price.toLocaleString()}</p>
-              </div>
+        {course && (
+          <div className="course-hero">
+            <div className="hero-left">
+              <p className="hero-eyebrow">Course detail</p>
+              <h1 className="hero-title">{course.title}</h1>
+              <p className="hero-desc">{course.description}</p>
+              <p className="readonly-sub">
+                Authorized teachers: {instructors.length > 0 ? instructors.map(instructorName).join(", ") : "none"}. Change authorizations under Users.
+              </p>
             </div>
-          )}
-
-          <div className="section-header">
-            <p className="section-title">Class sessions</p>
-            <button className="btn-primary" onClick={() => setShowModal(true)}>
-              <Plus />Add session
-            </button>
+            <div className="hero-right">
+              <span className={`status-badge ${course.active ? "status-active" : "status-inactive"}`}>
+                <span className="status-dot" />{course.active ? "Active" : "Inactive"}
+              </span>
+              <p className="hero-price-label">Course price</p>
+              <p className="hero-price">R {course.price.toLocaleString()}</p>
+              <button type="button" className="btn-link" onClick={() => setDialog({ kind: "course" })}><Pencil size={13} /> Edit course</button>
+            </div>
           </div>
+        )}
 
-          <div className="sessions-card">
-            {sessions.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon"><User /></div>
-                <p className="empty-title">No sessions yet</p>
-                <p className="empty-sub">Add a teacher assignment for this course.</p>
-              </div>
-            ) : (
-              <table className="sessions-table">
-                <thead>
-                  <tr>
-                    <th>Teachers</th>
-                    <th>Dates</th>
-                    <th>Time</th>
-                    <th>Capacity</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sessions.map((s) => (
-                    <tr key={s.id}>
-                      <td className="muted">
-                        <div className="cell-with-icon">
-                          <User />
-                          {s.instructorNames}
+        <div className="section-header">
+          <p className="section-title">Classes</p>
+          <button className="btn-primary" onClick={() => setDialog({ kind: "schedule" })}>
+            <Plus />Schedule class
+          </button>
+        </div>
+
+        <div className="sessions-card">
+          {classes.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon"><User /></div>
+              <p className="empty-title">No classes yet</p>
+              <p className="empty-sub">Schedule a class with a location, dates, capacity and teachers.</p>
+            </div>
+          ) : (
+            <table className="sessions-table">
+              <thead>
+                <tr>
+                  <th>Dates</th>
+                  <th>Time</th>
+                  <th>Location</th>
+                  <th>Teachers</th>
+                  <th>Booked</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {classes.map((row) => (
+                  <tr key={row.id}>
+                    <td className="muted">{classLabel(row)}</td>
+                    <td className="muted">{row.startTime} – {row.endTime}</td>
+                    <td className="muted">{row.locationName}</td>
+                    <td className="muted">
+                      <div className="cell-with-icon"><User />{row.instructorNames}</div>
+                    </td>
+                    <td className="muted">{row.booked} / {row.maxStudents}</td>
+                    <td>
+                      <ClassStatusBadge row={row} />
+                      {row.status === "cancelled" && row.cancellationReason && <p className="readonly-sub">{row.cancellationReason}</p>}
+                    </td>
+                    <td>
+                      {row.status === "scheduled" && (
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4, whiteSpace: "nowrap" }}>
+                          <button type="button" className="btn-link" onClick={() => setDialog({ kind: "reschedule", row })}>Reschedule</button>
+                          <button type="button" className="btn-link" onClick={() => setDialog({ kind: "teachers", row })}>Edit teachers</button>
+                          <button type="button" className="btn-link" onClick={() => setDialog({ kind: "cancel", row })}>Cancel class</button>
                         </div>
-                        <button type="button" className="btn-link" onClick={() => setEditing(s)}>Edit teachers</button>
-                      </td>
-                      <td className="muted">{s.startDate}{s.endDate && s.endDate !== s.startDate ? ` – ${s.endDate}` : ""}</td>
-                      <td className="muted">{s.startTime} – {s.endTime}</td>
-                      <td className="muted">{s.maxStudents || "—"}</td>
-                      <td><ActiveBadge active={s.active} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </main>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </main>
 
-      {editing && (
-        <EditTeachersModal
-          session={editing}
-          instructors={instructors}
-          onClose={() => setEditing(null)}
-          onSave={(instructorIds) => handleSaveTeachers(editing.id, instructorIds)}
+      {dialog?.kind === "course" && course && (
+        <CourseFormModal
+          initial={course}
+          onClose={() => setDialog(null)}
+          onSave={async (draft) => afterChange(await updateCourse(course.id, draft))}
         />
       )}
 
-      {showModal && (
-        <AddSessionModal
-          onClose={() => setShowModal(false)}
-          onAdd={handleAdd}
+      {(dialog?.kind === "schedule" || dialog?.kind === "reschedule") && (
+        <ClassFormModal
+          mode={dialog.kind === "schedule"
+            ? { kind: "schedule" }
+            : { kind: "reschedule", heading: classLabel(dialog.row), initial: dialog.row, booked: dialog.row.booked }}
           instructors={instructors}
           locations={locations}
+          onLocationCreated={(location) => setLocations((current) => [...current, location].sort((a, b) => a.name.localeCompare(b.name)))}
+          onClose={() => setDialog(null)}
+          onSubmit={async (schedule, instructorIds) => afterChange(
+            dialog.kind === "schedule"
+              ? await scheduleClass(id ?? "", schedule, instructorIds)
+              : await rescheduleClass(dialog.row.id, schedule),
+          )}
+        />
+      )}
+
+      {dialog?.kind === "teachers" && (
+        <EditTeachersModal
+          heading={classLabel(dialog.row)}
+          currentIds={dialog.row.instructorIds}
+          instructors={instructors}
+          onClose={() => setDialog(null)}
+          onSave={async (instructorIds) => afterChange(await setSessionInstructors(dialog.row.id, instructorIds))}
+        />
+      )}
+
+      {dialog?.kind === "cancel" && (
+        <CancelClassModal
+          heading={classLabel(dialog.row)}
+          booked={dialog.row.booked}
+          onClose={() => setDialog(null)}
+          onCancel={async (reason) => afterChange(await cancelClass(dialog.row.id, reason))}
         />
       )}
     </>

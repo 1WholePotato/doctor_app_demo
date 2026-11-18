@@ -186,38 +186,6 @@ export async function setInstructorCourses(
   return { error: null, tableMissing: false };
 }
 
-export async function grantInstructorCourse(
-  instructorId: string,
-  courseId: string,
-): Promise<string | null> {
-  const { data, error: lookupError } = await supabase
-    .from("instructor_courses")
-    .select("id")
-    .eq("instructor_id", instructorId)
-    .eq("course_id", courseId)
-    .maybeSingle();
-
-  if (lookupError) {
-    return isMissingInstructorCoursesTable(lookupError.message)
-      ? "Instructor course assignments are unavailable: instructor_courses table is missing."
-      : lookupError.message;
-  }
-
-  if (data) return null;
-
-  const { error } = await supabase
-    .from("instructor_courses")
-    .insert({ instructor_id: instructorId, course_id: courseId });
-
-  if (error) {
-    return isMissingInstructorCoursesTable(error.message)
-      ? "Instructor course assignments are unavailable: instructor_courses table is missing."
-      : error.message;
-  }
-
-  return null;
-}
-
 export async function fetchInstructorsForCourse(courseId: string): Promise<{
   instructors: Instructor[];
   error: string | null;

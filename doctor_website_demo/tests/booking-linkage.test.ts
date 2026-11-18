@@ -73,14 +73,14 @@ describe("fetchStudentCourses", () => {
     ]);
   });
 
-  it("asks only for the student's active bookings", async () => {
+  it("asks for the student's active bookings and the ones whose class was cancelled", async () => {
     await fetchStudentCourses("student-1");
 
     expect(calls).toContainEqual({ table: "bookings", method: "eq", args: ["user_id", "student-1"] });
     expect(calls).toContainEqual({
       table: "bookings",
       method: "in",
-      args: ["booking_status", ["Pending", "Confirmed", "Completed"]],
+      args: ["booking_status", ["Pending", "Confirmed", "Completed", "Class Cancelled"]],
     });
   });
 
