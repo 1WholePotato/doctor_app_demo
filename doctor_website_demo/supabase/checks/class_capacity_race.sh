@@ -12,9 +12,15 @@ book() { echo "insert into public.bookings (user_id, course_session_id, total_am
 
 expect_blocked_failure() {
   local holder="$1" contender="$2" expected="$3" label="$4"
-  psql -XAtq -v ON_ERROR_STOP=1 -c "begin; $holder select pg_sleep(2); commit;" >/dev/null &
+  PGAPPNAME=race_holder psql -XAtq -v ON_ERROR_STOP=1 -c "begin; $holder select pg_sleep(2); commit;" >/dev/null &
   local holder_pid=$!
-  sleep 0.5
+  until [[ "$(sql "select count(*) from pg_stat_activity where application_name = 'race_holder' and wait_event = 'PgSleep';")" == 1 ]]; do
+    if ! kill -0 "$holder_pid" 2>/dev/null; then
+      echo "FAIL: $label: the holding transaction ended before it held its lock" >&2
+      exit 1
+    fi
+    sleep 0.05
+  done
   local output
   if output="$(psql -XAtq -v ON_ERROR_STOP=1 -c "$contender" 2>&1)"; then
     echo "FAIL: $label succeeded" >&2
