@@ -21,7 +21,8 @@ select '00000000-0000-0000-0000-000000000000', fixture.id, 'authenticated',
 from (values
   ('b0100000-0000-4000-8000-000000000011'::uuid, 'admin@example.test', 'Admin'),
   ('b0100000-0000-4000-8000-000000000012'::uuid, 'student@example.test', 'Student'),
-  ('b0100000-0000-4000-8000-000000000013'::uuid, 'instructor@example.test', 'Instructor')
+  ('b0100000-0000-4000-8000-000000000013'::uuid, 'instructor@example.test', 'Instructor'),
+  ('b0100000-0000-4000-8000-000000000014'::uuid, 'second-student@example.test', 'Second Student')
 ) as fixture(id, email, persona);
 
 insert into auth.identities (
@@ -31,7 +32,7 @@ select gen_random_uuid(), id, id::text,
        jsonb_build_object('sub', id::text, 'email', email, 'email_verified', true),
        'email', now(), now(), now()
 from auth.users
-where id in ('b0100000-0000-4000-8000-000000000011', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000013');
+where id in ('b0100000-0000-4000-8000-000000000011', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000013', 'b0100000-0000-4000-8000-000000000014');
 
 insert into public.users (
   id, role_id, first_name, last_name, birth_date, passport_num, cell_num, email, sanc_num
@@ -39,7 +40,8 @@ insert into public.users (
 values
   ('b0100000-0000-4000-8000-000000000011', 'ef387d99-bdbd-4304-b6ab-946b58475aa1', 'Fixture', 'Admin', '1990-01-01', 'TEST-B01-ADMIN', '0000000011', 'admin@example.test', 'TEST-ADMIN'),
   ('b0100000-0000-4000-8000-000000000012', '4fd9e72e-f94b-4222-b5c1-95b447088d4d', 'Fixture', 'Student', '1990-01-01', 'TEST-B01-STUDENT', '0000000012', 'student@example.test', 'TEST-STUDENT'),
-  ('b0100000-0000-4000-8000-000000000013', 'b0100000-0000-4000-8000-000000000003', 'Fixture', 'Instructor', '1990-01-01', 'TEST-B01-INSTRUCTOR', '0000000013', 'instructor@example.test', 'TEST-INSTRUCTOR');
+  ('b0100000-0000-4000-8000-000000000013', 'b0100000-0000-4000-8000-000000000003', 'Fixture', 'Instructor', '1990-01-01', 'TEST-B01-INSTRUCTOR', '0000000013', 'instructor@example.test', 'TEST-INSTRUCTOR'),
+  ('b0100000-0000-4000-8000-000000000014', '4fd9e72e-f94b-4222-b5c1-95b447088d4d', 'Fixture', 'Second Student', '1990-01-01', 'TEST-B10-STUDENT', '0000000014', 'second-student@example.test', 'TEST-STUDENT-2');
 
 insert into public.instructors (id, user_id, first_name, last_name, email, cell_num, active)
 values ('b0100000-0000-4000-8000-000000000021', 'b0100000-0000-4000-8000-000000000013', 'Fixture', 'Instructor', 'instructor@example.test', '0000000013', true),
@@ -70,13 +72,16 @@ values ('b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-0000000
        ('b0100000-0000-4000-8000-000000000052', 'b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000051',
         current_date + 45, current_date + 46, '08:30', '16:00', 2, 'scheduled', null, null),
        ('b0100000-0000-4000-8000-000000000053', 'b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000022',
-        current_date + 20, current_date + 20, '13:00', '16:00', 12, 'scheduled', null, null);
+        current_date + 20, current_date + 20, '13:00', '16:00', 12, 'scheduled', null, null),
+       ('b0100000-0000-4000-8000-000000000073', 'b0100000-0000-4000-8000-000000000023', 'b0100000-0000-4000-8000-000000000051',
+        current_date + 60, current_date + 60, '09:00', '12:00', 8, 'scheduled', null, null);
 
 insert into public.session_instructors (course_session_id, instructor_id)
 values ('b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000021'),
        ('b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000041'),
        ('b0100000-0000-4000-8000-000000000052', 'b0100000-0000-4000-8000-000000000044'),
-       ('b0100000-0000-4000-8000-000000000053', 'b0100000-0000-4000-8000-000000000044');
+       ('b0100000-0000-4000-8000-000000000053', 'b0100000-0000-4000-8000-000000000044'),
+       ('b0100000-0000-4000-8000-000000000073', 'b0100000-0000-4000-8000-000000000044');
 
 update public.course_sessions
 set status = 'cancelled', cancelled_at = now(), cancellation_reason = 'Fixture venue unavailable'
@@ -91,7 +96,12 @@ insert into public.bookings (
 )
 values ('b0100000-0000-4000-8000-000000000037', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000033', 'Cancelled', now() - interval '2 days'),
        ('b0100000-0000-4000-8000-000000000034', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000033', 'Confirmed', now()),
-       ('b0100000-0000-4000-8000-000000000054', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000053', 'b0100000-0000-4000-8000-000000000033', 'Class Cancelled', now() - interval '1 day');
+       ('b0100000-0000-4000-8000-000000000054', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000053', 'b0100000-0000-4000-8000-000000000033', 'Class Cancelled', now() - interval '1 day'),
+       ('b0100000-0000-4000-8000-000000000071', 'b0100000-0000-4000-8000-000000000014', 'b0100000-0000-4000-8000-000000000073', 'b0100000-0000-4000-8000-000000000061', 'Pending', now()),
+       ('b0100000-0000-4000-8000-000000000072', 'b0100000-0000-4000-8000-000000000012', 'b0100000-0000-4000-8000-000000000073', 'b0100000-0000-4000-8000-000000000033', 'Pending', now() - interval '4 days');
+
+-- The insert trigger always starts a fresh 72-hour hold, so lapse this one afterwards.
+update public.bookings set expires_at = now() - interval '1 day' where id = 'b0100000-0000-4000-8000-000000000072';
 
 insert into public.payments (id, booking_id, amount, payment_date, payment_status_id)
 select fixture.id, fixture.booking_id, 100.00, fixture.paid_at, ps.id
