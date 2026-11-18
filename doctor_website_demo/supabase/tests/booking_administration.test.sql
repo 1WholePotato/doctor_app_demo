@@ -2,7 +2,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(69);
+select plan(78);
 
 select ok((select relrowsecurity from pg_class where oid = 'public.refunds'::regclass), 'refunds have row level security');
 select ok((select relrowsecurity from pg_class where oid = 'public.admin_audit_log'::regclass), 'the admin audit log has row level security');
@@ -274,6 +274,77 @@ select results_eq(
     from public.booking_review_flags where booking_id = 'b0100000-0000-4000-8000-000000000071' and reason = 'payment_mismatch'$$,
   $$values (1, true, true, '2')$$,
   'raising a resolved flag again reopens it with the new details');
+
+insert into public.bookings (id, user_id, course_session_id, material_type_id, booking_status)
+values ('b1400000-0000-4000-8000-000000000025', 'b0100000-0000-4000-8000-000000000012', 'b1400000-0000-4000-8000-000000000012',
+        'b0100000-0000-4000-8000-000000000033', 'Confirmed'),
+       ('b1400000-0000-4000-8000-000000000026', 'b0100000-0000-4000-8000-000000000014', 'b1400000-0000-4000-8000-000000000012',
+        'b0100000-0000-4000-8000-000000000033', 'Pending');
+insert into public.payments (id, booking_id, amount, payment_date, payment_status_id)
+select 'b1400000-0000-4000-8000-000000000034', 'b1400000-0000-4000-8000-000000000025', 100.00, now(), ps.id
+from public.payment_statuses ps where ps.name = 'Paid';
+insert into public.payment_attempts (id, booking_id, reference, amount, expires_at, ozow_payment_id, redirect_url)
+select a.id, b.id, a.reference, b.total_amount, now() + interval '1 hour', a.payment, 'https://pay.example.test/' || a.payment
+from (values
+  ('b1400000-0000-4000-8000-000000000045'::uuid, 'b1400000-0000-4000-8000-000000000025'::uuid, 'DAB14INV5', 'pay-b14-inv5'),
+  ('b1400000-0000-4000-8000-000000000046'::uuid, 'b1400000-0000-4000-8000-000000000026'::uuid, 'DAB14INV6', 'pay-b14-inv6')
+) as a(id, booking, reference, payment)
+join public.bookings b on b.id = a.booking;
+
+set local role service_role;
+select is(
+  public.settle_payment_attempt('pay-b14-inv5', jsonb_build_array(jsonb_build_object(
+    'id', 'tx-b14-inv5', 'merchantReference', 'DAB14INV5', 'status', 'Pending', 'reason', 'PendingInvestigation'))),
+  'investigating', 'a second payment on a paid booking goes under bank investigation');
+select is(
+  public.settle_payment_attempt('pay-b14-inv6', jsonb_build_array(jsonb_build_object(
+    'id', 'tx-b14-inv6', 'merchantReference', 'DAB14INV6', 'status', 'Pending', 'reason', 'PendingInvestigation'))),
+  'investigating', 'a held booking''s payment goes under bank investigation');
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"b0100000-0000-4000-8000-000000000011","role":"authenticated"}', true);
+select results_eq(
+  $$select id, payment_state, holds_seat from public.admin_booking_overview
+    where id in ('b1400000-0000-4000-8000-000000000025', 'b1400000-0000-4000-8000-000000000026') order by id$$,
+  $$values ('b1400000-0000-4000-8000-000000000025'::uuid, 'paid'::text, true),
+           ('b1400000-0000-4000-8000-000000000026'::uuid, 'investigating'::text, true)$$,
+  'the overview reads an unpaid booking under investigation as investigating, with its seat held, and a paid one as paid');
+select throws_ok(
+  $$select public.record_refund('b1400000-0000-4000-8000-000000000034', 100, 'Student asked', 'RF-INV', true)$$,
+  '23514', 'A payment on this booking is under investigation with the bank. Record the refund after Ozow decides',
+  'a refund is refused while another payment on the booking is under investigation');
+select throws_ok(
+  $$select public.resolve_review_flag(
+      (select id from public.review_flags() where booking_id = 'b1400000-0000-4000-8000-000000000025' and reason = 'payment_investigation'),
+      'Checked the bank statement')$$,
+  '23514', 'Ozow is still checking this payment with the bank. The flag resolves itself when Ozow decides',
+  'an admin cannot resolve an investigation flag while Ozow is still checking');
+reset role;
+
+set local role service_role;
+select is(
+  public.settle_payment_attempt('pay-b14-inv5', jsonb_build_array(jsonb_build_object(
+    'id', 'tx-b14-inv5', 'merchantReference', 'DAB14INV5', 'status', 'Error', 'reason', 'Error'))),
+  'failed', 'Ozow failing the investigated payment settles under the resolution-note check');
+reset role;
+select results_eq(
+  $$select resolved_at is not null, resolved_by, resolution_note from public.booking_review_flags
+    where booking_id = 'b1400000-0000-4000-8000-000000000025' and reason = 'payment_investigation'$$,
+  $$values (true, null::uuid, null::text)$$,
+  'settlement resolves the investigation flag itself, with no admin and no note');
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"b0100000-0000-4000-8000-000000000011","role":"authenticated"}', true);
+select results_eq(
+  $$select amount, external_reference from public.record_refund('b1400000-0000-4000-8000-000000000034', 100, 'Student asked', 'RF-INV', true)$$,
+  $$values (100.00::numeric, 'RF-INV'::text)$$,
+  'once Ozow decides, the refund is recorded');
+select results_eq(
+  $$select booking_status, payment_state from public.admin_booking_overview where id = 'b1400000-0000-4000-8000-000000000025'$$,
+  $$values ('Cancelled'::text, 'refunded'::text)$$,
+  'the fully refunded booking is cancelled');
+reset role;
 
 select * from finish();
 rollback;

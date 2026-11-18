@@ -99,7 +99,10 @@ grant execute on function public.documents_withdrawn(public.bookings) to authent
 alter table public.booking_review_flags
   add column resolved_by uuid references public.users (id) on delete set null,
   add column resolution_note text,
-  add constraint booking_review_flags_resolution_note check ((resolved_at is null) = (resolution_note is null));
+  add constraint booking_review_flags_resolution_note check (resolution_note is null or resolved_at is not null);
+
+comment on column public.booking_review_flags.resolution_note is
+  'Why an admin resolved the flag, set by resolve_review_flag. A resolved flag with no note was resolved automatically: settle_payment_attempt closes payment_investigation once Ozow decides.';
 
 create function public.reopen_resolved_review_flag()
 returns trigger
@@ -162,6 +165,12 @@ begin
   end if;
   if v_flag.resolved_at is not null then
     return v_flag;
+  end if;
+  if v_flag.reason = 'payment_investigation' and exists (
+    select 1 from public.payment_attempts where booking_id = v_flag.booking_id and status = 'investigating'
+  ) then
+    raise exception 'Ozow is still checking this payment with the bank. The flag resolves itself when Ozow decides'
+      using errcode = 'check_violation';
   end if;
 
   update public.booking_review_flags
@@ -234,6 +243,11 @@ begin
     raise exception 'Refund reference % is already recorded for a different refund', v_reference using errcode = 'unique_violation';
   end if;
 
+  if exists (select 1 from public.payment_attempts where booking_id = v_booking.id and status = 'investigating') then
+    raise exception 'A payment on this booking is under investigation with the bank. Record the refund after Ozow decides'
+      using errcode = 'check_violation';
+  end if;
+
   if not exists (
     select 1 from public.payment_statuses ps where ps.id = v_payment.payment_status_id and ps.name = 'Paid'
   ) then
@@ -280,7 +294,7 @@ end;
 $$;
 
 comment on function public.record_refund(uuid, numeric, text, text, boolean) is
-  'Records a refund an admin already made outside the app against one Paid payment. Adds a Refunded payments row and a refunds row; the original payment is untouched. A refund that brings a Pending or Confirmed booking to fully refunded cancels it and frees the seat. Partial refunds are allowed up to what is still refundable.';
+  'Records a refund an admin already made outside the app against one Paid payment. Adds a Refunded payments row and a refunds row; the original payment is untouched. A refund that brings a Pending or Confirmed booking to fully refunded cancels it and frees the seat. Partial refunds are allowed up to what is still refundable. Refused while a payment on the booking is under investigation, since Ozow may still settle it.';
 
 revoke execute on function public.review_flags() from public, anon;
 revoke execute on function public.resolve_review_flag(uuid, text) from public, anon;
@@ -319,6 +333,7 @@ select
     when money.refunded_amount > 0 and money.refunded_amount >= money.paid_amount then 'refunded'
     when money.refunded_amount > 0 then 'partly_refunded'
     when money.paid_amount > 0 then 'paid'
+    when exists (select 1 from public.payment_attempts pa where pa.booking_id = b.id and pa.status = 'investigating') then 'investigating'
     when exists (select 1 from public.payment_attempts pa where pa.booking_id = b.id and pa.status = 'open') then 'awaiting'
     else 'unpaid'
   end as payment_state,
@@ -338,7 +353,7 @@ cross join lateral (
 where (select public.is_admin());
 
 comment on view public.admin_booking_overview is
-  'One row per booking for the admin bookings page: student, class, material, money received and refunded, and payment_state (refunded, partly_refunded, paid, awaiting, unpaid). Empty for anyone but an admin.';
+  'One row per booking for the admin bookings page: student, class, material, money received and refunded, and payment_state (refunded, partly_refunded, paid, investigating, awaiting, unpaid). Empty for anyone but an admin.';
 
 create view public.printed_material_demand
 with (security_invoker = true)

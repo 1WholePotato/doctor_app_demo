@@ -129,9 +129,13 @@ insert into public.payment_attempts (id, booking_id, reference, amount, expires_
 values ('b0100000-0000-4000-8000-000000000082', 'b0100000-0000-4000-8000-000000000034', 'DAFIXTURE02', 100.00, now() + interval '72 hours',
         'paid', 'b0100000-0000-4000-8000-000000000083', 'https://pay.example.test/b0100000-0000-4000-8000-000000000083/secure');
 
-insert into public.payment_events (payment_attempt_id, ozow_transaction_id, ozow_status, ozow_reason, outcome, transaction)
-values ('b0100000-0000-4000-8000-000000000082', 'b0100000-0000-4000-8000-000000000084', 'Successful', 'Complete', 'paid',
-        '{"id": "b0100000-0000-4000-8000-000000000084", "merchantReference": "DAFIXTURE02", "siteCode": "MCK-MCK-001", "institution": "Fixture Bank", "amount": {"currency": "ZAR", "value": 100}, "status": "Successful", "reason": "Complete"}');
+insert into public.payment_events (payment_attempt_id, ozow_transaction_id, ozow_status, ozow_reason, outcome, transaction, recorded_at)
+values ('b0100000-0000-4000-8000-000000000082', 'b0100000-0000-4000-8000-000000000084', 'Pending', 'PendingInvestigation', 'investigating',
+        '{"id": "b0100000-0000-4000-8000-000000000084", "merchantReference": "DAFIXTURE02", "siteCode": "MCK-MCK-001", "institution": "Fixture Bank", "amount": {"currency": "ZAR", "value": 100}, "status": "Pending", "reason": "PendingInvestigation"}',
+        now() - interval '1 day'),
+       ('b0100000-0000-4000-8000-000000000082', 'b0100000-0000-4000-8000-000000000084', 'Successful', 'Complete', 'paid',
+        '{"id": "b0100000-0000-4000-8000-000000000084", "merchantReference": "DAFIXTURE02", "siteCode": "MCK-MCK-001", "institution": "Fixture Bank", "amount": {"currency": "ZAR", "value": 100}, "status": "Successful", "reason": "Complete"}',
+        now());
 
 insert into public.course_session_changes (course_session_id, change, previous, current, changed_by)
 values ('b0100000-0000-4000-8000-000000000053', 'cancelled',
@@ -149,6 +153,9 @@ values ('b0100000-0000-4000-8000-000000000101', 'b0100000-0000-4000-8000-0000000
        ('b0100000-0000-4000-8000-000000000102', 'b0100000-0000-4000-8000-000000000037', 'unverified_payment_status',
         '{"legacy_payment_status": "paid", "payment_ids": ["b0100000-0000-4000-8000-000000000038"]}',
         now() - interval '5 days', now() - interval '4 days', 'b0100000-0000-4000-8000-000000000011',
-        'Bank statement shows no payment; the student was told to pay again.');
+        'Bank statement shows no payment; the student was told to pay again.'),
+       ('b0100000-0000-4000-8000-000000000103', 'b0100000-0000-4000-8000-000000000034', 'payment_investigation',
+        '{"payment_attempt_id": "b0100000-0000-4000-8000-000000000082", "reference": "DAFIXTURE02", "amount": 100, "booking_status": "Pending", "seat_held": true}',
+        now() - interval '1 day', now(), null, null);
 
 commit;
