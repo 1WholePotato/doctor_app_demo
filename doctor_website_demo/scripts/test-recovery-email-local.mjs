@@ -141,8 +141,13 @@ test("a requested email change keeps both emails until it is confirmed, then mov
   assert.equal(data.user.email, student.email);
   assert.deepEqual(await emails(student.id), { auth: student.email, pending: next, profile: student.email });
 
-  const { location } = await follow(await latestLink(next));
-  assert.equal(location.pathname, "/profile");
+  const toNew = await latestLink(next);
+  const toCurrent = await latestLink(student.email);
+  assert.equal((await follow(toNew)).location.pathname, "/profile");
+  const halfway = await emails(student.id);
+  assert.equal(halfway.profile, halfway.auth, "the profile follows Auth after the first confirmation link");
+  assert.equal((await follow(toCurrent)).location.pathname, "/profile");
+
   const confirmed = await emails(student.id);
   assert.equal(confirmed.auth, next);
   assert.equal(confirmed.profile, next);

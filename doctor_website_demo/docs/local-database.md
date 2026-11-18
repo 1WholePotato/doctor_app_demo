@@ -41,7 +41,7 @@ For the confirmation flow, restart with `SUPABASE_AUTH_EMAIL_ENABLE_CONFIRMATION
 
 ## Password recovery and email changes
 
-Auth owns the login email. A trigger on `auth.users` copies each confirmed email change to `public.users.email` in the same transaction, and clients cannot write that column. A requested change leaves both emails on the old address until the user opens the confirmation link. If the profile cannot take the new address, the confirmation fails and both stay unchanged.
+Auth owns the login email. A trigger on `auth.users` copies each confirmed email change to `public.users.email` in the same transaction, and clients cannot write that column. A requested change leaves both emails on the old address until Auth confirms it. With email confirmations on, Auth waits for the links sent to both the old and the new address. If the profile cannot take the new address, the confirmation fails and both stay unchanged.
 
 To exercise reset links and email changes against the running stack, load its keys as above and run:
 
