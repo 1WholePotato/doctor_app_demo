@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.102.1";
 import type { OzowClient } from "../_shared/ozow.ts";
-import { reply, settleAttempt, type SettleableAttempt, type SettleOutcome } from "../_shared/settle.ts";
+import { settleAttempt, type SettleOutcome } from "../_shared/settle.ts";
 
 export type ReconcileDeps = { db: SupabaseClient; ozow: OzowClient | null; serviceRoleKey: string };
 
@@ -18,9 +18,9 @@ async function isServiceRole(req: Request, serviceRoleKey: string): Promise<bool
 
 export function reconcileHandler({ db, ozow, serviceRoleKey }: ReconcileDeps) {
   return async (req: Request): Promise<Response> => {
-    if (req.method !== "POST") return reply(405, { error: "Use POST." });
-    if (!(await isServiceRole(req, serviceRoleKey))) return reply(401, { error: "Only the service role can reconcile payments." });
-    if (!ozow) return reply(503, { error: "Ozow is not configured." });
+    if (req.method !== "POST") return Response.json({ error: "Use POST." }, { status: 405 });
+    if (!(await isServiceRole(req, serviceRoleKey))) return Response.json({ error: "Only the service role can reconcile payments." }, { status: 401 });
+    if (!ozow) return Response.json({ error: "Ozow is not configured." }, { status: 503 });
 
     const lateSince = new Date(Date.now() - LATE_PAYMENT_WINDOW_MS).toISOString();
     const { data, error } = await db
@@ -31,12 +31,12 @@ export function reconcileHandler({ db, ozow, serviceRoleKey }: ReconcileDeps) {
       .order("created_at");
     if (error) {
       console.error("listing payment attempts failed", error);
-      return reply(500, { error: "Could not list payment attempts." });
+      return Response.json({ error: "Could not list payment attempts." }, { status: 500 });
     }
 
     const settled: Record<string, SettleOutcome> = {};
     const failed: string[] = [];
-    for (const attempt of data as SettleableAttempt[]) {
+    for (const attempt of data) {
       try {
         settled[attempt.reference] = await settleAttempt({ db, ozow }, attempt);
       } catch (failure) {
@@ -44,6 +44,6 @@ export function reconcileHandler({ db, ozow, serviceRoleKey }: ReconcileDeps) {
         failed.push(attempt.reference);
       }
     }
-    return reply(failed.length ? 502 : 200, { checked: data.length, settled, failed });
+    return Response.json({ checked: data.length, settled, failed }, { status: failed.length ? 502 : 200 });
   };
 }

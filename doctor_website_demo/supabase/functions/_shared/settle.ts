@@ -16,7 +16,3 @@ export async function settleAttempt({ db, ozow }: SettleDeps, attempt: Settleabl
   if (error) throw error;
   return data as SettleOutcome;
 }
-
-export function reply(status: number, body: unknown): Response {
-  return Response.json(body, { status });
-}

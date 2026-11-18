@@ -117,7 +117,6 @@ from (values
 ) as fixture(id, booking_id, transaction_id, paid_at, status)
 join public.payment_statuses ps on ps.name = fixture.status;
 
--- The confirmed booking was paid through Ozow: its attempt is paid and the confirming transaction is logged.
 insert into public.payment_attempts (id, booking_id, reference, amount, expires_at, status, ozow_payment_id, redirect_url)
 values ('b0100000-0000-4000-8000-000000000082', 'b0100000-0000-4000-8000-000000000034', 'DAFIXTURE02', 100.00, now() + interval '72 hours',
         'paid', 'b0100000-0000-4000-8000-000000000083', 'https://pay.example.test/b0100000-0000-4000-8000-000000000083/secure');
