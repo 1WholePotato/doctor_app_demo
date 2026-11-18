@@ -58,8 +58,11 @@ function Outcome({ payment, onRefresh }: { payment: BookingPayment; onRefresh: (
           <h1>Your bank is checking this payment</h1>
           <p>
             Ozow could not confirm your payment of R {payment.total.toLocaleString()} with your bank straight away, so
-            it is checking by hand. No money has been recorded yet. Your seat in {payment.courseTitle} stays held until
-            the check is finished. Please don't pay again. An administrator will contact you if anything is needed.
+            it is checking by hand. No money has been recorded yet.{" "}
+            {payment.holdsSeat
+              ? `Your seat in ${payment.courseTitle} stays held until the check is finished.`
+              : `Your seat in ${payment.courseTitle} is no longer held, so if your bank confirms the payment an administrator will place you in a class or refund you.`}{" "}
+            Please don't pay again. An administrator will contact you if anything is needed.
           </p>
           <div className="payment-actions">
             <Link className="sc-enrol-btn" to="/courses">My courses</Link>

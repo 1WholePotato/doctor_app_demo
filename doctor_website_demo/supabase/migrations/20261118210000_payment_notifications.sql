@@ -340,3 +340,6 @@ comment on function public.request_payment_reconciliation() is
 revoke execute on function public.request_payment_reconciliation() from public, anon, authenticated;
 
 select cron.schedule('reconcile-ozow-payments', '*/10 * * * *', 'select public.request_payment_reconciliation()');
+
+comment on column public.bookings.expires_at is
+  'End of a Pending seat hold. Null on bookings made before seat holds existed, and on holds kept while Ozow investigates a payment.';

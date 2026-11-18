@@ -31,8 +31,8 @@ afterEach(() => {
   container.remove();
 });
 
-async function shown(outcome: PaymentOutcome): Promise<string> {
-  payment = { bookingId: "booking-1", courseId: "course-1", courseTitle: "Wound Care", total: 250, expiresAt: null, outcome };
+async function shown(outcome: PaymentOutcome, holdsSeat = true): Promise<string> {
+  payment = { bookingId: "booking-1", courseId: "course-1", courseTitle: "Wound Care", total: 250, expiresAt: null, holdsSeat, outcome };
   await act(async () => {
     root.render(
       <MemoryRouter initialEntries={["/payments/return?booking=booking-1"]}>
@@ -69,5 +69,13 @@ describe("payment return page", () => {
     expect(text).toContain("Your seat in Wound Care stays held");
     expect(text).toContain("Please don't pay again");
     expect(container.querySelector("button")?.textContent).toBe("Check again");
+  });
+
+  it("does not promise a seat while a payment is under investigation after the seat was released", async () => {
+    const text = await shown("investigating", false);
+    expect(text).toContain("Your bank is checking this payment");
+    expect(text).toContain("Your seat in Wound Care is no longer held");
+    expect(text).not.toContain("stays held");
+    expect(text).toContain("Please don't pay again");
   });
 });

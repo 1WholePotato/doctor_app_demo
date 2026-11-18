@@ -111,6 +111,7 @@ describe("payment outcome", () => {
         courseTitle: "Wound Care",
         total: 250,
         expiresAt: "2026-11-21T08:30:00+00:00",
+        holdsSeat: true,
         outcome: "awaiting",
       },
       error: null,

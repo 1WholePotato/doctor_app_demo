@@ -18,6 +18,7 @@ export type BookingPayment = {
   courseTitle: string;
   total: number;
   expiresAt: string | null;
+  holdsSeat: boolean;
   outcome: PaymentOutcome;
 };
 
@@ -91,6 +92,7 @@ export async function fetchBookingPayment(bookingId: string, userId: string): Pr
       courseTitle: course?.course_title ?? "your class",
       total: Number(row.total_amount),
       expiresAt: row.expires_at,
+      holdsSeat: row.holds_seat,
       outcome: paymentOutcome({
         bookingStatus: row.booking_status,
         holdsSeat: row.holds_seat,
